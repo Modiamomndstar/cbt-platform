@@ -7,15 +7,15 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-import { 
-  getTutorsBySchool, 
-  createTutor, 
-  createTutorsBulk, 
-  deleteTutor, 
+import {
+  getTutorsBySchool,
+  createTutor,
+  createTutorsBulk,
+  deleteTutor,
   hashPassword,
-  generatePassword 
+  generatePassword
 } from '@/lib/dataStore';
-import { parseCSV, parseExcel, validateTutorCSV, downloadTemplate, type TutorCSVRow } from '@/lib/csvParser';
+import { parseCSV, validateTutorCSV, downloadTemplate, type TutorCSVRow } from '@/lib/csvParser';
 import { Plus, Upload, Download, Trash2, Users, FileSpreadsheet, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tutor } from '@/types';
@@ -23,7 +23,7 @@ import type { Tutor } from '@/types';
 export default function TutorManagement() {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
@@ -88,13 +88,11 @@ export default function TutorManagement() {
 
     try {
       let data: TutorCSVRow[] = [];
-      
+
       if (file.name.endsWith('.csv')) {
         data = await parseCSV<TutorCSVRow>(file);
-      } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-        data = await parseExcel<TutorCSVRow>(file);
       } else {
-        toast.error('Please upload a CSV or Excel file');
+        toast.error('Please upload a CSV file');
         return;
       }
 
@@ -163,8 +161,8 @@ export default function TutorManagement() {
               </DialogHeader>
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => downloadTemplate('tutors')}
                   >
                     <Download className="h-4 w-4 mr-2" />
@@ -173,7 +171,7 @@ export default function TutorManagement() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".csv,.xlsx,.xls"
+                    accept=".csv"
                     onChange={handleFileUpload}
                     className="hidden"
                   />
@@ -223,8 +221,8 @@ export default function TutorManagement() {
                         </tbody>
                       </table>
                     </div>
-                    <Button 
-                      className="w-full mt-4" 
+                    <Button
+                      className="w-full mt-4"
                       onClick={handleBulkUpload}
                       disabled={uploadPreview.length === 0}
                     >
@@ -277,9 +275,9 @@ export default function TutorManagement() {
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                       </div>
-                      <Button 
-                        type="button" 
-                        variant="outline" 
+                      <Button
+                        type="button"
+                        variant="outline"
                         onClick={generateRandomPassword}
                       >
                         Generate
@@ -373,8 +371,8 @@ export default function TutorManagement() {
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
                           {tutor.subjects.map((subject, i) => (
-                            <span 
-                              key={i} 
+                            <span
+                              key={i}
                               className="px-2 py-1 bg-indigo-50 text-indigo-700 text-xs rounded-full"
                             >
                               {subject}
@@ -384,8 +382,8 @@ export default function TutorManagement() {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 text-xs rounded-full ${
-                          tutor.isActive 
-                            ? 'bg-emerald-100 text-emerald-700' 
+                          tutor.isActive
+                            ? 'bg-emerald-100 text-emerald-700'
                             : 'bg-gray-100 text-gray-700'
                         }`}>
                           {tutor.isActive ? 'Active' : 'Inactive'}

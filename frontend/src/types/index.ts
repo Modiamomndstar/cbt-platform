@@ -1,5 +1,5 @@
 // User Roles
-export type UserRole = 'super_admin' | 'school_admin' | 'tutor' | 'student';
+export type UserRole = "super_admin" | "school_admin" | "tutor" | "student";
 
 // School Interface
 export interface School {
@@ -49,11 +49,11 @@ export interface Question {
   id: string;
   examId: string;
   questionText: string;
-  questionType: 'multiple_choice' | 'true_false' | 'fill_blank';
+  questionType: "multiple_choice" | "true_false" | "fill_blank";
   options: string[];
   correctAnswer: string | number;
   marks: number;
-  difficulty: 'easy' | 'medium' | 'hard';
+  difficulty: "easy" | "medium" | "hard";
 }
 
 // Exam Interface
@@ -81,7 +81,7 @@ export interface ExamSchedule {
   scheduledDate: string;
   startTime: string;
   endTime: string;
-  status: 'scheduled' | 'in_progress' | 'completed' | 'missed' | 'rescheduled';
+  status: "scheduled" | "in_progress" | "completed" | "missed" | "rescheduled";
   loginUsername: string;
   loginPassword: string;
   attemptCount: number;
@@ -99,7 +99,7 @@ export interface StudentExam {
   score: number;
   totalMarks: number;
   percentage: number;
-  status: 'in_progress' | 'completed' | 'timeout';
+  status: "in_progress" | "completed" | "timeout";
   startedAt?: string;
   submittedAt?: string;
   timeSpent: number;
@@ -112,7 +112,7 @@ export interface LearningMaterial {
   examId: string;
   title: string;
   content: string;
-  fileType: 'text' | 'pdf' | 'doc';
+  fileType: "text" | "pdf" | "doc";
   topics: string[];
 }
 
@@ -121,6 +121,7 @@ export interface UserSession {
   id: string;
   role: UserRole;
   username: string;
+  email?: string;
   name: string;
   schoolId?: string;
   tutorId?: string;

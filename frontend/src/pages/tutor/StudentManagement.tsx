@@ -7,13 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-import { 
-  getStudentsByTutor, 
-  createStudent, 
-  createStudentsBulk, 
-  deleteStudent 
+import {
+  getStudentsByTutor,
+  createStudent,
+  createStudentsBulk,
+  deleteStudent
 } from '@/lib/dataStore';
-import { parseCSV, parseExcel, validateStudentCSV, downloadTemplate, type StudentCSVRow } from '@/lib/csvParser';
+import { parseCSV, validateStudentCSV, downloadTemplate, type StudentCSVRow } from '@/lib/csvParser';
 import { Plus, Upload, Download, Trash2, Users, FileSpreadsheet, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Student } from '@/types';
@@ -21,7 +21,7 @@ import type { Student } from '@/types';
 export default function StudentManagement() {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [students, setStudents] = useState<Student[]>([]);
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -47,7 +47,7 @@ export default function StudentManagement() {
 
   useEffect(() => {
     if (searchQuery) {
-      const filtered = students.filter(student => 
+      const filtered = students.filter(student =>
         student.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         student.studentId.toLowerCase().includes(searchQuery.toLowerCase()) ||
         student.level.toLowerCase().includes(searchQuery.toLowerCase())
@@ -98,13 +98,11 @@ export default function StudentManagement() {
 
     try {
       let data: StudentCSVRow[] = [];
-      
+
       if (file.name.endsWith('.csv')) {
         data = await parseCSV<StudentCSVRow>(file);
-      } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-        data = await parseExcel<StudentCSVRow>(file);
       } else {
-        toast.error('Please upload a CSV or Excel file');
+        toast.error('Please upload a CSV file');
         return;
       }
 
@@ -167,8 +165,8 @@ export default function StudentManagement() {
               </DialogHeader>
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => downloadTemplate('students')}
                   >
                     <Download className="h-4 w-4 mr-2" />
@@ -177,7 +175,7 @@ export default function StudentManagement() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".csv,.xlsx,.xls"
+                    accept=".csv"
                     onChange={handleFileUpload}
                     className="hidden"
                   />
@@ -225,8 +223,8 @@ export default function StudentManagement() {
                         </tbody>
                       </table>
                     </div>
-                    <Button 
-                      className="w-full mt-4" 
+                    <Button
+                      className="w-full mt-4"
                       onClick={handleBulkUpload}
                       disabled={uploadPreview.length === 0}
                     >

@@ -10,31 +10,30 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { 
-  getExamById, 
-  getQuestionsByExam, 
-  createQuestion, 
+import {
+  getExamById,
+  getQuestionsByExam,
+  createQuestion,
   createQuestionsBulk,
-  deleteQuestion 
+  deleteQuestion
 } from '@/lib/dataStore';
-import { 
-  parseCSV, 
-  parseExcel, 
-  validateQuestionCSV, 
+import {
+  parseCSV,
+  validateQuestionCSV,
   downloadTemplate,
-  type QuestionCSVRow 
+  type QuestionCSVRow
 } from '@/lib/csvParser';
-import { 
-  generateQuestionsFromMaterial, 
-  generateQuestionsFromTopics 
+import {
+  generateQuestionsFromMaterial,
+  generateQuestionsFromTopics
 } from '@/lib/aiQuestionGenerator';
-import { 
-  Plus, 
-  Upload, 
-  Download, 
-  Trash2, 
-  ArrowLeft, 
-  FileSpreadsheet, 
+import {
+  Plus,
+  Upload,
+  Download,
+  Trash2,
+  ArrowLeft,
+  FileSpreadsheet,
   Sparkles,
   BookOpen,
   Loader2
@@ -45,7 +44,7 @@ import type { Question } from '@/types';
 export default function QuestionBank() {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
-  
+
   const [exam, setExam] = useState<any>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -107,7 +106,7 @@ export default function QuestionBank() {
     // Use a switch to handle all question types without type narrowing issues
     let options: string[] = [];
     let correctAnswer: string | number = newQuestion.correctAnswer;
-    
+
     switch (newQuestion.questionType) {
       case 'multiple_choice':
         options = newQuestion.options.filter(o => o.trim());
@@ -152,13 +151,11 @@ export default function QuestionBank() {
 
     try {
       let data: QuestionCSVRow[] = [];
-      
+
       if (file.name.endsWith('.csv')) {
         data = await parseCSV<QuestionCSVRow>(file);
-      } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-        data = await parseExcel<QuestionCSVRow>(file);
       } else {
-        toast.error('Please upload a CSV or Excel file');
+        toast.error('Please upload a CSV file');
         return;
       }
 
@@ -181,8 +178,8 @@ export default function QuestionBank() {
         questionText: row.questionText,
         questionType: row.questionType,
         options,
-        correctAnswer: row.questionType === 'fill_blank' 
-          ? row.correctAnswer 
+        correctAnswer: row.questionType === 'fill_blank'
+          ? row.correctAnswer
           : parseInt(row.correctAnswer),
         marks: parseInt(row.marks) || 5,
         difficulty: row.difficulty,
@@ -199,12 +196,12 @@ export default function QuestionBank() {
 
   const handleGenerateQuestions = async () => {
     if (!examId) return;
-    
+
     setIsGenerating(true);
-    
+
     try {
       let generatedQuestions: Omit<Question, 'id' | 'examId'>[] = [];
-      
+
       if (learningMaterial.trim()) {
         // Generate from learning material
         const topicsList = topics.split(',').map(t => t.trim()).filter(Boolean);
@@ -299,7 +296,7 @@ export default function QuestionBank() {
                     <TabsTrigger value="material">From Material</TabsTrigger>
                     <TabsTrigger value="topics">From Topics</TabsTrigger>
                   </TabsList>
-                  
+
                   <TabsContent value="material" className="space-y-4">
                     <div className="space-y-2">
                       <Label>Learning Material</Label>
@@ -319,7 +316,7 @@ export default function QuestionBank() {
                       />
                     </div>
                   </TabsContent>
-                  
+
                   <TabsContent value="topics" className="space-y-4">
                     <div className="space-y-2">
                       <Label>Topics (comma-separated)</Label>
@@ -356,8 +353,8 @@ export default function QuestionBank() {
                   />
                 </div>
 
-                <Button 
-                  className="w-full" 
+                <Button
+                  className="w-full"
                   onClick={handleGenerateQuestions}
                   disabled={isGenerating}
                 >
@@ -390,8 +387,8 @@ export default function QuestionBank() {
               </DialogHeader>
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => downloadTemplate('questions')}
                   >
                     <Download className="h-4 w-4 mr-2" />
@@ -400,7 +397,7 @@ export default function QuestionBank() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".csv,.xlsx,.xls"
+                    accept=".csv"
                     onChange={handleFileUpload}
                     className="hidden"
                   />
@@ -453,8 +450,8 @@ export default function QuestionBank() {
                         </p>
                       )}
                     </div>
-                    <Button 
-                      className="w-full mt-4" 
+                    <Button
+                      className="w-full mt-4"
                       onClick={handleBulkUpload}
                     >
                       Upload {uploadPreview.length} Questions
@@ -492,8 +489,8 @@ export default function QuestionBank() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Question Type</Label>
-                    <Select 
-                      value={newQuestion.questionType} 
+                    <Select
+                      value={newQuestion.questionType}
                       onValueChange={(v: any) => setNewQuestion(prev => ({ ...prev, questionType: v }))}
                     >
                       <SelectTrigger>
@@ -508,8 +505,8 @@ export default function QuestionBank() {
                   </div>
                   <div className="space-y-2">
                     <Label>Difficulty</Label>
-                    <Select 
-                      value={newQuestion.difficulty} 
+                    <Select
+                      value={newQuestion.difficulty}
                       onValueChange={(v: any) => setNewQuestion(prev => ({ ...prev, difficulty: v }))}
                     >
                       <SelectTrigger>
@@ -541,8 +538,8 @@ export default function QuestionBank() {
                 <div className="space-y-2">
                   <Label>Correct Answer</Label>
                   {newQuestion.questionType === 'multiple_choice' ? (
-                    <Select 
-                      value={newQuestion.correctAnswer} 
+                    <Select
+                      value={newQuestion.correctAnswer}
                       onValueChange={(v) => setNewQuestion(prev => ({ ...prev, correctAnswer: v }))}
                     >
                       <SelectTrigger>
@@ -557,8 +554,8 @@ export default function QuestionBank() {
                       </SelectContent>
                     </Select>
                   ) : newQuestion.questionType === 'true_false' ? (
-                    <Select 
-                      value={newQuestion.correctAnswer} 
+                    <Select
+                      value={newQuestion.correctAnswer}
                       onValueChange={(v) => setNewQuestion(prev => ({ ...prev, correctAnswer: v }))}
                     >
                       <SelectTrigger>
@@ -618,12 +615,12 @@ export default function QuestionBank() {
                       <Badge variant="outline">{question.questionType.replace('_', ' ')}</Badge>
                     </div>
                     <p className="text-gray-900 mb-3">{question.questionText}</p>
-                    
+
                     {question.options.length > 0 && (
                       <div className="space-y-1 ml-4">
                         {question.options.map((option, i) => (
-                          <div 
-                            key={i} 
+                          <div
+                            key={i}
                             className={`text-sm ${
                               i === (typeof question.correctAnswer === 'number' ? question.correctAnswer : 0)
                                 ? 'text-emerald-600 font-medium'
@@ -638,7 +635,7 @@ export default function QuestionBank() {
                         ))}
                       </div>
                     )}
-                    
+
                     {question.questionType === 'fill_blank' && (
                       <p className="text-sm text-emerald-600 ml-4">
                         Answer: {question.correctAnswer}

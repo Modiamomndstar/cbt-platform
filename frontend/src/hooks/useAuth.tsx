@@ -34,8 +34,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const session: UserSession = {
           id: userData.id,
           role: userData.role,
+          username: userData.username || userData.email || `${userData.firstName || ''}${userData.lastName ? ' ' + userData.lastName : ''}`.trim(),
           email: userData.email,
-          name: `${userData.firstName} ${userData.lastName}`,
+          name: userData.name || `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.fullName || userData.username || '',
           schoolId: userData.schoolId,
           tutorId: userData.role === 'tutor' ? userData.id : undefined,
           studentId: userData.role === 'student' ? userData.id : undefined,
@@ -55,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (role: UserRole, email: string, password: string, accessCode?: string): Promise<{ success: boolean; message?: string }> => {
     try {
       let response;
-      
+
       switch (role) {
         case 'super_admin':
           response = await authAPI.superAdminLogin(email, password);
@@ -76,28 +77,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.data.success) {
         const { token, user: userData } = response.data.data;
         localStorage.setItem('token', token);
-        
+
         const session: UserSession = {
           id: userData.id,
           role: userData.role,
+          username: userData.username || userData.email || `${userData.firstName || ''}${userData.lastName ? ' ' + userData.lastName : ''}`.trim(),
           email: userData.email,
-          name: `${userData.firstName} ${userData.lastName}`,
+          name: userData.name || `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.fullName || userData.username || '',
           schoolId: userData.schoolId,
           tutorId: userData.role === 'tutor' ? userData.id : undefined,
           studentId: userData.role === 'student' ? userData.id : undefined,
         };
-        
+
         localStorage.setItem('user', JSON.stringify(session));
         setUser(session);
         return { success: true };
       }
-      
+
       return { success: false, message: response.data.message || 'Login failed' };
     } catch (error: any) {
       console.error('Login error:', error);
-      return { 
-        success: false, 
-        message: error.response?.data?.message || 'Network error. Please try again.' 
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Network error. Please try again.'
       };
     }
   };

@@ -5,12 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { 
-  getExamsByTutor, 
+import {
+  getExamsByTutor,
   getStudentExams,
   getStudentsByTutor
 } from '@/lib/dataStore';
-import { exportToCSV, exportToExcel } from '@/lib/csvParser';
+import { exportToCSV } from '@/lib/csvParser';
 import { Search, Download, FileSpreadsheet, TrendingUp, Award, Users, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Exam, StudentExam } from '@/types';
@@ -24,7 +24,7 @@ interface ResultWithDetails extends StudentExam {
 
 export default function ExamResults() {
   const { user } = useAuth();
-  
+
   const [exams, setExams] = useState<Exam[]>([]);
   const [results, setResults] = useState<ResultWithDetails[]>([]);
   const [filteredResults, setFilteredResults] = useState<ResultWithDetails[]>([]);
@@ -45,18 +45,18 @@ export default function ExamResults() {
 
   useEffect(() => {
     let filtered = results;
-    
+
     if (selectedExam !== 'all') {
       filtered = filtered.filter(r => r.examId === selectedExam);
     }
-    
+
     if (searchQuery) {
-      filtered = filtered.filter(r => 
+      filtered = filtered.filter(r =>
         r.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         r.studentId.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    
+
     setFilteredResults(filtered);
   }, [selectedExam, searchQuery, results]);
 
@@ -130,7 +130,7 @@ export default function ExamResults() {
       'Time Spent (min)': Math.round(r.timeSpent / 60),
       'Submitted At': r.submittedAt ? new Date(r.submittedAt).toLocaleString() : '-',
     }));
-    exportToExcel(data, 'exam_results');
+    exportToCSV(data, 'exam_results');
     toast.success('Results exported to Excel');
   };
 
@@ -281,7 +281,7 @@ export default function ExamResults() {
                       <td className="px-4 py-3">
                         <div className="flex items-center space-x-2">
                           <div className="w-16 bg-gray-200 rounded-full h-2">
-                            <div 
+                            <div
                               className={`h-2 rounded-full ${
                                 result.percentage >= 70 ? 'bg-emerald-500' :
                                 result.percentage >= 50 ? 'bg-amber-500' : 'bg-red-500'
@@ -299,8 +299,8 @@ export default function ExamResults() {
                         {Math.round(result.timeSpent / 60)} min
                       </td>
                       <td className="px-4 py-3 text-gray-600">
-                        {result.submittedAt 
-                          ? new Date(result.submittedAt).toLocaleDateString() 
+                        {result.submittedAt
+                          ? new Date(result.submittedAt).toLocaleDateString()
                           : '-'}
                       </td>
                     </tr>
