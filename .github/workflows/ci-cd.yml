@@ -1,0 +1,126 @@
+name: CI/CD - Build, Publish & Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/cbt-platform-backend:latest
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/cbt-platform-frontend:latest
+
+      - name: Template docker-compose for remote host
+        run: |
+          sed 's|__IMAGE_OWNER__|${{ github.repository_owner }}|g' docker-compose.prod.yml > docker-compose.remote.yml
+
+      - name: Upload compose file to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USER }}
+          key: ${{ secrets.OCI_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.OCI_SSH_PORT || '22' }}
+          source: "docker-compose.remote.yml"
+          target: "/home/${{ secrets.OCI_USER }}/cbt-platform/docker-compose.prod.yml"
+
+  deploy:
+    name: Deploy to OCI host
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy (SSH)
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USER }}
+          key: ${{ secrets.OCI_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.OCI_SSH_PORT || '22' }}
+          envs: |
+            GHCR_USER=${{ secrets.GHCR_USER }}
+            GHCR_PAT=${{ secrets.GHCR_PAT }}
+            IMAGE_OWNER=${{ github.repository_owner }}
+          script: |
+            set -e
+            cd /home/${{ secrets.OCI_USER }}/cbt-platform || mkdir -p /home/${{ secrets.OCI_USER }}/cbt-platform && cd /home/${{ secrets.OCI_USER }}/cbt-platform
+
+            echo "Logging into GHCR (so server can pull images)..."
+            echo "$GHCR_PAT" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
+            echo "Pulling images..."
+            docker pull ghcr.io/$IMAGE_OWNER/cbt-platform-backend:latest
+            docker pull ghcr.io/$IMAGE_OWNER/cbt-platform-frontend:latest
+
+            echo "Bringing up stack..."
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            echo "Waiting for backend health..."
+            timeout 60 bash -c 'until curl --silent --fail http://localhost:5000/health; do sleep 2; done'
+
+            echo "Checking frontend index..."
+            if ! curl --silent --fail http://localhost/ > /dev/null; then
+              echo "Frontend check failed" >&2
+              docker compose -f docker-compose.prod.yml ps
+              exit 1
+            fi
+
+            echo "Deployment successful"
+
+      - name: Post-deploy smoke test (local runner)
+        run: |
+          echo 'Waiting for remote services to report healthy...'
+          for i in {1..12}; do
+            if curl --silent --fail http://${{ secrets.OCI_HOST }}:5000/health >/dev/null; then
+              echo 'Remote backend healthy'
+              exit 0
+            fi
+            sleep 5
+          done
+          echo 'Remote backend did not become healthy' >&2
+          exit 1
+
+
+# Notes:
+# - Secrets required in repository settings: OCI_HOST, OCI_USER, OCI_SSH_PRIVATE_KEY, OCI_SSH_PORT (optional), GHCR_USER, GHCR_PAT
+# - Ensure the OCI server has Docker Engine and Docker Compose plugin installed, plus the deploy user has rights to run docker.
+# - Place a proper `.env.production` on the server at the deployment path with production config values (DB credentials, JWT secret, etc.).
