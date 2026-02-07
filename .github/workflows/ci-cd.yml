@@ -39,7 +39,9 @@ jobs:
           file: ./backend/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/cbt-platform-backend:latest
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/cbt-platform-backend:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/cbt-platform-backend:latest
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v4
@@ -48,11 +50,14 @@ jobs:
           file: ./frontend/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/cbt-platform-frontend:latest
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/cbt-platform-frontend:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/cbt-platform-frontend:latest
 
-      - name: Template docker-compose for remote host
+      - name: Template docker-compose for remote host (tagged images)
         run: |
-          sed 's|__IMAGE_OWNER__|${{ github.repository_owner }}|g' docker-compose.prod.yml > docker-compose.remote.yml
+          TAG=${GITHUB_SHA::8}
+          sed -e "s|__IMAGE_OWNER__|${{ github.repository_owner }}|g" -e "s|__IMAGE_TAG__|${TAG}|g" docker-compose.prod.yml > docker-compose.remote.yml
 
       - name: Upload compose file to server
         uses: appleboy/scp-action@master

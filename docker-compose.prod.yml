@@ -14,7 +14,7 @@ services:
       - "5432:5432"
 
   backend:
-    image: ghcr.io/__IMAGE_OWNER__/cbt-platform-backend:latest
+    image: ghcr.io/__IMAGE_OWNER__/cbt-platform-backend:__IMAGE_TAG__
     restart: unless-stopped
     env_file:
       - .env.production
@@ -28,7 +28,7 @@ services:
       - db
 
   frontend:
-    image: ghcr.io/__IMAGE_OWNER__/cbt-platform-frontend:latest
+    image: ghcr.io/__IMAGE_OWNER__/cbt-platform-frontend:__IMAGE_TAG__
     restart: unless-stopped
     ports:
       - "80:80"
