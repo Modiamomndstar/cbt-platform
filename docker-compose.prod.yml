@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    image: ghcr.io/__IMAGE_OWNER__/cbt-platform-backend:__IMAGE_TAG__
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - FRONTEND_URL=https://your-frontend-domain.example
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+
+  frontend:
+    image: ghcr.io/__IMAGE_OWNER__/cbt-platform-frontend:__IMAGE_TAG__
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:
