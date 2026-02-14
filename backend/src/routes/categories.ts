@@ -26,9 +26,9 @@ router.use(authenticate);
 router.get('/', async (req, res, next) => {
   try {
     const { schoolId, role } = req.user!;
-    
+
     let querySchoolId = schoolId;
-    
+
     // If tutor, use their school
     if (role === 'tutor' && req.user!.tutorId) {
       const tutorResult = await db.query(
@@ -77,7 +77,7 @@ router.get('/:id', [
     const { schoolId, role } = req.user!;
 
     let querySchoolId = schoolId;
-    
+
     if (role === 'tutor' && req.user!.tutorId) {
       const tutorResult = await db.query(
         'SELECT school_id FROM tutors WHERE id = $1',
@@ -127,7 +127,7 @@ router.get('/:id', [
 // @route   POST /api/categories
 // @desc    Create new student category
 // @access  Private (School only)
-router.post('/', authorize('school'), [
+router.post('/', authorize('school', 'tutor'), [
   body('name').trim().notEmpty().withMessage('Category name is required'),
   body('description').optional().trim(),
   body('color').optional().matches(/^#[0-9A-Fa-f]{6}$/).withMessage('Color must be a valid hex code'),
@@ -136,12 +136,27 @@ router.post('/', authorize('school'), [
 ], async (req, res, next) => {
   try {
     const { name, description, color, sortOrder } = req.body;
-    const { schoolId } = req.user!;
+    const { schoolId, role } = req.user!;
+
+    let querySchoolId = schoolId;
+    if (role === 'tutor' && req.user!.tutorId) {
+      const tutorResult = await db.query(
+        'SELECT school_id FROM tutors WHERE id = $1',
+        [req.user!.tutorId]
+      );
+      if (tutorResult.rows.length > 0) {
+        querySchoolId = tutorResult.rows[0].school_id;
+      }
+    }
+
+    if (!querySchoolId) {
+      return res.status(400).json({ success: false, message: 'School ID is required' });
+    }
 
     // Check if category name already exists for this school
     const existingResult = await db.query(
       'SELECT id FROM student_categories WHERE school_id = $1 AND name = $2',
-      [schoolId, name]
+      [querySchoolId, name]
     );
 
     if (existingResult.rows.length > 0) {
@@ -155,7 +170,7 @@ router.post('/', authorize('school'), [
       `INSERT INTO student_categories (school_id, name, description, color, sort_order)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id, name, description, color, sort_order, is_active, created_at`,
-      [schoolId, name, description, color || '#4F46E5', sortOrder || 0]
+      [querySchoolId, name, description, color || '#4F46E5', sortOrder || 0]
     );
 
     res.status(201).json({
@@ -168,10 +183,69 @@ router.post('/', authorize('school'), [
   }
 });
 
+// @route   POST /api/categories/find-or-create
+// @desc    Find existing category by name or create a new one
+// @access  Private (School, Tutor)
+router.post('/find-or-create', authorize('school', 'tutor'), [
+  body('name').trim().notEmpty().withMessage('Category name is required'),
+  validate
+], async (req, res, next) => {
+  try {
+    const { name } = req.body;
+    const { schoolId, role } = req.user!;
+
+    let querySchoolId = schoolId;
+    if (role === 'tutor' && req.user!.tutorId) {
+      const tutorResult = await db.query(
+        'SELECT school_id FROM tutors WHERE id = $1',
+        [req.user!.tutorId]
+      );
+      if (tutorResult.rows.length > 0) {
+        querySchoolId = tutorResult.rows[0].school_id;
+      }
+    }
+
+    if (!querySchoolId) {
+      return res.status(400).json({ success: false, message: 'School ID is required' });
+    }
+
+    // Check if category already exists
+    const existing = await db.query(
+      'SELECT id, name, color, sort_order, is_active FROM student_categories WHERE school_id = $1 AND LOWER(name) = LOWER($2) AND is_active = true',
+      [querySchoolId, name]
+    );
+
+    if (existing.rows.length > 0) {
+      return res.json({
+        success: true,
+        data: existing.rows[0],
+        created: false
+      });
+    }
+
+    // Create new category
+    const result = await db.query(
+      `INSERT INTO student_categories (school_id, name, color, sort_order)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, name, color, sort_order, is_active, created_at`,
+      [querySchoolId, name, '#4F46E5', 0]
+    );
+
+    res.status(201).json({
+      success: true,
+      data: result.rows[0],
+      created: true
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
 // @route   PUT /api/categories/:id
 // @desc    Update student category
-// @access  Private (School only)
-router.put('/:id', authorize('school'), [
+// @access  Private (School, Tutor)
+router.put('/:id', authorize('school', 'tutor'), [
   param('id').isUUID().withMessage('Invalid category ID'),
   body('name').optional().trim().notEmpty(),
   body('description').optional().trim(),
@@ -183,12 +257,23 @@ router.put('/:id', authorize('school'), [
   try {
     const { id } = req.params;
     const { name, description, color, sortOrder, isActive } = req.body;
-    const { schoolId } = req.user!;
+    const { schoolId, role, tutorId } = req.user!;
+
+    let querySchoolId = schoolId;
+    if (role === 'tutor' && tutorId) {
+       const tutorResult = await db.query(
+         'SELECT school_id FROM tutors WHERE id = $1',
+         [tutorId]
+       );
+       if (tutorResult.rows.length > 0) {
+         querySchoolId = tutorResult.rows[0].school_id;
+       }
+    }
 
     // Check if category exists and belongs to this school
     const checkResult = await db.query(
       'SELECT id FROM student_categories WHERE id = $1 AND school_id = $2',
-      [id, schoolId]
+      [id, querySchoolId]
     );
 
     if (checkResult.rows.length === 0) {
@@ -202,7 +287,7 @@ router.put('/:id', authorize('school'), [
     if (name) {
       const nameCheck = await db.query(
         'SELECT id FROM student_categories WHERE school_id = $1 AND name = $2 AND id != $3',
-        [schoolId, name, id]
+        [querySchoolId, name, id]
       );
       if (nameCheck.rows.length > 0) {
         return res.status(409).json({
@@ -247,7 +332,7 @@ router.put('/:id', authorize('school'), [
 
     updates.push(`updated_at = NOW()`);
     values.push(id);
-    values.push(schoolId);
+    values.push(querySchoolId);
 
     const result = await db.query(
       `UPDATE student_categories
@@ -269,19 +354,30 @@ router.put('/:id', authorize('school'), [
 
 // @route   DELETE /api/categories/:id
 // @desc    Delete student category (soft delete)
-// @access  Private (School only)
-router.delete('/:id', authorize('school'), [
+// @access  Private (School, Tutor)
+router.delete('/:id', authorize('school', 'tutor'), [
   param('id').isUUID().withMessage('Invalid category ID'),
   validate
 ], async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { schoolId } = req.user!;
+    const { schoolId, role, tutorId } = req.user!;
+
+    let querySchoolId = schoolId;
+    if (role === 'tutor' && tutorId) {
+       const tutorResult = await db.query(
+         'SELECT school_id FROM tutors WHERE id = $1',
+         [tutorId]
+       );
+       if (tutorResult.rows.length > 0) {
+         querySchoolId = tutorResult.rows[0].school_id;
+       }
+    }
 
     // Check if category exists and belongs to this school
     const checkResult = await db.query(
       'SELECT id FROM student_categories WHERE id = $1 AND school_id = $2',
-      [id, schoolId]
+      [id, querySchoolId]
     );
 
     if (checkResult.rows.length === 0) {
@@ -334,7 +430,7 @@ router.post('/:id/students', [
     const { schoolId, role } = req.user!;
 
     let querySchoolId = schoolId;
-    
+
     if (role === 'tutor' && req.user!.tutorId) {
       const tutorResult = await db.query(
         'SELECT school_id FROM tutors WHERE id = $1',
@@ -390,7 +486,7 @@ router.delete('/:id/students/:studentId', [
     const { schoolId, role } = req.user!;
 
     let querySchoolId = schoolId;
-    
+
     if (role === 'tutor' && req.user!.tutorId) {
       const tutorResult = await db.query(
         'SELECT school_id FROM tutors WHERE id = $1',

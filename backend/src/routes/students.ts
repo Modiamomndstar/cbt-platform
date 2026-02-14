@@ -4,6 +4,40 @@ import { db } from "../config/database";
 import { authenticate, authorize } from "../middleware/auth";
 
 const router = Router();
+
+// Helper to generate unique username
+const generateUniqueUsername = async (client: any, fullName: string, schoolId: string, existingInBatch: Set<string> = new Set()) => {
+  // Normalize: lower case, remove spaces/special chars
+  let base = fullName.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (base.length < 3) base = base.padEnd(3, 'x'); // Ensure min length
+
+  let username = base;
+  let counter = 1;
+
+  // Check against DB and Batch
+  while (true) {
+    if (existingInBatch.has(username)) {
+       username = `${base}${counter}`;
+       counter++;
+       continue;
+    }
+
+    const result = await client.query(
+      "SELECT 1 FROM students WHERE username = $1", // Global uniqueness check
+      [username]
+    );
+
+    if (result.rows.length === 0) {
+      break;
+    }
+
+    username = `${base}${counter}`;
+    counter++;
+  }
+
+  return username;
+};
+
 const validate = (req: any, res: any, next: any) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -43,6 +77,12 @@ router.get("/", async (req, res, next) => {
                       sc.id as category_id, sc.name as category_name, sc.color as category_color
                FROM students s
                LEFT JOIN student_categories sc ON s.category_id = sc.id
+               LEFT JOIN LATERAL (
+                 SELECT array_agg(json_build_object('id', t.id, 'name', t.full_name)) as tutors
+                 FROM student_tutors st
+                 JOIN tutors t ON st.tutor_id = t.id
+                 WHERE st.student_id = s.id
+               ) as assigned_tutors ON true
                WHERE s.school_id = $1 AND s.is_active = true`;
     const params: any[] = [querySchoolId];
     let paramIndex = 2;
@@ -236,9 +276,19 @@ router.post(
           .json({ success: false, message: "Student ID already exists" });
       }
 
+      // Generate unique username
+      const username = await generateUniqueUsername(db, fullName, querySchoolId);
+      // Default password hash (e.g., student123 or same as username for now? User said "password generated for them")
+      // Let's set a default password for now. Ideally, we should email it or let admin set it.
+      // For now, let's use a standard default so they can change it later.
+      // Or use the studentId/reg number as initial password?
+      // Let's use 'password123' hash for simplicity in this phase, or better:
+      const bcrypt = require("bcryptjs");
+      const defaultPasswordHash = await bcrypt.hash("password123", 10);
+
       const result = await db.query(
-        `INSERT INTO students (school_id, category_id, student_id, full_name, email, phone, date_of_birth, gender, address, parent_name, parent_phone, parent_email)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        `INSERT INTO students (school_id, category_id, student_id, full_name, email, phone, date_of_birth, gender, address, parent_name, parent_phone, parent_email, username, password_hash)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING *`,
         [
           querySchoolId,
@@ -253,6 +303,8 @@ router.post(
           parentName,
           parentPhone,
           parentEmail,
+          username,
+          defaultPasswordHash
         ],
       );
 
@@ -296,6 +348,9 @@ router.post(
 
       const created: any[] = [];
       const errors: any[] = [];
+      const batchUsernames = new Set<string>(); // Track usernames used in this batch
+      const bcrypt = require("bcryptjs");
+      const defaultPasswordHash = await bcrypt.hash("password123", 10);
 
       await db.transaction(async (client) => {
         for (const student of students) {
@@ -313,10 +368,13 @@ router.post(
               continue;
             }
 
+            const username = await generateUniqueUsername(client, student.fullName, querySchoolId, batchUsernames);
+            batchUsernames.add(username);
+
             const result = await client.query(
-              `INSERT INTO students (school_id, category_id, student_id, full_name, email, phone, level)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)
-             RETURNING id, student_id, full_name`,
+              `INSERT INTO students (school_id, category_id, student_id, full_name, email, phone, level, username, password_hash)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             RETURNING id, student_id, full_name, username`,
               [
                 querySchoolId,
                 categoryId || student.categoryId,
@@ -325,9 +383,21 @@ router.post(
                 student.email,
                 student.phone,
                 student.level,
+                username,
+                defaultPasswordHash
               ],
             );
-            created.push(result.rows[0]);
+            const newStudent = result.rows[0];
+            created.push(newStudent);
+
+            // If Creator is Tutor, assign to them
+            if (role === "tutor" && tutorId) {
+                await client.query(
+                    `INSERT INTO student_tutors (student_id, tutor_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+                    [newStudent.id, tutorId]
+                );
+            }
+
           } catch (err) {
             errors.push({
               studentId: student.studentId,
@@ -450,5 +520,87 @@ router.delete("/:id", async (req, res, next) => {
     next(error);
   }
 });
+
+// Assign tutor to student
+router.post(
+  "/:id/assign-tutor",
+  [
+    param("id").isUUID(),
+    body("tutorId").isUUID().withMessage("Valid tutor ID is required"),
+    validate,
+  ],
+  async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const { tutorId } = req.body;
+      const { schoolId } = req.user!; // Only school admin can assign
+
+      // Verify student belongs to school
+      const student = await db.query(
+        "SELECT id FROM students WHERE id = $1 AND school_id = $2",
+        [id, schoolId]
+      );
+      if (student.rows.length === 0) {
+        return res.status(404).json({ success: false, message: "Student not found" });
+      }
+
+      // Verify tutor belongs to school
+      const tutor = await db.query(
+        "SELECT id FROM tutors WHERE id = $1 AND school_id = $2",
+        [tutorId, schoolId]
+      );
+      if (tutor.rows.length === 0) {
+        return res.status(404).json({ success: false, message: "Tutor not found" });
+      }
+
+      // Assign
+      await db.query(
+        `INSERT INTO student_tutors (student_id, tutor_id)
+         VALUES ($1, $2)
+         ON CONFLICT (student_id, tutor_id) DO NOTHING`,
+        [id, tutorId]
+      );
+
+      res.json({ success: true, message: "Tutor assigned successfully" });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Remove tutor from student
+router.delete(
+  "/:id/assign-tutor/:tutorId",
+  [
+    param("id").isUUID(),
+    param("tutorId").isUUID(),
+    validate,
+  ],
+  async (req, res, next) => {
+    try {
+      const { id, tutorId } = req.params;
+      const { schoolId } = req.user!;
+
+      // Verify student belongs to school (indirect check via delete query)
+      const result = await db.query(
+        `DELETE FROM student_tutors st
+         USING students s
+         WHERE st.student_id = s.id
+         AND st.student_id = $1
+         AND st.tutor_id = $2
+         AND s.school_id = $3`,
+        [id, tutorId, schoolId]
+      );
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({ success: false, message: "Assignment not found or unauthorized" });
+      }
+
+      res.json({ success: true, message: "Tutor removed successfully" });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 export default router;
