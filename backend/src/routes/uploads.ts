@@ -47,6 +47,39 @@ const generatePassword = (): string => {
   return password;
 };
 
+// Helper to generate unique username
+const generateUniqueUsername = async (client: any, fullName: string, schoolId: string, existingInBatch: Set<string> = new Set()) => {
+  // Normalize: lower case, remove spaces/special chars
+  let base = fullName.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (base.length < 3) base = base.padEnd(3, 'x'); // Ensure min length
+
+  let username = base;
+  let counter = 1;
+
+  // Check against DB and Batch
+  while (true) {
+    if (existingInBatch.has(username)) {
+       username = `${base}${counter}`;
+       counter++;
+       continue;
+    }
+
+    const result = await client.query(
+      "SELECT 1 FROM students WHERE username = $1",
+      [username]
+    );
+
+    if (result.rows.length === 0) {
+      break;
+    }
+
+    username = `${base}${counter}`;
+    counter++;
+  }
+
+  return username;
+};
+
 // Upload students CSV
 router.post('/students', authenticate, requireRole(['school', 'tutor']), async (req: Request, res: Response) => {
   const client = await pool.connect();
@@ -72,6 +105,8 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
       failed: [] as any[],
       totalProcessed: 0
     };
+
+    const batchUsernames = new Set<string>();
 
     await client.query('BEGIN');
 
@@ -106,25 +141,30 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
         const password = generatePassword();
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Generate registration number if not provided
-        const registrationNumber = record.registrationNumber || 
+        const registrationNumber = record.registrationNumber ||
           `STU${Date.now()}${Math.floor(Math.random() * 1000)}`;
+
+        const fullName = `${record.firstName} ${record.lastName}`;
+        const username = await generateUniqueUsername(client, fullName, user.schoolId as string, batchUsernames);
+        batchUsernames.add(username);
 
         // Insert student
         const result = await client.query(
-          `INSERT INTO students (school_id, category_id, first_name, last_name, email, 
-           phone, date_of_birth, registration_number, password_hash)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          `INSERT INTO students (school_id, category_id, first_name, last_name, full_name, email,
+           phone, date_of_birth, registration_number, username, password_hash)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
            RETURNING *`,
           [
             user.schoolId,
             categoryId || record.categoryId || null,
             record.firstName,
             record.lastName,
+            fullName,
             record.email,
             record.phone || null,
             record.dateOfBirth || null,
             registrationNumber,
+            username,
             hashedPassword
           ]
         );
@@ -133,6 +173,14 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
           ...result.rows[0],
           generatedPassword: password // Return password for email sending
         });
+
+        // If Creator is Tutor, assign to them
+        if (user.role === "tutor" && user.tutorId) {
+            await client.query(
+                `INSERT INTO student_tutors (student_id, tutor_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+                [result.rows[0].id, user.tutorId]
+            );
+        }
 
         // TODO: Send email with credentials if sendEmail is true
         if (sendEmail === 'true') {
@@ -224,7 +272,7 @@ router.post('/tutors', authenticate, requireRole(['school']), async (req: Reques
 
         // Insert tutor
         const result = await client.query(
-          `INSERT INTO tutors (school_id, first_name, last_name, email, 
+          `INSERT INTO tutors (school_id, first_name, last_name, email,
            phone, specialization, password_hash)
            VALUES ($1, $2, $3, $4, $5, $6, $7)
            RETURNING *`,
@@ -336,7 +384,7 @@ router.post('/questions', authenticate, requireRole(['school', 'tutor']), async 
         }
 
         const result = await client.query(
-          `INSERT INTO questions (exam_id, question_text, question_type, options, 
+          `INSERT INTO questions (exam_id, question_text, question_type, options,
            correct_answer, marks, question_order)
            VALUES ($1, $2, $3, $4, $5, $6, $7)
            RETURNING *`,
