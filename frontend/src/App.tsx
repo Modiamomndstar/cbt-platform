@@ -15,6 +15,8 @@ import SchoolAdminDashboard from '@/pages/school-admin/Dashboard';
 import SchoolProfile from '@/pages/school-admin/Profile';
 import TutorManagement from '@/pages/school-admin/TutorManagement';
 import SchoolAnalytics from '@/pages/school-admin/Analytics';
+import CategoryManagement from '@/pages/common/CategoryManagement';
+import SchoolStudentManagement from '@/pages/school-admin/StudentManagement';
 
 // Tutor Pages
 import TutorLayout from '@/pages/tutor/TutorLayout';
@@ -22,7 +24,7 @@ import TutorDashboard from '@/pages/tutor/Dashboard';
 import ExamManagement from '@/pages/tutor/ExamManagement';
 import CreateExam from '@/pages/tutor/CreateExam';
 import QuestionBank from '@/pages/tutor/QuestionBank';
-import StudentManagement from '@/pages/tutor/StudentManagement';
+import TutorStudentManagement from '@/pages/tutor/StudentManagement';
 import ScheduleExam from '@/pages/tutor/ScheduleExam';
 import ExamResults from '@/pages/tutor/ExamResults';
 
@@ -32,6 +34,7 @@ import StudentLayout from '@/pages/student/StudentLayout';
 import StudentDashboard from '@/pages/student/StudentDashboard';
 import TakeExam from '@/pages/student/TakeExam';
 import StudentResults from '@/pages/student/StudentResults';
+import StudentProfile from '@/pages/student/StudentProfile';
 
 // Super Admin Pages
 import SuperAdminLayout from '@/pages/super-admin/SuperAdminLayout';
@@ -76,7 +79,9 @@ function AppRoutes() {
         <Route path="dashboard" element={<SchoolAdminDashboard />} />
         <Route path="profile" element={<SchoolProfile />} />
         <Route path="tutors" element={<TutorManagement />} />
+        <Route path="students" element={<SchoolStudentManagement />} />
         <Route path="analytics" element={<SchoolAnalytics />} />
+        <Route path="categories" element={<CategoryManagement />} />
       </Route>
 
       {/* Tutor Routes */}
@@ -91,10 +96,11 @@ function AppRoutes() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<TutorDashboard />} />
         <Route path="exams" element={<ExamManagement />} />
+        <Route path="categories" element={<CategoryManagement />} />
         <Route path="exams/create" element={<CreateExam />} />
         <Route path="exams/:examId/questions" element={<QuestionBank />} />
         <Route path="exams/:examId/schedule" element={<ScheduleExam />} />
-        <Route path="students" element={<StudentManagement />} />
+        <Route path="students" element={<TutorStudentManagement />} />
         <Route path="results" element={<ExamResults />} />
       </Route>
 
@@ -109,6 +115,7 @@ function AppRoutes() {
       >
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<StudentDashboard />} />
+        <Route path="profile" element={<StudentProfile />} />
         <Route path="exam/:scheduleId" element={<TakeExam />} />
         <Route path="results" element={<StudentResults />} />
       </Route>

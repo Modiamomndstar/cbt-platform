@@ -52,9 +52,9 @@ export default function LoginPage() {
         break;
     }
 
-    const success = await login(activeTab, username, password, schoolId || undefined);
+    const result = await login(activeTab, username, password, schoolId || undefined);
 
-    if (success) {
+    if (result.success) {
       switch (activeTab) {
         case 'school_admin':
           navigate('/school-admin/dashboard');
@@ -67,7 +67,7 @@ export default function LoginPage() {
           break;
       }
     } else {
-      setError('Invalid credentials. Please try again.');
+      setError(result.message || 'Invalid credentials. Please try again.');
     }
 
     setIsLoading(false);
@@ -79,8 +79,8 @@ export default function LoginPage() {
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <button 
-              onClick={() => navigate('/')} 
+            <button
+              onClick={() => navigate('/')}
               className="flex items-center space-x-2 text-gray-900 hover:text-indigo-600"
             >
               <GraduationCap className="h-8 w-8" />
@@ -159,7 +159,7 @@ export default function LoginPage() {
                     </div>
                   </div>
                   <p className="text-xs text-gray-500">
-                    Demo: username: demoschool, password: password123
+                    Demo credentials – username: <code>demoschool</code>, password: <code>password123</code>
                   </p>
                 </TabsContent>
 
@@ -245,9 +245,9 @@ export default function LoginPage() {
                   </p>
                 </TabsContent>
 
-                <Button 
-                  type="submit" 
-                  className="w-full mt-6" 
+                <Button
+                  type="submit"
+                  className="w-full mt-6"
                   disabled={isLoading}
                 >
                   {isLoading ? 'Logging in...' : 'Login'}
@@ -258,7 +258,7 @@ export default function LoginPage() {
             <div className="mt-6 text-center text-sm text-gray-600">
               <p>
                 Are you a student?{' '}
-                <button 
+                <button
                   onClick={() => navigate('/student/login')}
                   className="text-indigo-600 hover:underline font-medium"
                 >
@@ -270,7 +270,7 @@ export default function LoginPage() {
             <div className="mt-4 text-center text-sm text-gray-600">
               <p>
                 Don&apos;t have a school account?{' '}
-                <button 
+                <button
                   onClick={() => navigate('/register-school')}
                   className="text-indigo-600 hover:underline font-medium"
                 >

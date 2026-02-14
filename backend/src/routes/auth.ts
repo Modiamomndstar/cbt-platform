@@ -90,6 +90,7 @@ router.post(
             username: school.username,
             email: school.email,
             planType: school.plan_type,
+            role: "school_admin",
           },
         },
       });
@@ -182,6 +183,7 @@ router.post(
             subjects: tutor.subjects,
             schoolId: tutor.school_id,
             schoolName: tutor.school_name,
+            role: "tutor",
           },
         },
       });
@@ -214,7 +216,7 @@ router.post(
        FROM exam_schedules es
        JOIN students s ON es.student_id = s.id
        JOIN exams e ON es.exam_id = e.id
-       WHERE es.login_username = $1 AND es.login_password = $2`,
+       WHERE es.exam_username = $1 AND es.exam_password = $2`,
         [username, password],
       );
 
@@ -273,6 +275,7 @@ router.post(
             id: schedule.student_id,
             fullName: schedule.student_name,
             schoolId: schedule.school_id,
+            role: "student",
           },
           exam: {
             id: schedule.exam_id,
@@ -284,6 +287,102 @@ router.post(
             endTime: schedule.end_time,
             status: schedule.status,
             isAvailable: now >= startTime && now <= endTime,
+          },
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// @route   POST /api/auth/student/portal-login
+// @desc    Student portal login (permanent account)
+// @access  Public
+router.post(
+  "/student/portal-login",
+  [
+    body("username").trim().notEmpty().withMessage("Username is required"),
+    body("password").notEmpty().withMessage("Password is required"),
+    validate,
+  ],
+  async (req, res, next) => {
+    try {
+      const { username, password } = req.body;
+
+      // Find student by username
+      const result = await db.query(
+        `SELECT s.id, s.username, s.password_hash, s.full_name, s.email, s.school_id, s.is_active,
+                sch.name as school_name
+         FROM students s
+         JOIN schools sch ON s.school_id = sch.id
+         WHERE s.username = $1`,
+        [username],
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid credentials",
+        });
+      }
+
+      const student = result.rows[0];
+
+      if (!student.is_active) {
+        return res.status(401).json({
+          success: false,
+          message: "Account is inactive. Please contact your school administrator.",
+        });
+      }
+
+      // Verify password
+      // Note: If student was created without password (legacy), this might fail or we need a default check.
+      // But we just added migration to ensure password_hash is set (via default in create).
+      // If password_hash is null, they can't login (secure default).
+      if (!student.password_hash) {
+          return res.status(401).json({
+            success: false,
+            message: "Account setup incomplete. Please contact admin.",
+          });
+      }
+
+      const isMatch = await bcrypt.compare(password, student.password_hash);
+      if (!isMatch) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid credentials",
+        });
+      }
+
+      // Generate token
+      const token = generateToken({
+        id: student.id,
+        role: "student",
+        schoolId: student.school_id,
+        studentId: student.id,
+        // scope: 'portal' // Optional: distinguish from exam access?
+      });
+
+      // Log activity
+      await db.query(
+        "INSERT INTO activity_logs (user_id, user_type, school_id, action, details) VALUES ($1, $2, $3, $4, $5)",
+        [student.id, "student", student.school_id, "portal_login", { ip: req.ip }],
+      );
+
+      res.json({
+        success: true,
+        message: "Login successful",
+        data: {
+          token,
+          user: {
+            id: student.id,
+            fullName: student.full_name,
+            username: student.username,
+            email: student.email,
+            schoolId: student.school_id,
+            schoolName: student.school_name,
+            role: "student",
           },
         },
       });
@@ -350,6 +449,14 @@ router.get("/me", authenticate, async (req, res, next) => {
     let userData: any = null;
 
     switch (role) {
+      case "super_admin":
+        userData = {
+          id: "super_admin",
+          name: "Super Administrator",
+          username: process.env.SUPER_ADMIN_USERNAME || process.env.SUPER_ADMIN_EMAIL || "admin",
+          email: process.env.SUPER_ADMIN_EMAIL,
+        };
+        break;
       case "school":
         const schoolResult = await db.query(
           "SELECT id, name, username, email, phone, logo_url, plan_type, is_active FROM schools WHERE id = $1",
@@ -385,7 +492,7 @@ router.get("/me", authenticate, async (req, res, next) => {
     res.json({
       success: true,
       data: {
-        user: userData,
+        user: { ...userData, role },
         role,
       },
     });

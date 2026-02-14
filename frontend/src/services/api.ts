@@ -5,8 +5,8 @@ import type {
   InternalAxiosRequestConfig,
 } from "axios";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+// prefer a relative path when the frontend and backend share the same origin (nginx proxy)
+const API_BASE_URL = import.meta.env.VITE_API_URL || "/api"; // fallback to /api for production container
 
 // Create axios instance
 const api: AxiosInstance = axios.create({
@@ -39,7 +39,15 @@ api.interceptors.response.use(
       // Token expired or invalid
       localStorage.removeItem("token");
       localStorage.removeItem("user");
-      window.location.href = "/login";
+      // Don't redirect if we're on the student login page already
+      const path = window.location.pathname;
+      if (path.startsWith("/student/login")) {
+        // Do nothing – let the login form handle the error
+      } else if (path.startsWith("/student")) {
+        window.location.href = "/student/login";
+      } else {
+        window.location.href = "/login";
+      }
     }
     return Promise.reject(error);
   },
@@ -47,17 +55,21 @@ api.interceptors.response.use(
 
 // Auth API
 export const authAPI = {
-  schoolLogin: (email: string, password: string) =>
-    api.post("/auth/school/login", { email, password }),
+  // backend expects school username rather than email
+  schoolLogin: (username: string, password: string) =>
+    api.post("/auth/school/login", { username, password }),
 
-  tutorLogin: (email: string, password: string) =>
-    api.post("/auth/tutor/login", { email, password }),
+  tutorLogin: (schoolId: string, username: string, password: string) =>
+    api.post("/auth/tutor/login", { schoolId, username, password }),
 
-  studentLogin: (email: string, password: string, accessCode?: string) =>
-    api.post("/auth/student/login", { email, password, accessCode }),
+  studentLogin: (username: string, password: string, accessCode?: string) =>
+    api.post("/auth/student/login", { username, password, accessCode }),
 
-  superAdminLogin: (email: string, password: string) =>
-    api.post("/auth/super-admin/login", { email, password }),
+  studentPortalLogin: (username: string, password: string) =>
+    api.post("/auth/student/portal-login", { username, password }),
+
+  superAdminLogin: (username: string, password: string) =>
+    api.post("/auth/super-admin/login", { username, password }),
 
   getMe: () => api.get("/auth/me"),
 
@@ -82,6 +94,9 @@ export const tutorAPI = {
   delete: (id: string) => api.delete(`/tutors/${id}`),
   bulkCreate: (tutors: any[]) => api.post("/tutors/bulk", { tutors }),
   getDashboardStats: () => api.get("/tutors/dashboard/stats"),
+  getStudents: (tutorId: string, params?: any) =>
+    api.get(`/tutors/${tutorId}/students`, { params }), // params: { categoryId, search }
+  getCategories: (tutorId: string) => api.get(`/tutors/${tutorId}/categories`),
 };
 
 // Student API
@@ -94,6 +109,10 @@ export const studentAPI = {
   bulkCreate: (students: any[]) => api.post("/students/bulk", { students }),
   getByCategory: (categoryId: string) =>
     api.get(`/students/by-category?categoryId=${categoryId}`),
+  assignTutor: (studentId: string, tutorId: string) =>
+    api.post(`/students/${studentId}/assign-tutor`, { tutorId }),
+  removeTutor: (studentId: string, tutorId: string) =>
+    api.delete(`/students/${studentId}/assign-tutor/${tutorId}`),
 };
 
 // Category API
@@ -103,6 +122,7 @@ export const categoryAPI = {
   create: (data: any) => api.post("/categories", data),
   update: (id: string, data: any) => api.put(`/categories/${id}`, data),
   delete: (id: string) => api.delete(`/categories/${id}`),
+  findOrCreate: (name: string) => api.post("/categories/find-or-create", { name }),
   addStudents: (id: string, studentIds: string[]) =>
     api.post(`/categories/${id}/students`, { studentIds }),
   removeStudents: (id: string, studentIds: string[]) =>
@@ -160,8 +180,16 @@ export const scheduleAPI = {
   getMyExams: () => api.get("/schedules/student/my-exams"),
 
   // Verify access code and start exam
-  verifyAccess: (scheduleId: string, accessCode: string) =>
-    api.post("/schedules/verify-access", { scheduleId, accessCode }),
+  verifyAccess: (scheduleId: string, accessCode: string, timezone?: string) =>
+    api.post("/schedules/verify-access", { scheduleId, accessCode, timezone }),
+
+  // Email credentials to student
+  emailCredentials: (scheduleId: string) =>
+    api.post(`/schedules/email/${scheduleId}`),
+
+  // Email credentials to all scheduled students
+  emailAllCredentials: (examId: string) =>
+    api.post(`/schedules/email-all/${examId}`),
 };
 
 // Result API
@@ -182,6 +210,15 @@ export const resultAPI = {
 
   // Grade theory questions
   gradeTheory: (data: any) => api.post("/results/grade-theory", data),
+
+  // Get all results for school (with filters)
+  getAll: (params?: any) => api.get("/results/school-results", { params }),
+
+  // Export results
+  exportResults: (params?: any) => api.get("/results/export", { params, responseType: 'blob' }),
+
+  // Get detailed result including questions and answers
+  getResultDetail: (id: string) => api.get(`/results/${id}/detail`),
 
   // Get exam statistics
   getStatistics: (examId: string) =>

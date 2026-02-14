@@ -1,23 +1,22 @@
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { 
-  LayoutDashboard, 
+import {
+  LayoutDashboard,
   LogOut,
   GraduationCap,
   Menu,
-  X
+  X,
+  User
 } from 'lucide-react';
 import { useState } from 'react';
-import { getStudentById, getSchoolById } from '@/lib/dataStore';
 
 export default function StudentLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const student = user?.studentId ? getStudentById(user.studentId) : null;
-  const school = student?.schoolId ? getSchoolById(student.schoolId) : null;
+  const studentName = user?.name || 'Student';
 
   const handleLogout = () => {
     logout();
@@ -32,7 +31,7 @@ export default function StudentLayout() {
           <div className="flex items-center space-x-2">
             <GraduationCap className="h-8 w-8 text-emerald-600" />
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-gray-900 truncate">{school?.name || 'Student Portal'}</p>
+              <p className="font-bold text-gray-900 truncate">Student Portal</p>
             </div>
           </div>
         </div>
@@ -45,23 +44,30 @@ export default function StudentLayout() {
             <LayoutDashboard className="h-5 w-5" />
             <span>Dashboard</span>
           </button>
+          <button
+            onClick={() => navigate('/student/profile')}
+            className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-gray-700 hover:bg-gray-100"
+          >
+            <User className="h-5 w-5" />
+            <span>Profile</span>
+          </button>
         </nav>
 
         <div className="p-4 border-t border-gray-200">
           <div className="flex items-center space-x-3 mb-4 px-4">
             <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
               <span className="text-emerald-700 font-semibold">
-                {student?.fullName?.charAt(0) || 'S'}
+                {studentName.charAt(0)}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{student?.fullName}</p>
-              <p className="text-xs text-gray-500">{student?.studentId}</p>
+              <p className="text-sm font-medium text-gray-900 truncate">{studentName}</p>
+              <p className="text-xs text-gray-500">Student</p>
             </div>
           </div>
-          <Button 
-            variant="outline" 
-            className="w-full" 
+          <Button
+            variant="outline"
+            className="w-full"
             onClick={handleLogout}
           >
             <LogOut className="h-4 w-4 mr-2" />
@@ -73,8 +79,8 @@ export default function StudentLayout() {
       {/* Sidebar - Mobile */}
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-50">
-          <div 
-            className="absolute inset-0 bg-black/50" 
+          <div
+            className="absolute inset-0 bg-black/50"
             onClick={() => setSidebarOpen(false)}
           />
           <aside className="absolute left-0 top-0 bottom-0 w-64 bg-white">
@@ -95,11 +101,21 @@ export default function StudentLayout() {
                 <LayoutDashboard className="h-5 w-5" />
                 <span>Dashboard</span>
               </button>
+               <button
+                onClick={() => {
+                  navigate('/student/profile');
+                  setSidebarOpen(false);
+                }}
+                className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-gray-700 hover:bg-gray-100"
+              >
+                <User className="h-5 w-5" />
+                <span>Profile</span>
+              </button>
             </nav>
             <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
-              <Button 
-                variant="outline" 
-                className="w-full" 
+              <Button
+                variant="outline"
+                className="w-full"
                 onClick={handleLogout}
               >
                 <LogOut className="h-4 w-4 mr-2" />
@@ -121,7 +137,7 @@ export default function StudentLayout() {
             <span className="font-bold text-gray-900">Student Portal</span>
             <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
               <span className="text-emerald-700 font-semibold text-sm">
-                {student?.fullName?.charAt(0) || 'S'}
+                {studentName.charAt(0)}
               </span>
             </div>
           </div>
