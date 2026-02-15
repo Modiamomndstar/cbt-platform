@@ -24,17 +24,29 @@ import analyticsRoutes from "./routes/analytics";
 import uploadRoutes from "./routes/uploads";
 
 // Import services
-import { EmailService } from "./services/email";
+// import { EmailService } from "./services/email";
 import { logger } from "./utils/logger";
 
 const app = express();
+app.set("trust proxy", 1);
 const PORT = process.env.PORT || 5000;
 
 // Security middleware
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: (origin, callback) => {
+      const allowed = [
+        process.env.FRONTEND_URL,
+        "http://localhost",
+        "http://localhost:5173",
+        "http://localhost:80",
+      ].filter(Boolean);
+      if (!origin || allowed.indexOf(origin) !== -1) {
+        return callback(null, true);
+      }
+      callback(new Error("CORS policy: origin not allowed"));
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
@@ -130,7 +142,7 @@ app.listen(PORT, () => {
   logger.info(`Environment: ${process.env.NODE_ENV || "development"}`);
 
   // Initialize email service
-  EmailService.getInstance().initialize();
+  // EmailService.getInstance().initialize();
 });
 
 export default app;

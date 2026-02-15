@@ -17,10 +17,10 @@ import { useTheme } from '../context/ThemeContext';
 export default function LoginScreen({ navigation }: any) {
   const { login } = useAuth();
   const { colors, spacing, fontSize } = useTheme();
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [accessCode, setAccessCode] = useState('');
+
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -30,7 +30,7 @@ export default function LoginScreen({ navigation }: any) {
     }
 
     setIsLoading(true);
-    const result = await login(email, password, accessCode || undefined);
+    const result = await login(email, password);
     setIsLoading(false);
 
     if (result.success) {
@@ -134,13 +134,12 @@ export default function LoginScreen({ navigation }: any) {
         <Text style={styles.subtitle}>Login to take your exams</Text>
 
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>Email</Text>
+          <Text style={styles.label}>Email or Username</Text>
           <TextInput
             style={styles.input}
-            placeholder="Enter your email"
+            placeholder="Enter your email or username"
             value={email}
             onChangeText={setEmail}
-            keyboardType="email-address"
             autoCapitalize="none"
           />
         </View>
@@ -156,16 +155,7 @@ export default function LoginScreen({ navigation }: any) {
           />
         </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Access Code (Optional)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter access code if provided"
-            value={accessCode}
-            onChangeText={setAccessCode}
-            autoCapitalize="characters"
-          />
-        </View>
+
 
         <TouchableOpacity
           style={styles.button}

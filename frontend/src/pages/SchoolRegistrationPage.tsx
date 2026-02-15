@@ -7,14 +7,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
-import { createSchool, hashPassword, getSchoolByUsername } from '@/lib/dataStore';
+import { schoolAPI } from '@/services/api';
 import { GraduationCap, ArrowLeft, Upload, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function SchoolRegistrationPage() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -47,7 +47,7 @@ export default function SchoolRegistrationPage() {
         setError('Logo file size must be less than 2MB');
         return;
       }
-      
+
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result as string;
@@ -83,14 +83,6 @@ export default function SchoolRegistrationPage() {
       setError('Passwords do not match');
       return false;
     }
-    
-    // Check if username already exists
-    const existingSchool = getSchoolByUsername(formData.username);
-    if (existingSchool) {
-      setError('Username already exists. Please choose another.');
-      return false;
-    }
-    
     return true;
   };
 
@@ -136,26 +128,25 @@ export default function SchoolRegistrationPage() {
     setError('');
 
     try {
-      createSchool({
+      await schoolAPI.register({
         name: formData.name,
         username: formData.username,
-        password: hashPassword(formData.password),
+        password: formData.password,
         email: formData.email,
         phone: formData.phone,
         address: formData.address,
         description: formData.description,
-        logo: formData.logo,
-        isActive: true,
       });
 
       toast.success('School registered successfully!');
-      
+
       // Show success message and redirect to login
       setTimeout(() => {
         navigate('/login');
       }, 2000);
-    } catch (err) {
-      setError('An error occurred during registration. Please try again.');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'An error occurred during registration. Please try again.';
+      setError(msg);
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -174,7 +165,7 @@ export default function SchoolRegistrationPage() {
           onChange={handleInputChange}
         />
       </div>
-      
+
       <div className="space-y-2">
         <Label htmlFor="username">Username *</Label>
         <Input
@@ -186,7 +177,7 @@ export default function SchoolRegistrationPage() {
         />
         <p className="text-xs text-gray-500">This will be used for login. Minimum 4 characters.</p>
       </div>
-      
+
       <div className="space-y-2">
         <Label htmlFor="password">Password *</Label>
         <div className="relative">
@@ -208,7 +199,7 @@ export default function SchoolRegistrationPage() {
         </div>
         <p className="text-xs text-gray-500">Minimum 6 characters.</p>
       </div>
-      
+
       <div className="space-y-2">
         <Label htmlFor="confirmPassword">Confirm Password *</Label>
         <Input
@@ -236,7 +227,7 @@ export default function SchoolRegistrationPage() {
           onChange={handleInputChange}
         />
       </div>
-      
+
       <div className="space-y-2">
         <Label htmlFor="phone">Phone Number *</Label>
         <Input
@@ -247,7 +238,7 @@ export default function SchoolRegistrationPage() {
           onChange={handleInputChange}
         />
       </div>
-      
+
       <div className="space-y-2">
         <Label htmlFor="address">Address *</Label>
         <Textarea
@@ -259,7 +250,7 @@ export default function SchoolRegistrationPage() {
           rows={3}
         />
       </div>
-      
+
       <div className="space-y-2">
         <Label htmlFor="description">Description</Label>
         <Textarea
@@ -278,15 +269,15 @@ export default function SchoolRegistrationPage() {
     <div className="space-y-6">
       <div className="space-y-2">
         <Label>School Logo</Label>
-        <div 
+        <div
           onClick={() => fileInputRef.current?.click()}
           className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-indigo-500 transition-colors"
         >
           {logoPreview ? (
             <div className="flex flex-col items-center">
-              <img 
-                src={logoPreview} 
-                alt="Logo preview" 
+              <img
+                src={logoPreview}
+                alt="Logo preview"
                 className="h-24 w-24 object-contain mb-4"
               />
               <p className="text-sm text-gray-600">Click to change logo</p>
@@ -333,7 +324,7 @@ export default function SchoolRegistrationPage() {
       <div className="flex items-start space-x-3">
         <CheckCircle className="h-5 w-5 text-emerald-500 mt-0.5" />
         <p className="text-sm text-gray-600">
-          By registering, you agree to our terms of service and privacy policy. 
+          By registering, you agree to our terms of service and privacy policy.
           Your school account will be activated immediately.
         </p>
       </div>
@@ -346,8 +337,8 @@ export default function SchoolRegistrationPage() {
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <button 
-              onClick={() => navigate('/')} 
+            <button
+              onClick={() => navigate('/')}
               className="flex items-center space-x-2 text-gray-900 hover:text-indigo-600"
             >
               <GraduationCap className="h-8 w-8" />
@@ -398,16 +389,16 @@ export default function SchoolRegistrationPage() {
                   </Button>
                 )}
                 {step < 3 ? (
-                  <Button 
-                    type="button" 
+                  <Button
+                    type="button"
                     onClick={handleNext}
                     className={step === 1 ? 'ml-auto' : ''}
                   >
                     Next
                   </Button>
                 ) : (
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     disabled={isLoading}
                     className="ml-auto"
                   >
@@ -420,7 +411,7 @@ export default function SchoolRegistrationPage() {
             <div className="mt-6 text-center text-sm text-gray-600">
               <p>
                 Already have an account?{' '}
-                <button 
+                <button
                   onClick={() => navigate('/login')}
                   className="text-indigo-600 hover:underline font-medium"
                 >

@@ -12,6 +12,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Map backend role names to frontend role names
+const mapRole = (backendRole: string): UserRole => {
+  switch (backendRole) {
+    case 'school': return 'school_admin';
+    case 'super_admin': return 'super_admin';
+    case 'tutor': return 'tutor';
+    case 'student': return 'student';
+    default: return backendRole as UserRole;
+  }
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,16 +41,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await authAPI.getMe();
       if (response.data.success) {
-        const userData = response.data.data;
+        const { user: userData, role: backendRole } = response.data.data;
+        const role = mapRole(backendRole);
         const session: UserSession = {
           id: userData.id,
-          role: userData.role,
-          username: userData.username || userData.email || `${userData.firstName || ''}${userData.lastName ? ' ' + userData.lastName : ''}`.trim(),
+          role,
+          username: userData.username || userData.email || `${userData.first_name || userData.firstName || ''}${(userData.last_name || userData.lastName) ? ' ' + (userData.last_name || userData.lastName) : ''}`.trim(),
           email: userData.email,
-          name: userData.name || `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.fullName || userData.username || '',
-          schoolId: userData.schoolId,
-          tutorId: userData.role === 'tutor' ? userData.id : undefined,
-          studentId: userData.role === 'student' ? userData.id : undefined,
+          name: userData.name || userData.full_name || `${userData.first_name || userData.firstName || ''} ${userData.last_name || userData.lastName || ''}`.trim() || userData.fullName || userData.username || '',
+          schoolId: userData.school_id || userData.schoolId,
+          tutorId: role === 'tutor' ? userData.id : undefined,
+          studentId: role === 'student' ? userData.id : undefined,
         };
         setUser(session);
         localStorage.setItem('user', JSON.stringify(session));
@@ -53,22 +65,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (role: UserRole, email: string, password: string, accessCode?: string): Promise<{ success: boolean; message?: string }> => {
+  const login = async (role: UserRole, usernameOrEmail: string, password: string, schoolIdOrAccessCode?: string): Promise<{ success: boolean; message?: string }> => {
     try {
       let response;
 
       switch (role) {
         case 'super_admin':
-          response = await authAPI.superAdminLogin(email, password);
+          response = await authAPI.superAdminLogin(usernameOrEmail, password);
           break;
         case 'school_admin':
-          response = await authAPI.schoolLogin(email, password);
+          response = await authAPI.schoolLogin(usernameOrEmail, password);
           break;
         case 'tutor':
-          response = await authAPI.tutorLogin(email, password);
+          response = await authAPI.tutorLogin(schoolIdOrAccessCode || '', usernameOrEmail, password);
           break;
         case 'student':
-          response = await authAPI.studentLogin(email, password, accessCode);
+          response = await authAPI.studentLogin(usernameOrEmail, password, schoolIdOrAccessCode);
           break;
         default:
           return { success: false, message: 'Invalid role' };
@@ -78,15 +90,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { token, user: userData } = response.data.data;
         localStorage.setItem('token', token);
 
+        const mappedRole = mapRole(userData.role || role);
         const session: UserSession = {
           id: userData.id,
-          role: userData.role,
+          role: mappedRole,
           username: userData.username || userData.email || `${userData.firstName || ''}${userData.lastName ? ' ' + userData.lastName : ''}`.trim(),
           email: userData.email,
           name: userData.name || `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.fullName || userData.username || '',
           schoolId: userData.schoolId,
-          tutorId: userData.role === 'tutor' ? userData.id : undefined,
-          studentId: userData.role === 'student' ? userData.id : undefined,
+          tutorId: mappedRole === 'tutor' ? userData.id : undefined,
+          studentId: mappedRole === 'student' ? userData.id : undefined,
         };
 
         localStorage.setItem('user', JSON.stringify(session));
@@ -126,8 +139,13 @@ export function useAuth() {
   return context;
 }
 
+import { Navigate, useLocation } from 'react-router-dom';
+
+// ... (existing imports)
+
 export function RequireAuth({ children, allowedRoles }: { children: ReactNode; allowedRoles: UserRole[] }) {
   const { user, isLoading } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -137,10 +155,23 @@ export function RequireAuth({ children, allowedRoles }: { children: ReactNode; a
     );
   }
 
-  if (!user || !allowedRoles.includes(user.role)) {
-    // Redirect to login
-    window.location.href = '/login';
-    return null;
+  if (!user) {
+    // Check if it's a student route
+    if (allowedRoles.includes('student')) {
+      return <Navigate to="/student/login" state={{ from: location }} replace />;
+    }
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (!allowedRoles.includes(user.role)) {
+    // Redirect to appropriate dashboard based on role
+    switch (user.role) {
+      case 'student': return <Navigate to="/student/dashboard" replace />;
+      case 'tutor': return <Navigate to="/tutor/dashboard" replace />;
+      case 'school_admin': return <Navigate to="/school-admin/dashboard" replace />;
+      case 'super_admin': return <Navigate to="/super-admin/dashboard" replace />;
+      default: return <Navigate to="/login" replace />;
+    }
   }
 
   return <>{children}</>;

@@ -1,84 +1,40 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  getSchoolDashboardStats, 
-  getExamsBySchool, 
-  getStudentExams,
-  getStudentsBySchool 
-} from '@/lib/dataStore';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line
-} from 'recharts';
-import { TrendingUp, Users, BookOpen, Award } from 'lucide-react';
-import type { DashboardStats } from '@/types';
+import { schoolAPI } from '@/services/api';
 
-const COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+import { TrendingUp, Users, BookOpen, Award } from 'lucide-react';
+
+
 
 export default function SchoolAnalytics() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [examPerformance, setExamPerformance] = useState<any[]>([]);
-  const [studentDistribution, setStudentDistribution] = useState<any[]>([]);
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user?.schoolId) {
-      const dashboardStats = getSchoolDashboardStats(user.schoolId);
-      setStats(dashboardStats);
-
-      // Get exam performance data
-      const exams = getExamsBySchool(user.schoolId);
-      const studentExams = getStudentExams();
-      
-      const performanceData = exams.map(exam => {
-        const examResults = studentExams.filter(se => se.examId === exam.id && se.status === 'completed');
-        const avgScore = examResults.length > 0 
-          ? Math.round(examResults.reduce((sum, se) => sum + se.percentage, 0) / examResults.length)
-          : 0;
-        return {
-          name: exam.title.substring(0, 20) + (exam.title.length > 20 ? '...' : ''),
-          score: avgScore,
-          students: examResults.length,
-        };
-      }).slice(0, 5);
-      setExamPerformance(performanceData);
-
-      // Get student distribution by level
-      const students = getStudentsBySchool(user.schoolId);
-      const levelCounts: Record<string, number> = {};
-      students.forEach(student => {
-        levelCounts[student.level] = (levelCounts[student.level] || 0) + 1;
-      });
-      const distributionData = Object.entries(levelCounts).map(([level, count]) => ({
-        name: level,
-        value: count,
-      }));
-      setStudentDistribution(distributionData);
-
-      // Get recent activity (completed exams)
-      const recentExams = studentExams
-        .filter(se => se.status === 'completed')
-        .sort((a, b) => new Date(b.submittedAt || 0).getTime() - new Date(a.submittedAt || 0).getTime())
-        .slice(0, 7)
-        .map((se, index) => ({
-          day: `Day ${index + 1}`,
-          score: se.percentage,
-        }));
-      setRecentActivity(recentExams);
-    }
+    const loadAnalytics = async () => {
+      try {
+        const response = await schoolAPI.getDashboard();
+        if (response.data.success) {
+          setStats(response.data.data);
+        }
+      } catch (err) {
+        console.error('Failed to load analytics:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadAnalytics();
   }, [user]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -96,7 +52,7 @@ export default function SchoolAnalytics() {
                 <BookOpen className="h-5 w-5 text-indigo-600" />
               </div>
             </div>
-            <p className="text-2xl font-bold mt-3">{stats?.totalExams || 0}</p>
+            <p className="text-2xl font-bold mt-3">{stats?.exam_count || 0}</p>
             <p className="text-sm text-gray-600">Total Exams</p>
           </CardContent>
         </Card>
@@ -107,7 +63,7 @@ export default function SchoolAnalytics() {
                 <Users className="h-5 w-5 text-emerald-600" />
               </div>
             </div>
-            <p className="text-2xl font-bold mt-3">{stats?.totalStudents || 0}</p>
+            <p className="text-2xl font-bold mt-3">{stats?.student_count || 0}</p>
             <p className="text-sm text-gray-600">Total Students</p>
           </CardContent>
         </Card>
@@ -118,7 +74,7 @@ export default function SchoolAnalytics() {
                 <TrendingUp className="h-5 w-5 text-amber-600" />
               </div>
             </div>
-            <p className="text-2xl font-bold mt-3">{stats?.completedExams || 0}</p>
+            <p className="text-2xl font-bold mt-3">{stats?.completed_exams || stats?.upcoming_exams || 0}</p>
             <p className="text-sm text-gray-600">Exams Completed</p>
           </CardContent>
         </Card>
@@ -129,108 +85,62 @@ export default function SchoolAnalytics() {
                 <Award className="h-5 w-5 text-purple-600" />
               </div>
             </div>
-            <p className="text-2xl font-bold mt-3">{stats?.averageScore || 0}%</p>
+            <p className="text-2xl font-bold mt-3">{Math.round(stats?.average_score || 0)}%</p>
             <p className="text-sm text-gray-600">Average Score</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Charts */}
+      {/* Info Cards */}
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* Exam Performance */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Exam Performance</CardTitle>
+            <CardTitle className="text-lg">Overview</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
-              {examPerformance.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={examPerformance}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="score" fill="#4F46E5" />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  No exam data available
-                </div>
-              )}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                <span className="text-gray-600">Total Tutors</span>
+                <span className="font-bold text-lg">{stats?.tutor_count || 0}</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                <span className="text-gray-600">Total Students</span>
+                <span className="font-bold text-lg">{stats?.student_count || 0}</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                <span className="text-gray-600">Total Exams</span>
+                <span className="font-bold text-lg">{stats?.exam_count || 0}</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                <span className="text-gray-600">Total Questions</span>
+                <span className="font-bold text-lg">{stats?.question_count || 0}</span>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Student Distribution */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Student Distribution by Level</CardTitle>
+            <CardTitle className="text-lg">Performance Summary</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
-              {studentDistribution.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={studentDistribution}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {studentDistribution.map((_entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  No student data available
-                </div>
-              )}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                <span className="text-gray-600">Scheduled Exams</span>
+                <span className="font-bold text-lg">{stats?.upcoming_exams || 0}</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                <span className="text-gray-600">Completed Exams</span>
+                <span className="font-bold text-lg">{stats?.completed_exams || 0}</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                <span className="text-gray-600">Average Score</span>
+                <span className="font-bold text-lg">{Math.round(stats?.average_score || 0)}%</span>
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Recent Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Recent Exam Activity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-64">
-            {recentActivity.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={recentActivity}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="day" />
-                  <YAxis domain={[0, 100]} />
-                  <Tooltip />
-                  <Line 
-                    type="monotone" 
-                    dataKey="score" 
-                    stroke="#10B981" 
-                    strokeWidth={2}
-                    dot={{ fill: '#10B981' }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                No recent activity
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

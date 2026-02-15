@@ -1,26 +1,43 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { 
-  LayoutDashboard, 
-  Users, 
-  UserCircle, 
-  BarChart3, 
+import {
+  LayoutDashboard,
+  Users,
+  UserCircle,
+  BarChart3,
   LogOut,
   GraduationCap,
   Menu,
-  X
+  X,
+  BookOpen
 } from 'lucide-react';
-import { useState } from 'react';
-import { getSchoolById } from '@/lib/dataStore';
+import { useState, useEffect } from 'react';
+import { schoolAPI } from '@/services/api';
 
 export default function SchoolAdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [schoolName, setSchoolName] = useState<string>('');
+  const [schoolLogo, setSchoolLogo] = useState<string>('');
 
-  const school = user?.schoolId ? getSchoolById(user.schoolId) : null;
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const response = await schoolAPI.getProfile();
+        if (response.data.success) {
+          setSchoolName(response.data.data.name || '');
+          setSchoolLogo(response.data.data.logo_url || '');
+        }
+      } catch {
+        // Fallback to session data
+        setSchoolName(user?.name || 'School Admin');
+      }
+    };
+    loadProfile();
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -31,6 +48,8 @@ export default function SchoolAdminLayout() {
     { name: 'Dashboard', href: '/school-admin/dashboard', icon: LayoutDashboard },
     { name: 'School Profile', href: '/school-admin/profile', icon: UserCircle },
     { name: 'Tutor Management', href: '/school-admin/tutors', icon: Users },
+    { name: 'Student Management', href: '/school-admin/students', icon: GraduationCap },
+    { name: 'Student Categories', href: '/school-admin/categories', icon: BookOpen },
     { name: 'Analytics', href: '/school-admin/analytics', icon: BarChart3 },
   ];
 
@@ -41,16 +60,16 @@ export default function SchoolAdminLayout() {
       {/* Sidebar - Desktop */}
       <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-gray-200 fixed h-full">
         <div className="p-4 border-b border-gray-200">
-          <button 
+          <button
             onClick={() => navigate('/school-admin/dashboard')}
             className="flex items-center space-x-2"
           >
-            {school?.logo ? (
-              <img src={school.logo} alt="School logo" className="h-8 w-8 object-contain" />
+            {schoolLogo ? (
+              <img src={schoolLogo} alt="School logo" className="h-8 w-8 object-contain" />
             ) : (
               <GraduationCap className="h-8 w-8 text-indigo-600" />
             )}
-            <span className="font-bold text-gray-900 truncate">{school?.name || 'School Admin'}</span>
+            <span className="font-bold text-gray-900 truncate">{schoolName || 'School Admin'}</span>
           </button>
         </div>
 
@@ -83,9 +102,9 @@ export default function SchoolAdminLayout() {
               <p className="text-xs text-gray-500">School Administrator</p>
             </div>
           </div>
-          <Button 
-            variant="outline" 
-            className="w-full" 
+          <Button
+            variant="outline"
+            className="w-full"
             onClick={handleLogout}
           >
             <LogOut className="h-4 w-4 mr-2" />
@@ -97,8 +116,8 @@ export default function SchoolAdminLayout() {
       {/* Sidebar - Mobile */}
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-50">
-          <div 
-            className="absolute inset-0 bg-black/50" 
+          <div
+            className="absolute inset-0 bg-black/50"
             onClick={() => setSidebarOpen(false)}
           />
           <aside className="absolute left-0 top-0 bottom-0 w-64 bg-white">
@@ -128,9 +147,9 @@ export default function SchoolAdminLayout() {
               ))}
             </nav>
             <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
-              <Button 
-                variant="outline" 
-                className="w-full" 
+              <Button
+                variant="outline"
+                className="w-full"
                 onClick={handleLogout}
               >
                 <LogOut className="h-4 w-4 mr-2" />

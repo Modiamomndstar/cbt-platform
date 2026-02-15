@@ -1,111 +1,36 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  getSchools, 
-  getExams, 
-  getStudentExams
-} from '@/lib/dataStore';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line
-} from 'recharts';
+import { analyticsAPI } from '@/services/api';
 import { TrendingUp, School, Users, BookOpen, Award } from 'lucide-react';
 
-const COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
-
 export default function PlatformAnalytics() {
-  const [schoolsGrowth, setSchoolsGrowth] = useState<any[]>([]);
-  const [examStats, setExamStats] = useState<any[]>([]);
-  const [scoreDistribution, setScoreDistribution] = useState<any[]>([]);
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
-  const [topSchools, setTopSchools] = useState<any[]>([]);
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadAnalytics();
   }, []);
 
-  const loadAnalytics = () => {
-    const schools = getSchools();
-    const exams = getExams();
-    const studentExams = getStudentExams();
-
-    // Schools growth (by month)
-    const schoolsByMonth: Record<string, number> = {};
-    schools.forEach(school => {
-      const month = new Date(school.createdAt).toLocaleString('default', { month: 'short' });
-      schoolsByMonth[month] = (schoolsByMonth[month] || 0) + 1;
-    });
-    setSchoolsGrowth(Object.entries(schoolsByMonth).map(([month, count]) => ({ month, count })));
-
-    // Exam stats by status
-    const completed = studentExams.filter(se => se.status === 'completed').length;
-    const inProgress = studentExams.filter(se => se.status === 'in_progress').length;
-    const timeout = studentExams.filter(se => se.status === 'timeout').length;
-    setExamStats([
-      { name: 'Completed', value: completed },
-      { name: 'In Progress', value: inProgress },
-      { name: 'Timeout', value: timeout },
-    ]);
-
-    // Score distribution
-    const ranges = [
-      { range: '0-39%', min: 0, max: 39, count: 0 },
-      { range: '40-49%', min: 40, max: 49, count: 0 },
-      { range: '50-59%', min: 50, max: 59, count: 0 },
-      { range: '60-69%', min: 60, max: 69, count: 0 },
-      { range: '70-79%', min: 70, max: 79, count: 0 },
-      { range: '80-100%', min: 80, max: 100, count: 0 },
-    ];
-    
-    studentExams
-      .filter(se => se.status === 'completed')
-      .forEach(se => {
-        const range = ranges.find(r => se.percentage >= r.min && se.percentage <= r.max);
-        if (range) range.count++;
-      });
-    
-    setScoreDistribution(ranges.map(r => ({ range: r.range, count: r.count })));
-
-    // Recent activity (last 7 days)
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      return date.toISOString().split('T')[0];
-    }).reverse();
-
-    const activityData = last7Days.map(date => {
-      const count = studentExams.filter(se => 
-        se.submittedAt && se.submittedAt.startsWith(date)
-      ).length;
-      return { date: date.slice(5), count };
-    });
-    setRecentActivity(activityData);
-
-    // Top schools by exam completions
-    const schoolStats: Record<string, { name: string; completions: number }> = {};
-    schools.forEach(school => {
-      const schoolExams = exams.filter(e => e.schoolId === school.id).map(e => e.id);
-      const completions = studentExams.filter(se => 
-        schoolExams.includes(se.examId) && se.status === 'completed'
-      ).length;
-      schoolStats[school.id] = { name: school.name, completions };
-    });
-
-    const topSchoolsList = Object.values(schoolStats)
-      .sort((a, b) => b.completions - a.completions)
-      .slice(0, 5);
-    setTopSchools(topSchoolsList);
+  const loadAnalytics = async () => {
+    try {
+      const response = await analyticsAPI.getSuperAdminOverview();
+      if (response.data.success) {
+        setData(response.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to load analytics:', err);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -114,184 +39,154 @@ export default function PlatformAnalytics() {
         <p className="text-gray-600">Comprehensive insights across all schools</p>
       </div>
 
-      {/* Charts Grid */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Schools Growth */}
+      {/* Summary Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center">
-              <School className="h-5 w-5 mr-2" />
-              Schools Registration
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              {schoolsGrowth.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={schoolsGrowth}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#4F46E5" />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  No data available
-                </div>
-              )}
+          <CardContent className="p-4">
+            <div className="bg-blue-50 p-3 rounded-lg w-fit">
+              <School className="h-5 w-5 text-blue-600" />
             </div>
+            <p className="text-2xl font-bold mt-3">{data?.totalSchools || 0}</p>
+            <p className="text-sm text-gray-600">Active Schools</p>
           </CardContent>
         </Card>
-
-        {/* Exam Status Distribution */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center">
-              <BookOpen className="h-5 w-5 mr-2" />
-              Exam Status Distribution
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              {examStats.some(s => s.value > 0) ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={examStats}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {examStats.map((_entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  No data available
-                </div>
-              )}
+          <CardContent className="p-4">
+            <div className="bg-emerald-50 p-3 rounded-lg w-fit">
+              <Users className="h-5 w-5 text-emerald-600" />
             </div>
+            <p className="text-2xl font-bold mt-3">{data?.totalTutors || 0}</p>
+            <p className="text-sm text-gray-600">Tutors</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="bg-purple-50 p-3 rounded-lg w-fit">
+              <Award className="h-5 w-5 text-purple-600" />
+            </div>
+            <p className="text-2xl font-bold mt-3">{data?.totalStudents || 0}</p>
+            <p className="text-sm text-gray-600">Students</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="bg-amber-50 p-3 rounded-lg w-fit">
+              <BookOpen className="h-5 w-5 text-amber-600" />
+            </div>
+            <p className="text-2xl font-bold mt-3">{data?.totalExams || 0}</p>
+            <p className="text-sm text-gray-600">Total Exams</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Score Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center">
-              <Award className="h-5 w-5 mr-2" />
-              Score Distribution
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              {scoreDistribution.some(s => s.count > 0) ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={scoreDistribution}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="range" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#10B981" />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  No data available
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Recent Activity */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center">
-              <TrendingUp className="h-5 w-5 mr-2" />
-              Recent Exam Activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              {recentActivity.some(a => a.count > 0) ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={recentActivity}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line 
-                      type="monotone" 
-                      dataKey="count" 
-                      stroke="#8B5CF6" 
-                      strokeWidth={2}
-                      dot={{ fill: '#8B5CF6' }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  No recent activity
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Top Schools */}
+      {/* Subscription Breakdown */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center">
-            <Users className="h-5 w-5 mr-2" />
-            Top Performing Schools
+            <TrendingUp className="h-5 w-5 mr-2" />
+            Subscription Breakdown
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {topSchools.length > 0 ? (
-            <div className="space-y-3">
-              {topSchools.map((school, index) => (
-                <div 
-                  key={index} 
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      index === 0 ? 'bg-amber-100 text-amber-700' :
-                      index === 1 ? 'bg-gray-200 text-gray-700' :
-                      index === 2 ? 'bg-orange-100 text-orange-700' :
-                      'bg-gray-100 text-gray-600'
-                    }`}>
-                      <span className="font-semibold">{index + 1}</span>
-                    </div>
-                    <span className="font-medium text-gray-900">{school.name}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-semibold text-gray-900">{school.completions}</span>
-                    <span className="text-sm text-gray-500 ml-1">exams completed</span>
-                  </div>
+          {data?.subscriptionBreakdown && data.subscriptionBreakdown.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {data.subscriptionBreakdown.map((sub: any, index: number) => (
+                <div key={index} className="bg-gray-50 rounded-lg p-4 text-center">
+                  <p className="text-2xl font-bold">{sub.count || 0}</p>
+                  <p className="text-sm text-gray-600 capitalize">
+                    {sub.subscription_status || sub.subscriptionStatus || 'Unknown'}
+                  </p>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">
-              No data available yet
-            </div>
+            <p className="text-gray-500 text-center py-4">No subscription data available</p>
           )}
         </CardContent>
       </Card>
+
+      {/* Recent Schools */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center">
+            <School className="h-5 w-5 mr-2" />
+            Recent Registrations
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {data?.recentSchools && data.recentSchools.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">School</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Email</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Country</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Subscription</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Registered</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {data.recentSchools.map((school: any) => (
+                    <tr key={school.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-medium text-gray-900">
+                        {school.school_name || school.name || 'Unknown'}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {school.email || '-'}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {school.country || '-'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          school.subscription_status === 'active'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {school.subscription_status || 'Free'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {school.created_at
+                          ? new Date(school.created_at).toLocaleDateString()
+                          : '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-4">No schools registered yet</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Revenue (if available) */}
+      {data?.revenueByCurrency && data.revenueByCurrency.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Revenue Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {data.revenueByCurrency.map((rev: any, index: number) => (
+                <div key={index} className="bg-emerald-50 rounded-lg p-4">
+                  <p className="text-sm text-gray-600">{rev.currency || 'USD'}</p>
+                  <p className="text-2xl font-bold text-emerald-700">
+                    {new Intl.NumberFormat('en', {
+                      style: 'currency',
+                      currency: rev.currency || 'USD'
+                    }).format(rev.totalRevenue || 0)}
+                  </p>
+                  <p className="text-sm text-gray-500">{rev.totalPayments || 0} payments</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

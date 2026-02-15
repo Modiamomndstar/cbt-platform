@@ -80,6 +80,29 @@ const generateUniqueUsername = async (client: any, fullName: string, schoolId: s
   return username;
 };
 
+// Helper: Find or Create Category
+const findOrCreateCategory = async (client: any, schoolId: string, categoryName: string) => {
+  if (!categoryName || !categoryName.trim()) return null;
+  const name = categoryName.trim();
+
+  // Check existence (case-insensitive)
+  const existing = await client.query(
+    "SELECT id FROM student_categories WHERE school_id = $1 AND LOWER(name) = LOWER($2) AND is_active = true",
+    [schoolId, name]
+  );
+
+  if (existing.rows.length > 0) {
+    return existing.rows[0].id;
+  }
+
+  // Create new
+  const result = await client.query(
+    "INSERT INTO student_categories (school_id, name, color, sort_order) VALUES ($1, $2, '#4F46E5', 0) RETURNING id",
+    [schoolId, name]
+  );
+  return result.rows[0].id;
+};
+
 // Upload students CSV
 router.post('/students', authenticate, requireRole(['school', 'tutor']), async (req: Request, res: Response) => {
   const client = await pool.connect();
@@ -92,8 +115,16 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
     const { categoryId, sendEmail } = req.body;
     const user = req.user!;
 
+    // Determine the effective school ID
+    let schoolId = user.schoolId;
+    if (user.role === 'tutor' && user.tutorId) {
+       const tutorRes = await client.query("SELECT school_id FROM tutors WHERE id = $1", [user.tutorId]);
+       if (tutorRes.rows.length > 0) schoolId = tutorRes.rows[0].school_id;
+    }
+
     // Validate file type
-    if (!file.mimetype.includes('csv') && !file.name.endsWith('.csv')) {
+    // Note: Some browsers/systems might send different mimetypes for CSV (e.g. application/vnd.ms-excel), so relying on extension is safer along with basic mimetype check
+    if (!file.name.toLowerCase().endsWith('.csv')) {
       return res.status(400).json({ success: false, message: 'Only CSV files are allowed' });
     }
 
@@ -114,55 +145,70 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
       try {
         results.totalProcessed++;
 
+        // Map fields from new template or fallback to old
+        // Template: student_id, full_name, email, phone, level_class
+        const studentIdRaw = record.student_id || record.studentId || record.registrationNumber || record.registration_number;
+        const fullNameRaw = record.full_name || record.fullName;
+        const email = record.email;
+        const phone = record.phone;
+        const levelClass = record.level_class || record.studentLevel || record['Student Level/Class'] || record.categoryId; // Handle various headers
+
         // Validate required fields
-        if (!record.firstName || !record.lastName || !record.email) {
-          results.failed.push({
-            record,
-            reason: 'Missing required fields (firstName, lastName, email)'
-          });
-          continue;
+        if (!fullNameRaw || !email) {
+            results.failed.push({
+                record,
+                reason: 'Missing required fields (full_name, email)'
+            });
+            continue;
         }
 
-        // Check if email already exists
+        // Check email uniqueness
         const emailCheck = await client.query(
           'SELECT id FROM students WHERE email = $1 AND school_id = $2',
-          [record.email, user.schoolId]
+          [email, schoolId]
         );
 
         if (emailCheck.rows.length > 0) {
-          results.failed.push({
-            record,
-            reason: 'Email already exists'
-          });
+          results.failed.push({ record, reason: 'Email already exists' });
           continue;
+        }
+
+        // Parse Name
+        const nameParts = fullNameRaw.trim().split(' ');
+        const firstName = nameParts[0];
+        const lastName = nameParts.slice(1).join(' ') || '.'; // Default to . if no last name
+
+        // Handle Category (Level/Class)
+        let finalCategoryId = categoryId || null;
+        if (!finalCategoryId && levelClass) {
+            finalCategoryId = await findOrCreateCategory(client, schoolId as string, levelClass);
         }
 
         // Generate password
         const password = generatePassword();
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const registrationNumber = record.registrationNumber ||
-          `STU${Date.now()}${Math.floor(Math.random() * 1000)}`;
+        // Student ID / Registration Number
+        const registrationNumber = studentIdRaw || `STU${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
-        const fullName = `${record.firstName} ${record.lastName}`;
-        const username = await generateUniqueUsername(client, fullName, user.schoolId as string, batchUsernames);
+        // Generate Username
+        const username = await generateUniqueUsername(client, fullNameRaw, schoolId as string, batchUsernames);
         batchUsernames.add(username);
 
         // Insert student
         const result = await client.query(
           `INSERT INTO students (school_id, category_id, first_name, last_name, full_name, email,
-           phone, date_of_birth, registration_number, username, password_hash)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+           phone, registration_number, username, password_hash, is_active)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true)
            RETURNING *`,
           [
-            user.schoolId,
-            categoryId || record.categoryId || null,
-            record.firstName,
-            record.lastName,
-            fullName,
-            record.email,
-            record.phone || null,
-            record.dateOfBirth || null,
+            schoolId,
+            finalCategoryId,
+            firstName,
+            lastName,
+            fullNameRaw,
+            email,
+            phone || null,
             registrationNumber,
             username,
             hashedPassword
@@ -171,7 +217,7 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
 
         results.success.push({
           ...result.rows[0],
-          generatedPassword: password // Return password for email sending
+          generatedPassword: password
         });
 
         // If Creator is Tutor, assign to them
@@ -180,11 +226,6 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
                 `INSERT INTO student_tutors (student_id, tutor_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
                 [result.rows[0].id, user.tutorId]
             );
-        }
-
-        // TODO: Send email with credentials if sendEmail is true
-        if (sendEmail === 'true') {
-          // Email sending logic would go here
         }
 
       } catch (err: any) {
@@ -434,7 +475,7 @@ router.post('/questions', authenticate, requireRole(['school', 'tutor']), async 
 });
 
 // Download template CSV files
-router.get('/template/:type', authenticate, async (req: Request, res: Response) => {
+router.get('/template/:type', async (req: Request, res: Response) => {
   const { type } = req.params;
 
   let csvContent = '';
@@ -443,9 +484,9 @@ router.get('/template/:type', authenticate, async (req: Request, res: Response) 
   switch (type) {
     case 'students':
       filename = 'students_template.csv';
-      csvContent = 'firstName,lastName,email,phone,dateOfBirth,registrationNumber,categoryId\n' +
-                   'John,Doe,john.doe@example.com,+1234567890,2000-01-15,REG001,\n' +
-                   'Jane,Smith,jane.smith@example.com,+1234567891,2001-03-20,REG002,';
+      csvContent = 'student_id,full_name,email,phone,level_class,target_qualification,department,subject,school_category\n' +
+                   'STU001,Alice Johnson,alice@student.edu,1111111111,"Grades 1-6",Diplomas,Science,Math,Primary\n' +
+                   'STU002,Bob Williams,bob@student.edu,2222222222,"SS1-SS3",Degree,Arts,English,Secondary';
       break;
     case 'tutors':
       filename = 'tutors_template.csv';

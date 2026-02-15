@@ -1,159 +1,87 @@
 import nodemailer from 'nodemailer';
-import { logger } from '../utils/logger';
 
-export class EmailService {
-  private static instance: EmailService;
-  private transporter: nodemailer.Transporter | null = null;
-  private isInitialized = false;
-
-  private constructor() {}
-
-  static getInstance(): EmailService {
-    if (!EmailService.instance) {
-      EmailService.instance = new EmailService();
-    }
-    return EmailService.instance;
-  }
-
-  initialize(): void {
-    if (this.isInitialized) return;
-
-    const smtpHost = process.env.SMTP_HOST;
-    const smtpPort = process.env.SMTP_PORT;
-    const smtpUser = process.env.SMTP_USER;
-    const smtpPass = process.env.SMTP_PASS;
-
-    if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
-      logger.warn('Email service not configured. SMTP credentials missing.');
-      return;
-    }
-
-    this.transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: parseInt(smtpPort),
-      secure: parseInt(smtpPort) === 465,
+// Create a transporter that logs to console if no SMTP config is present
+const createTransporter = () => {
+  if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+    return nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: process.env.SMTP_SECURE === 'true',
       auth: {
-        user: smtpUser,
-        pass: smtpPass
-      }
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
     });
-
-    this.isInitialized = true;
-    logger.info('Email service initialized');
   }
 
-  async sendEmail(to: string, subject: string, html: string): Promise<boolean> {
-    if (!this.transporter || !this.isInitialized) {
-      logger.warn('Email service not initialized. Cannot send email.');
-      return false;
+  // Mock transporter
+  return {
+    sendMail: async (mailOptions: any) => {
+      console.log('---------------------------------------------------');
+      console.log('📧 MOCK EMAIL SENT');
+      console.log('To:', mailOptions.to);
+      console.log('Subject:', mailOptions.subject);
+      console.log('Body:', mailOptions.text);
+      console.log('---------------------------------------------------');
+      return { messageId: 'mock-email-id' };
     }
+  };
+};
 
-    try {
-      const fromEmail = process.env.FROM_EMAIL || process.env.SMTP_USER;
-      const fromName = process.env.FROM_NAME || 'CBT Platform';
-
-      await this.transporter.sendMail({
-        from: `"${fromName}" <${fromEmail}>`,
-        to,
-        subject,
-        html
-      });
-
-      logger.info(`Email sent successfully to ${to}`);
-      return true;
-    } catch (error) {
-      logger.error('Failed to send email:', error);
-      return false;
-    }
+export const sendEmail = async (to: string, subject: string, text: string, html?: string) => {
+  try {
+    const transporter = createTransporter();
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || '"CBT Platform" <noreply@cbtplatform.com>',
+      to,
+      subject,
+      text,
+      html: html || text,
+    });
+    return true;
+  } catch (error) {
+    console.error('Failed to send email:', error);
+    return false;
   }
+};
 
-  async sendWelcomeEmail(to: string, name: string, role: string): Promise<boolean> {
-    const subject = 'Welcome to CBT Platform';
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #4f46e5;">Welcome to CBT Platform!</h2>
-        <p>Hello ${name},</p>
-        <p>Your ${role} account has been created successfully.</p>
-        <p>You can now log in to the platform and start using our features.</p>
-        <p>If you have any questions, please don't hesitate to contact us.</p>
-        <br>
-        <p>Best regards,<br>CBT Platform Team</p>
+export const sendExamCredentials = async (
+  studentEmail: string,
+  studentName: string,
+  examTitle: string,
+  details: {
+    date: string,
+    time: string,
+    username: string,
+    accessCode: string,
+    password?: string
+  }
+) => {
+  const subject = `Exam Credentials: ${examTitle}`;
+  const text = `Hello ${studentName},\n\nYou have been scheduled for the exam: ${examTitle}.\n\nDate: ${details.date}\nTime: ${details.time}\n\nBelow are your login credentials for this exam:\n\nExam Username: ${details.username}\nExam Password: ${details.password || 'N/A'}\nAccess Code: ${details.accessCode}\n\nPlease keep these credentials safe and do not share them.\n\nGood luck!`;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>Exam Scheduled</h2>
+      <p>Hello <strong>${studentName}</strong>,</p>
+      <p>You have been scheduled for the exam: <strong>${examTitle}</strong>.</p>
+
+      <div style="background-color: #f4f4f4; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <p style="margin: 5px 0;"><strong>Date:</strong> ${details.date}</p>
+        <p style="margin: 5px 0;"><strong>Time:</strong> ${details.time}</p>
       </div>
-    `;
 
-    return this.sendEmail(to, subject, html);
-  }
-
-  async sendCredentialsEmail(to: string, name: string, email: string, password: string, role: string): Promise<boolean> {
-    const subject = 'Your CBT Platform Account Credentials';
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #4f46e5;">Your Account Credentials</h2>
-        <p>Hello ${name},</p>
-        <p>Your ${role} account has been created on CBT Platform.</p>
-        <p>Here are your login credentials:</p>
-        <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0;">
-          <p style="margin: 5px 0;"><strong>Email:</strong> ${email}</p>
-          <p style="margin: 5px 0;"><strong>Password:</strong> ${password}</p>
-          <p style="margin: 5px 0;"><strong>Login URL:</strong> <a href="${process.env.FRONTEND_URL}/login">${process.env.FRONTEND_URL}/login</a></p>
-        </div>
-        <p style="color: #dc2626;"><strong>Important:</strong> Please change your password after your first login.</p>
-        <br>
-        <p>Best regards,<br>CBT Platform Team</p>
+      <div style="border: 1px solid #ddd; padding: 15px; border-radius: 5px; margin: 20px 0; background-color: #f9f9f9;">
+        <h3 style="margin-top: 0;">Your Exam Credentials</h3>
+        <p style="margin: 5px 0;"><strong>Exam Username:</strong> <code style="font-size: 1.2em; color: #d63384;">${details.username}</code></p>
+        <p style="margin: 5px 0;"><strong>Exam Password:</strong> <code style="font-size: 1.2em; color: #d63384;">${details.password || 'N/A'}</code></p>
+        <p style="margin: 5px 0;"><strong>Access Code:</strong> <code style="font-size: 1.2em; color: #0d6efd;">${details.accessCode}</code></p>
       </div>
-    `;
 
-    return this.sendEmail(to, subject, html);
-  }
+      <p>Please log in using these credentials at the scheduled time.</p>
+      <p>Good luck!</p>
+    </div>
+  `;
 
-  async sendExamScheduledEmail(to: string, studentName: string, examTitle: string, scheduledDate: string, startTime: string, accessCode: string): Promise<boolean> {
-    const subject = `Exam Scheduled: ${examTitle}`;
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #4f46e5;">Exam Scheduled</h2>
-        <p>Hello ${studentName},</p>
-        <p>You have been scheduled for the following exam:</p>
-        <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0;">
-          <p style="margin: 5px 0;"><strong>Exam:</strong> ${examTitle}</p>
-          <p style="margin: 5px 0;"><strong>Date:</strong> ${scheduledDate}</p>
-          <p style="margin: 5px 0;"><strong>Start Time:</strong> ${startTime}</p>
-          <p style="margin: 5px 0;"><strong>Access Code:</strong> <span style="font-size: 18px; font-weight: bold; color: #4f46e5;">${accessCode}</span></p>
-        </div>
-        <p>Please make sure to:</p>
-        <ul>
-          <li>Log in to the platform before your scheduled time</li>
-          <li>Have a stable internet connection</li>
-          <li>Keep your access code safe</li>
-        </ul>
-        <br>
-        <p>Good luck!<br>CBT Platform Team</p>
-      </div>
-    `;
-
-    return this.sendEmail(to, subject, html);
-  }
-
-  async sendPasswordResetEmail(to: string, name: string, resetToken: string): Promise<boolean> {
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
-    const subject = 'Password Reset Request';
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #4f46e5;">Password Reset Request</h2>
-        <p>Hello ${name},</p>
-        <p>We received a request to reset your password.</p>
-        <p>Click the link below to reset your password:</p>
-        <div style="text-align: center; margin: 20px 0;">
-          <a href="${resetUrl}" style="background: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Reset Password</a>
-        </div>
-        <p>Or copy and paste this link in your browser:</p>
-        <p style="word-break: break-all; color: #6b7280;">${resetUrl}</p>
-        <p style="color: #dc2626;">This link will expire in 1 hour.</p>
-        <p>If you didn't request this, please ignore this email.</p>
-        <br>
-        <p>Best regards,<br>CBT Platform Team</p>
-      </div>
-    `;
-
-    return this.sendEmail(to, subject, html);
-  }
-}
+  return sendEmail(studentEmail, subject, text, html);
+};

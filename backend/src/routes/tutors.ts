@@ -74,6 +74,90 @@ router.get(
   },
 );
 
+// Get students assigned to tutor
+router.get(
+  "/:id/students",
+  authorize("school", "tutor"),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const { categoryId, search } = req.query;
+      const { role, schoolId, tutorId } = req.user!;
+
+      // Permission check
+      if (role === "tutor" && tutorId !== id) {
+        res.status(403).json({ success: false, message: "Access denied" });
+        return;
+      }
+
+      let query = `
+        SELECT s.id, s.student_id, s.full_name, s.email, s.phone, s.category_id,
+               sc.name as category_name, sc.color as category_color,
+               st.assigned_at
+        FROM students s
+        JOIN student_tutors st ON s.id = st.student_id
+        LEFT JOIN student_categories sc ON s.category_id = sc.id
+        WHERE st.tutor_id = $1 AND s.is_active = true
+      `;
+      const params: any[] = [id];
+      let paramIndex = 2;
+
+      if (categoryId) {
+        if (categoryId === 'uncategorized') {
+          query += ` AND s.category_id IS NULL`;
+        } else {
+          query += ` AND s.category_id = $${paramIndex++}`;
+          params.push(categoryId);
+        }
+      }
+
+      if (search) {
+        query += ` AND (s.full_name ILIKE $${paramIndex} OR s.student_id ILIKE $${paramIndex})`;
+        params.push(`%${search}%`);
+      }
+
+      query += ` ORDER BY s.full_name`;
+
+      const result = await db.query(query, params);
+
+      res.json({ success: true, data: result.rows });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Get categories of students assigned to tutor
+router.get(
+  "/:id/categories",
+  authorize("school", "tutor"),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const { role, tutorId } = req.user!;
+
+      if (role === "tutor" && tutorId !== id) {
+        res.status(403).json({ success: false, message: "Access denied" });
+        return;
+      }
+
+      const result = await db.query(
+        `SELECT DISTINCT sc.id, sc.name, sc.color
+         FROM student_categories sc
+         JOIN students s ON sc.id = s.category_id
+         JOIN student_tutors st ON s.id = st.student_id
+         WHERE st.tutor_id = $1 AND sc.is_active = true
+         ORDER BY sc.name`,
+        [id]
+      );
+
+      res.json({ success: true, data: result.rows });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 // Create tutor (school only)
 router.post(
   "/",

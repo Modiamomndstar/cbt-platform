@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  TextInput,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -20,8 +21,8 @@ export default function ProfileScreen({ navigation }: any) {
       'Are you sure you want to logout?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Logout', 
+        {
+          text: 'Logout',
           style: 'destructive',
           onPress: async () => {
             await logout();
@@ -30,6 +31,40 @@ export default function ProfileScreen({ navigation }: any) {
         },
       ]
     );
+  };
+
+  const [changingPassword, setChangingPassword] = React.useState(false);
+  const [currentPassword, setCurrentPassword] = React.useState('');
+  const [newPassword, setNewPassword] = React.useState('');
+  const [confirmPassword, setConfirmPassword] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+
+  const { authAPI } = require('../services/api');
+
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Error', 'New passwords do not match');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await authAPI.changePassword(currentPassword, newPassword);
+      Alert.alert('Success', 'Password changed successfully');
+      setChangingPassword(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.message || 'Failed to change password');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const styles = StyleSheet.create({
@@ -97,6 +132,18 @@ export default function ProfileScreen({ navigation }: any) {
       color: colors.text,
       fontWeight: '500',
     },
+    button: {
+      backgroundColor: colors.primary,
+      padding: spacing.md,
+      borderRadius: 8,
+      alignItems: 'center',
+      marginVertical: spacing.sm,
+    },
+    buttonText: {
+      color: '#fff',
+      fontSize: fontSize.md,
+      fontWeight: '600',
+    },
     logoutButton: {
       backgroundColor: colors.error,
       padding: spacing.md,
@@ -114,6 +161,15 @@ export default function ProfileScreen({ navigation }: any) {
       color: colors.textSecondary,
       fontSize: fontSize.sm,
       marginTop: spacing.md,
+    },
+    input: {
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      padding: spacing.md,
+      marginBottom: spacing.sm,
+      color: colors.text,
     },
   });
 
@@ -145,6 +201,50 @@ export default function ProfileScreen({ navigation }: any) {
             <Text style={styles.infoValue}>{user?.schoolId}</Text>
           </View>
         </View>
+
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => setChangingPassword(!changingPassword)}
+        >
+          <Text style={styles.buttonText}>
+            {changingPassword ? 'Cancel Change Password' : 'Change Password'}
+          </Text>
+        </TouchableOpacity>
+
+        {changingPassword && (
+          <View style={styles.infoCard}>
+            <TextInput
+              style={styles.input}
+              placeholder="Current Password"
+              secureTextEntry
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="New Password"
+              secureTextEntry
+              value={newPassword}
+              onChangeText={setNewPassword}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Confirm New Password"
+              secureTextEntry
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
+            <TouchableOpacity
+              style={[styles.button, { marginTop: spacing.sm }]}
+              onPress={handleChangePassword}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>
+                {loading ? 'Updating...' : 'Update Password'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       <View style={styles.section}>
