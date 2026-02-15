@@ -231,9 +231,9 @@ router.post(
   [
     body("studentId").trim().notEmpty(),
     body("fullName").trim().notEmpty(),
-    body("email").optional().isEmail(),
+    body("email").optional({ checkFalsy: true }).isEmail(),
     body("phone").optional(),
-    body("categoryId").optional().isUUID(),
+    body("categoryId").optional({ checkFalsy: true }).isUUID(),
     validate,
   ],
   async (req, res, next) => {
@@ -292,7 +292,7 @@ router.post(
        RETURNING *`,
         [
           querySchoolId,
-          categoryId,
+          categoryId || null,
           studentId,
           fullName,
           email,
@@ -377,7 +377,7 @@ router.post(
              RETURNING id, student_id, full_name, username`,
               [
                 querySchoolId,
-                categoryId || student.categoryId,
+                (categoryId && categoryId !== "") ? categoryId : (student.categoryId && student.categoryId !== "") ? student.categoryId : null,
                 student.studentId,
                 student.fullName,
                 student.email,
@@ -456,10 +456,14 @@ router.put("/:id", [param("id").isUUID(), validate], async (req, res, next) => {
 
     for (const [key, value] of Object.entries(updates)) {
       if (allowedFields.includes(key) && value !== undefined) {
+        let val = value;
+        if (key === "categoryId" && val === "") val = null;
+        if (typeof val === "string" && val.trim() === "") val = null; // General cleanup for empty strings
+
         setClauses.push(
           `${key === "categoryId" ? "category_id" : key.replace(/[A-Z]/g, (l) => `_${l.toLowerCase()}`)} = $${paramIndex++}`,
         );
-        values.push(value);
+        values.push(val);
       }
     }
 

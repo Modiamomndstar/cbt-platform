@@ -6,17 +6,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { getSchoolById, updateSchool } from '@/lib/dataStore';
+import { schoolAPI } from '@/services/api';
 import { Save, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { School } from '@/types';
 
 export default function SchoolProfile() {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  const [school, setSchool] = useState<School | null>(null);
+
+  const [school, setSchool] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
@@ -26,25 +26,31 @@ export default function SchoolProfile() {
     phone: '',
     address: '',
     description: '',
-    logo: '',
   });
 
   useEffect(() => {
-    if (user?.schoolId) {
-      const schoolData = getSchoolById(user.schoolId);
-      if (schoolData) {
-        setSchool(schoolData);
-        setFormData({
-          name: schoolData.name,
-          email: schoolData.email,
-          phone: schoolData.phone,
-          address: schoolData.address,
-          description: schoolData.description,
-          logo: schoolData.logo || '',
-        });
-        setLogoPreview(schoolData.logo || null);
+    const loadProfile = async () => {
+      try {
+        const response = await schoolAPI.getProfile();
+        if (response.data.success) {
+          const data = response.data.data;
+          setSchool(data);
+          setFormData({
+            name: data.name || '',
+            email: data.email || '',
+            phone: data.phone || '',
+            address: data.address || '',
+            description: data.description || '',
+          });
+          setLogoPreview(data.logo_url || null);
+        }
+      } catch (err) {
+        console.error('Failed to load profile:', err);
+      } finally {
+        setLoading(false);
       }
-    }
+    };
+    loadProfile();
   }, [user]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -60,12 +66,11 @@ export default function SchoolProfile() {
         setError('Logo file size must be less than 2MB');
         return;
       }
-      
+
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result as string;
         setLogoPreview(result);
-        setFormData(prev => ({ ...prev, logo: result }));
       };
       reader.readAsDataURL(file);
     }
@@ -79,33 +84,41 @@ export default function SchoolProfile() {
     setError('');
 
     try {
-      const updated = updateSchool(school.id, {
+      const response = await schoolAPI.updateProfile({
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
         address: formData.address,
         description: formData.description,
-        logo: formData.logo,
       });
 
-      if (updated) {
-        setSchool(updated);
+      if (response.data.success) {
+        setSchool(response.data.data);
         toast.success('School profile updated successfully');
       } else {
         setError('Failed to update profile');
       }
-    } catch (err) {
-      setError('An error occurred. Please try again.');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'An error occurred. Please try again.';
+      setError(msg);
       console.error(err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (!school) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  if (!school) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-gray-500">Failed to load school profile</p>
       </div>
     );
   }
@@ -131,15 +144,15 @@ export default function SchoolProfile() {
               <CardTitle className="text-lg">School Logo</CardTitle>
             </CardHeader>
             <CardContent>
-              <div 
+              <div
                 onClick={() => fileInputRef.current?.click()}
                 className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-indigo-500 transition-colors"
               >
                 {logoPreview ? (
                   <div className="flex flex-col items-center">
-                    <img 
-                      src={logoPreview} 
-                      alt="Logo preview" 
+                    <img
+                      src={logoPreview}
+                      alt="Logo preview"
                       className="h-32 w-32 object-contain mb-4"
                     />
                     <p className="text-sm text-gray-600">Click to change logo</p>
@@ -262,16 +275,16 @@ export default function SchoolProfile() {
               </div>
               <div>
                 <p className="text-gray-500">Created On</p>
-                <p className="font-medium">{new Date(school.createdAt).toLocaleDateString()}</p>
+                <p className="font-medium">{new Date(school.created_at).toLocaleDateString()}</p>
               </div>
               <div>
                 <p className="text-gray-500">Status</p>
                 <span className={`px-2 py-1 text-xs rounded-full ${
-                  school.isActive 
-                    ? 'bg-emerald-100 text-emerald-700' 
+                  school.is_active
+                    ? 'bg-emerald-100 text-emerald-700'
                     : 'bg-red-100 text-red-700'
                 }`}>
-                  {school.isActive ? 'Active' : 'Inactive'}
+                  {school.is_active ? 'Active' : 'Inactive'}
                 </span>
               </div>
             </div>

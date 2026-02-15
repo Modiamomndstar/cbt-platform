@@ -1,21 +1,20 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
+
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { createExam } from '@/lib/dataStore';
-import { ArrowLeft, Save } from 'lucide-react';
+import { examAPI } from '@/services/api';
+import { ArrowLeft, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function CreateExam() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -24,7 +23,7 @@ export default function CreateExam() {
     description: '',
     category: '',
     duration: 60,
-    totalQuestions: 50,
+    totalQuestions: 20,
     passingScore: 50,
     shuffleQuestions: true,
     shuffleOptions: true,
@@ -32,40 +31,18 @@ export default function CreateExam() {
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'number' ? parseInt(value) || 0 : value,
+    }));
     setError('');
-  };
-
-  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: parseInt(value) || 0 }));
-    setError('');
-  };
-
-  const handleSwitchChange = (name: string, checked: boolean) => {
-    setFormData(prev => ({ ...prev, [name]: checked }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.tutorId || !user?.schoolId) return;
-
-    // Validation
     if (!formData.title.trim()) {
       setError('Exam title is required');
-      return;
-    }
-    if (!formData.category.trim()) {
-      setError('Category/Level is required');
-      return;
-    }
-    if (formData.duration < 1) {
-      setError('Duration must be at least 1 minute');
-      return;
-    }
-    if (formData.totalQuestions < 1) {
-      setError('Total questions must be at least 1');
       return;
     }
 
@@ -73,9 +50,7 @@ export default function CreateExam() {
     setError('');
 
     try {
-      const exam = createExam({
-        schoolId: user.schoolId,
-        tutorId: user.tutorId,
+      const response = await examAPI.create({
         title: formData.title,
         description: formData.description,
         category: formData.category,
@@ -87,10 +62,18 @@ export default function CreateExam() {
         showResultImmediately: formData.showResultImmediately,
       });
 
-      toast.success('Exam created successfully');
-      navigate(`/tutor/exams/${exam.id}/questions`);
-    } catch (err) {
-      setError('An error occurred. Please try again.');
+      if (response.data.success) {
+        toast.success('Exam created successfully!');
+        const examId = response.data.data?.id;
+        if (examId) {
+          navigate(`/tutor/exams/${examId}/questions`);
+        } else {
+          navigate('/tutor/exams');
+        }
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to create exam';
+      setError(msg);
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -106,7 +89,7 @@ export default function CreateExam() {
         </Button>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Create New Exam</h1>
-          <p className="text-gray-600">Set up your exam details and configuration</p>
+          <p className="text-gray-600">Set up exam details, then add questions</p>
         </div>
       </div>
 
@@ -118,10 +101,12 @@ export default function CreateExam() {
 
       <form onSubmit={handleSubmit}>
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Basic Info */}
           <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle className="text-lg">Basic Information</CardTitle>
+              <CardTitle className="text-lg flex items-center">
+                <BookOpen className="h-5 w-5 mr-2" />
+                Exam Details
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -132,6 +117,7 @@ export default function CreateExam() {
                   placeholder="e.g., Mathematics Mid-Term Exam"
                   value={formData.title}
                   onChange={handleInputChange}
+                  required
                 />
               </div>
 
@@ -148,25 +134,21 @@ export default function CreateExam() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="category">Category / Level *</Label>
+                <Label htmlFor="category">Category/Subject</Label>
                 <Input
                   id="category"
                   name="category"
-                  placeholder="e.g., SS2, JSS3, Mathematics"
+                  placeholder="e.g., Mathematics, Physics, English"
                   value={formData.category}
                   onChange={handleInputChange}
                 />
-                <p className="text-xs text-gray-500">
-                  This helps organize exams by class or subject
-                </p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Settings */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Exam Settings</CardTitle>
+              <CardTitle className="text-lg">Settings</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -175,9 +157,10 @@ export default function CreateExam() {
                   id="duration"
                   name="duration"
                   type="number"
-                  min={1}
+                  min={5}
+                  max={300}
                   value={formData.duration}
-                  onChange={handleNumberChange}
+                  onChange={handleInputChange}
                 />
               </div>
 
@@ -189,11 +172,8 @@ export default function CreateExam() {
                   type="number"
                   min={1}
                   value={formData.totalQuestions}
-                  onChange={handleNumberChange}
+                  onChange={handleInputChange}
                 />
-                <p className="text-xs text-gray-500">
-                  Number of questions each student will receive
-                </p>
               </div>
 
               <div className="space-y-2">
@@ -205,66 +185,51 @@ export default function CreateExam() {
                   min={0}
                   max={100}
                   value={formData.passingScore}
-                  onChange={handleNumberChange}
+                  onChange={handleInputChange}
                 />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="shuffleQuestions"
+                  checked={formData.shuffleQuestions}
+                  onChange={(e) => setFormData(prev => ({ ...prev, shuffleQuestions: e.target.checked }))}
+                  className="rounded"
+                />
+                <Label htmlFor="shuffleQuestions">Shuffle Questions</Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="shuffleOptions"
+                  checked={formData.shuffleOptions}
+                  onChange={(e) => setFormData(prev => ({ ...prev, shuffleOptions: e.target.checked }))}
+                  className="rounded"
+                />
+                <Label htmlFor="shuffleOptions">Shuffle Options</Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="showResultImmediately"
+                  checked={formData.showResultImmediately}
+                  onChange={(e) => setFormData(prev => ({ ...prev, showResultImmediately: e.target.checked }))}
+                  className="rounded"
+                />
+                <Label htmlFor="showResultImmediately">Show Results to Students</Label>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Options */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="text-lg">Exam Options</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid sm:grid-cols-3 gap-6">
-              <div className="flex items-center justify-between space-x-4">
-                <div>
-                  <p className="font-medium">Shuffle Questions</p>
-                  <p className="text-sm text-gray-500">Randomize question order for each student</p>
-                </div>
-                <Switch
-                  checked={formData.shuffleQuestions}
-                  onCheckedChange={(checked) => handleSwitchChange('shuffleQuestions', checked)}
-                />
-              </div>
-
-              <div className="flex items-center justify-between space-x-4">
-                <div>
-                  <p className="font-medium">Shuffle Options</p>
-                  <p className="text-sm text-gray-500">Randomize answer options for each student</p>
-                </div>
-                <Switch
-                  checked={formData.shuffleOptions}
-                  onCheckedChange={(checked) => handleSwitchChange('shuffleOptions', checked)}
-                />
-              </div>
-
-              <div className="flex items-center justify-between space-x-4">
-                <div>
-                  <p className="font-medium">Show Results Immediately</p>
-                  <p className="text-sm text-gray-500">Display score after exam submission</p>
-                </div>
-                <Switch
-                  checked={formData.showResultImmediately}
-                  onCheckedChange={(checked) => handleSwitchChange('showResultImmediately', checked)}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         <div className="flex justify-end mt-6 space-x-4">
-          <Button 
-            type="button" 
-            variant="outline" 
-            onClick={() => navigate('/tutor/exams')}
-          >
+          <Button type="button" variant="outline" onClick={() => navigate('/tutor/exams')}>
             Cancel
           </Button>
           <Button type="submit" disabled={isLoading}>
-            <Save className="h-4 w-4 mr-2" />
             {isLoading ? 'Creating...' : 'Create Exam'}
           </Button>
         </div>

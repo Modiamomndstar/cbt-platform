@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Update this with your backend URL
-const API_BASE_URL = 'http://YOUR_SERVER_IP:5000/api';
+const API_BASE_URL = 'http://10.122.202.12:5000/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -40,9 +40,11 @@ api.interceptors.response.use(
 
 // Auth API
 export const authAPI = {
-  login: (email: string, password: string, accessCode?: string) =>
-    api.post('/auth/student/login', { email, password, accessCode }),
+  login: (username: string, password: string, accessCode?: string) =>
+    api.post('/auth/student/portal-login', { username, password }),
   getMe: () => api.get('/auth/me'),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.post('/auth/change-password', { currentPassword, newPassword }),
 };
 
 // Schedule API

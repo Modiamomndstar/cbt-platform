@@ -3,8 +3,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { tutorAPI } from '@/services/api';
-import { Users, Search, Loader2, Mail, Phone } from 'lucide-react';
+import { Users, Search, Loader2, Mail, Phone, FileText } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -12,6 +13,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { categoryAPI } from '@/services/api';
+import { toast } from 'sonner';
 
 export default function StudentManagement() {
   const { user } = useAuth();
@@ -23,6 +35,12 @@ export default function StudentManagement() {
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<'all' | 'school' | 'external'>('all');
+
+  // Bulk Actions
+  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
+  const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const [targetCategory, setTargetCategory] = useState<string>('');
+  const [assigning, setAssigning] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
@@ -86,8 +104,8 @@ export default function StudentManagement() {
 
   const loadCategories = async () => {
     try {
-      // Fetch categories associated with this tutor's students
-      const response = await tutorAPI.getCategories(user?.id || '');
+      // Fetch all school categories (so tutors can assign students to any valid category)
+      const response = await categoryAPI.getAll();
       if (response.data.success) {
         setCategories(response.data.data || []);
       }
@@ -99,6 +117,46 @@ export default function StudentManagement() {
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedCategory('all');
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedStudents.size === students.length) {
+      setSelectedStudents(new Set());
+    } else {
+      setSelectedStudents(new Set(students.map(s => s.id)));
+    }
+  };
+
+  const toggleSelectStudent = (id: string) => {
+    const newSelected = new Set(selectedStudents);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedStudents(newSelected);
+  };
+
+  const handleBulkAssign = async () => {
+    if (!targetCategory) {
+      toast.error('Please select a category');
+      return;
+    }
+
+    setAssigning(true);
+    try {
+      await categoryAPI.addStudents(targetCategory, Array.from(selectedStudents));
+      toast.success(`Assigned ${selectedStudents.size} students to category`);
+      setIsAssignOpen(false);
+      setSelectedStudents(new Set());
+      setTargetCategory('');
+      loadData(); // Reload to reflect changes
+    } catch (err) {
+      console.error('Failed to assign category:', err);
+      toast.error('Failed to assign category');
+    } finally {
+      setAssigning(false);
+    }
   };
 
   return (
@@ -128,6 +186,7 @@ export default function StudentManagement() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
+              <SelectItem value="uncategorized">Uncategorized</SelectItem>
               {categories.map((cat: any) => (
                 <SelectItem key={cat.id || cat.category_id} value={cat.id || cat.category_id}>
                   {cat.name || cat.category_name}
@@ -137,6 +196,20 @@ export default function StudentManagement() {
           </Select>
         </div>
       </div>
+
+      {selectedStudents.size > 0 && (
+        <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-lg flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-indigo-900">{selectedStudents.size} selected</span>
+            <Button variant="outline" size="sm" onClick={() => setSelectedStudents(new Set())} className="text-xs h-7 border-indigo-200 text-indigo-700 bg-white hover:bg-indigo-100">
+              Clear
+            </Button>
+          </div>
+          <Button size="sm" onClick={() => setIsAssignOpen(true)}>
+             Assign Category
+          </Button>
+        </div>
+      )}
 
       {/* Student Type Filters */}
       <div className="flex space-x-2 border-b border-gray-200">
@@ -203,6 +276,13 @@ export default function StudentManagement() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b">
                   <tr>
+                    <th className="px-4 py-3 w-12">
+                      <Checkbox
+                        checked={students.length > 0 && selectedStudents.size === students.length}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Select all"
+                      />
+                    </th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Student Info</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Category/Level</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Contact</th>
@@ -212,6 +292,13 @@ export default function StudentManagement() {
                 <tbody className="divide-y divide-gray-200">
                   {students.map((student) => (
                     <tr key={student.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3">
+                        <Checkbox
+                          checked={selectedStudents.has(student.id)}
+                          onCheckedChange={() => toggleSelectStudent(student.id)}
+                          aria-label={`Select ${student.full_name}`}
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold shrink-0">
@@ -269,9 +356,14 @@ export default function StudentManagement() {
                       <td className="px-4 py-3">
                          {/* Placeholder for performance stats or actions */}
                          <div className="flex items-center gap-2">
-                           <Badge variant="secondary" className="bg-gray-100 text-gray-600 hover:bg-gray-200">
-                             History
-                           </Badge>
+                           <Button
+                             variant="ghost"
+                             size="sm"
+                             onClick={() => window.open(`/report-card/${student.id}`, '_blank')}
+                             title="View Report Card"
+                           >
+                             <FileText className="h-4 w-4" />
+                           </Button>
                          </div>
                       </td>
                     </tr>
@@ -294,6 +386,43 @@ export default function StudentManagement() {
           )}
         </CardContent>
       </Card>
+      <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign Category to {selectedStudents.size} Students</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Select Category</Label>
+              <Select value={targetCategory} onValueChange={setTargetCategory}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a category..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((cat: any) => (
+                    <SelectItem key={cat.id || cat.category_id} value={cat.id || cat.category_id}>
+                      {cat.name || cat.category_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAssignOpen(false)}>Cancel</Button>
+            <Button onClick={handleBulkAssign} disabled={assigning || !targetCategory}>
+              {assigning ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Assigning...
+                </>
+              ) : (
+                'Assign Category'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

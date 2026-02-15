@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { scheduleAPI, resultAPI } from '@/services/api';
-import { Calendar, Clock, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react';
+import { Calendar, Clock, CheckCircle, AlertCircle, ArrowRight, FileText } from 'lucide-react';
 
 export default function StudentDashboard() {
   const navigate = useNavigate();
@@ -57,9 +57,15 @@ export default function StudentDashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Student Dashboard</h1>
-        <p className="text-gray-600">View your upcoming and completed exams</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Student Dashboard</h1>
+          <p className="text-gray-600">View your upcoming and completed exams</p>
+        </div>
+        <Button onClick={() => window.open(`/report-card/${user?.id}`, '_blank')}>
+          <FileText className="h-4 w-4 mr-2" />
+          My Report Card
+        </Button>
       </div>
 
       {/* Upcoming Exams */}

@@ -7,16 +7,20 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import {
-  getExamById,
-  getQuestionsByExam,
-  createQuestion,
-  createQuestionsBulk,
-  deleteQuestion
-} from '@/lib/dataStore';
+import { examAPI, questionAPI } from '@/services/api';
 import {
   parseCSV,
   validateQuestionCSV,
@@ -24,32 +28,28 @@ import {
   type QuestionCSVRow
 } from '@/lib/csvParser';
 import {
-  generateQuestionsFromMaterial,
-  generateQuestionsFromTopics
-} from '@/lib/aiQuestionGenerator';
-import {
   Plus,
   Upload,
   Download,
   Trash2,
   ArrowLeft,
   FileSpreadsheet,
-  Sparkles,
   BookOpen,
-  Loader2
+  Sparkles,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Question } from '@/types';
 
 export default function QuestionBank() {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
 
   const [exam, setExam] = useState<any>(null);
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<any[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
-  const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
+  const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Add question form
@@ -74,36 +74,64 @@ export default function QuestionBank() {
   const [uploadErrors, setUploadErrors] = useState<string[]>([]);
 
   // AI Generation
-  const [learningMaterial, setLearningMaterial] = useState('');
-  const [topics, setTopics] = useState('');
-  const [generateCount, setGenerateCount] = useState(10);
-  const [generateDifficulty, setGenerateDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [aiMode, setAiMode] = useState<'topic' | 'content'>('topic');
+  const [aiForm, setAiForm] = useState({
+    topic: '',
+    subject: '',
+    content: '',
+    numQuestions: 5,
+    difficulty: 'medium',
+    questionType: 'multiple_choice',
+  });
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiPreview, setAiPreview] = useState<any[]>([]);
 
   useEffect(() => {
     if (examId) {
-      const examData = getExamById(examId);
-      if (examData) {
-        setExam(examData);
-        loadQuestions();
-      } else {
-        navigate('/tutor/exams');
-      }
+      loadExamAndQuestions();
     }
   }, [examId]);
 
-  const loadQuestions = () => {
-    if (examId) {
-      const examQuestions = getQuestionsByExam(examId);
-      setQuestions(examQuestions);
+  const loadExamAndQuestions = async () => {
+    if (!examId) return;
+    try {
+      const [examRes, questionsRes] = await Promise.all([
+        examAPI.getById(examId),
+        questionAPI.getByExam(examId),
+      ]);
+      if (examRes.data.success) {
+        setExam(examRes.data.data);
+      } else {
+        navigate('/tutor/exams');
+        return;
+      }
+      if (questionsRes.data.success) {
+        setQuestions(questionsRes.data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to load exam:', err);
+      navigate('/tutor/exams');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleAddQuestion = (e: React.FormEvent) => {
+  const loadQuestions = async () => {
+    if (!examId) return;
+    try {
+      const response = await questionAPI.getByExam(examId);
+      if (response.data.success) {
+        setQuestions(response.data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to load questions:', err);
+    }
+  };
+
+  const handleAddQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!examId) return;
 
-    // Use a switch to handle all question types without type narrowing issues
     let options: string[] = [];
     let correctAnswer: string | number = newQuestion.correctAnswer;
 
@@ -122,27 +150,32 @@ export default function QuestionBank() {
         break;
     }
 
-    createQuestion({
-      examId,
-      questionText: newQuestion.questionText,
-      questionType: newQuestion.questionType,
-      options,
-      correctAnswer,
-      marks: newQuestion.marks,
-      difficulty: newQuestion.difficulty,
-    });
+    try {
+      await questionAPI.create({
+        examId,
+        questionText: newQuestion.questionText,
+        questionType: newQuestion.questionType,
+        options,
+        correctAnswer,
+        marks: newQuestion.marks,
+        difficulty: newQuestion.difficulty,
+      });
 
-    toast.success('Question added successfully');
-    setNewQuestion({
-      questionText: '',
-      questionType: 'multiple_choice',
-      options: ['', '', '', ''],
-      correctAnswer: '0',
-      marks: 5,
-      difficulty: 'medium',
-    });
-    setIsAddDialogOpen(false);
-    loadQuestions();
+      toast.success('Question added successfully');
+      setNewQuestion({
+        questionText: '',
+        questionType: 'multiple_choice',
+        options: ['', '', '', ''],
+        correctAnswer: '0',
+        marks: 5,
+        difficulty: 'medium',
+      });
+      setIsAddDialogOpen(false);
+      loadQuestions();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to add question';
+      toast.error(msg);
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -168,13 +201,12 @@ export default function QuestionBank() {
     }
   };
 
-  const handleBulkUpload = () => {
+  const handleBulkUpload = async () => {
     if (!examId || uploadPreview.length === 0) return;
 
     const questionsToCreate = uploadPreview.map(row => {
       const options = [row.option1, row.option2, row.option3, row.option4].filter(Boolean) as string[];
       return {
-        examId,
         questionText: row.questionText,
         questionType: row.questionType,
         options,
@@ -186,68 +218,31 @@ export default function QuestionBank() {
       };
     });
 
-    createQuestionsBulk(questionsToCreate);
-    toast.success(`${questionsToCreate.length} questions added successfully`);
-    setIsUploadDialogOpen(false);
-    setUploadPreview([]);
-    setUploadErrors([]);
-    loadQuestions();
-  };
-
-  const handleGenerateQuestions = async () => {
-    if (!examId) return;
-
-    setIsGenerating(true);
-
     try {
-      let generatedQuestions: Omit<Question, 'id' | 'examId'>[] = [];
-
-      if (learningMaterial.trim()) {
-        // Generate from learning material
-        const topicsList = topics.split(',').map(t => t.trim()).filter(Boolean);
-        generatedQuestions = generateQuestionsFromMaterial(
-          learningMaterial,
-          topicsList.length > 0 ? topicsList : ['General'],
-          generateCount
-        );
-      } else if (topics.trim()) {
-        // Generate from topics only
-        const topicsList = topics.split(',').map(t => t.trim()).filter(Boolean);
-        generatedQuestions = generateQuestionsFromTopics(
-          topicsList,
-          generateDifficulty,
-          generateCount
-        );
-      } else {
-        toast.error('Please provide learning material or topics');
-        setIsGenerating(false);
-        return;
-      }
-
-      const questionsToCreate = generatedQuestions.map(q => ({
-        examId,
-        ...q,
-      }));
-
-      createQuestionsBulk(questionsToCreate);
-      toast.success(`${questionsToCreate.length} questions generated successfully`);
-      setIsGenerateDialogOpen(false);
-      setLearningMaterial('');
-      setTopics('');
+      await questionAPI.bulkCreate(examId, questionsToCreate);
+      toast.success(`${questionsToCreate.length} questions added successfully`);
+      setIsUploadDialogOpen(false);
+      setUploadPreview([]);
+      setUploadErrors([]);
       loadQuestions();
-    } catch (error) {
-      toast.error('Error generating questions');
-      console.error(error);
-    } finally {
-      setIsGenerating(false);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to upload questions';
+      toast.error(msg);
     }
   };
 
-  const handleDeleteQuestion = (questionId: string) => {
-    if (confirm('Are you sure you want to delete this question?')) {
-      deleteQuestion(questionId);
+  const [questionToDelete, setQuestionToDelete] = useState<string | null>(null);
+
+  const confirmDeleteQuestion = async () => {
+    if (!questionToDelete) return;
+    try {
+      await questionAPI.delete(questionToDelete);
       toast.success('Question deleted');
       loadQuestions();
+    } catch (err: any) {
+      toast.error('Failed to delete question');
+    } finally {
+      setQuestionToDelete(null);
     }
   };
 
@@ -257,10 +252,99 @@ export default function QuestionBank() {
     setNewQuestion(prev => ({ ...prev, options: newOptions }));
   };
 
-  if (!exam) {
+  // AI Generation
+  const handleAIGenerate = async () => {
+    if (aiMode === 'topic' && !aiForm.topic.trim()) {
+      toast.error('Please enter a topic');
+      return;
+    }
+    if (aiMode === 'content' && !aiForm.content.trim()) {
+      toast.error('Please provide learning content');
+      return;
+    }
+
+    setAiGenerating(true);
+    setAiPreview([]);
+
+    try {
+      const payload: any = {
+        numQuestions: aiForm.numQuestions,
+        difficulty: aiForm.difficulty,
+        questionType: aiForm.questionType,
+        subject: aiForm.subject || exam?.category || '',
+      };
+
+      if (aiMode === 'topic') {
+        payload.topic = aiForm.topic;
+      } else {
+        // For content-based, we pass the content as the topic context
+        payload.topic = `Based on the following learning content, generate questions:\n\n${aiForm.content}`;
+      }
+
+      const response = await questionAPI.aiGenerate(payload);
+
+      if (response.data.success) {
+        setAiPreview(response.data.data || []);
+        toast.success(`${(response.data.data || []).length} questions generated!`);
+      } else {
+        toast.error(response.data.message || 'AI generation failed');
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to generate questions. Make sure AI is configured.';
+      toast.error(msg);
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  const handleSaveAIQuestions = async () => {
+    if (!examId || aiPreview.length === 0) return;
+
+    try {
+      const questionsToCreate = aiPreview.map((q) => {
+        // Convert correctAnswer from text to index
+        let correctAnswer: string | number = 0;
+        if (q.options && q.options.length > 0) {
+          const idx = q.options.findIndex((o: string) => o === q.correctAnswer);
+          correctAnswer = idx >= 0 ? idx : 0;
+        } else {
+          correctAnswer = q.correctAnswer;
+        }
+
+        return {
+          questionText: q.questionText,
+          questionType: q.questionType || aiForm.questionType,
+          options: q.options || [],
+          correctAnswer,
+          marks: q.marks || 5,
+          difficulty: q.difficulty || aiForm.difficulty,
+        };
+      });
+
+      await questionAPI.bulkCreate(examId, questionsToCreate);
+      toast.success(`${questionsToCreate.length} AI-generated questions saved!`);
+      setIsAIDialogOpen(false);
+      setAiPreview([]);
+      setAiForm({ topic: '', subject: '', content: '', numQuestions: 5, difficulty: 'medium', questionType: 'multiple_choice' });
+      loadQuestions();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to save questions';
+      toast.error(msg);
+    }
+  };
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  if (!exam) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-gray-500">Exam not found</p>
       </div>
     );
   }
@@ -279,89 +363,126 @@ export default function QuestionBank() {
           </div>
         </div>
         <div className="flex space-x-2">
-          <Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
+          {/* AI Generate Dialog */}
+          <Dialog open={isAIDialogOpen} onOpenChange={setIsAIDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200 text-purple-700 hover:from-purple-100 hover:to-blue-100">
                 <Sparkles className="h-4 w-4 mr-2" />
                 AI Generate
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Generate Questions with AI</DialogTitle>
+                <DialogTitle className="flex items-center">
+                  <Sparkles className="h-5 w-5 mr-2 text-purple-600" />
+                  AI Question Generator
+                </DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
-                <Tabs defaultValue="material">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="material">From Material</TabsTrigger>
-                    <TabsTrigger value="topics">From Topics</TabsTrigger>
-                  </TabsList>
+                {/* Mode selector */}
+                <div className="flex rounded-lg border overflow-hidden">
+                  <button
+                    onClick={() => setAiMode('topic')}
+                    className={`flex-1 py-2 px-4 text-sm font-medium transition-colors ${
+                      aiMode === 'topic'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    📝 From Topic
+                  </button>
+                  <button
+                    onClick={() => setAiMode('content')}
+                    className={`flex-1 py-2 px-4 text-sm font-medium transition-colors ${
+                      aiMode === 'content'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    📖 From Content
+                  </button>
+                </div>
 
-                  <TabsContent value="material" className="space-y-4">
+                {aiMode === 'topic' ? (
+                  <>
                     <div className="space-y-2">
-                      <Label>Learning Material</Label>
-                      <Textarea
-                        placeholder="Paste your learning material, notes, or textbook content here..."
-                        value={learningMaterial}
-                        onChange={(e) => setLearningMaterial(e.target.value)}
-                        rows={6}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Topics (optional, comma-separated)</Label>
+                      <Label>Topic *</Label>
                       <Input
-                        placeholder="e.g., Algebra, Geometry, Calculus"
-                        value={topics}
-                        onChange={(e) => setTopics(e.target.value)}
+                        placeholder="e.g., Photosynthesis, World War II, Quadratic Equations"
+                        value={aiForm.topic}
+                        onChange={(e) => setAiForm(prev => ({ ...prev, topic: e.target.value }))}
                       />
                     </div>
-                  </TabsContent>
-
-                  <TabsContent value="topics" className="space-y-4">
                     <div className="space-y-2">
-                      <Label>Topics (comma-separated)</Label>
+                      <Label>Subject</Label>
                       <Input
-                        placeholder="e.g., Algebra, Geometry, Calculus"
-                        value={topics}
-                        onChange={(e) => setTopics(e.target.value)}
+                        placeholder="e.g., Biology, History, Mathematics"
+                        value={aiForm.subject}
+                        onChange={(e) => setAiForm(prev => ({ ...prev, subject: e.target.value }))}
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label>Difficulty</Label>
-                      <Select value={generateDifficulty} onValueChange={(v: any) => setGenerateDifficulty(v)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="easy">Easy</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="hard">Hard</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </TabsContent>
-                </Tabs>
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>Learning Content / Context *</Label>
+                    <Textarea
+                      placeholder="Paste your lecture notes, textbook content, or any learning material here. The AI will generate questions based on this content..."
+                      value={aiForm.content}
+                      onChange={(e) => setAiForm(prev => ({ ...prev, content: e.target.value }))}
+                      rows={8}
+                    />
+                    <p className="text-xs text-gray-500">
+                      The AI will analyze this content and create questions directly from it.
+                    </p>
+                  </div>
+                )}
 
-                <div className="space-y-2">
-                  <Label>Number of Questions</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={50}
-                    value={generateCount}
-                    onChange={(e) => setGenerateCount(parseInt(e.target.value) || 10)}
-                  />
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Number of Questions</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={aiForm.numQuestions}
+                      onChange={(e) => setAiForm(prev => ({ ...prev, numQuestions: parseInt(e.target.value) || 5 }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Difficulty</Label>
+                    <select
+                      className="w-full border rounded-md p-2 text-sm"
+                      value={aiForm.difficulty}
+                      onChange={(e) => setAiForm(prev => ({ ...prev, difficulty: e.target.value }))}
+                    >
+                      <option value="easy">Easy</option>
+                      <option value="medium">Medium</option>
+                      <option value="hard">Hard</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Question Type</Label>
+                    <select
+                      className="w-full border rounded-md p-2 text-sm"
+                      value={aiForm.questionType}
+                      onChange={(e) => setAiForm(prev => ({ ...prev, questionType: e.target.value }))}
+                    >
+                      <option value="multiple_choice">Multiple Choice</option>
+                      <option value="true_false">True/False</option>
+                      <option value="fill_blank">Fill in Blank</option>
+                    </select>
+                  </div>
                 </div>
 
                 <Button
-                  className="w-full"
-                  onClick={handleGenerateQuestions}
-                  disabled={isGenerating}
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                  onClick={handleAIGenerate}
+                  disabled={aiGenerating}
                 >
-                  {isGenerating ? (
+                  {aiGenerating ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Generating...
+                      Generating Questions...
                     </>
                   ) : (
                     <>
@@ -370,22 +491,61 @@ export default function QuestionBank() {
                     </>
                   )}
                 </Button>
+
+                {/* AI Preview */}
+                {aiPreview.length > 0 && (
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium text-green-700">
+                      ✅ {aiPreview.length} questions generated! Review and save:
+                    </p>
+                    <div className="max-h-64 overflow-auto border rounded-lg divide-y">
+                      {aiPreview.map((q, i) => (
+                        <div key={i} className="p-3">
+                          <p className="text-sm font-medium mb-1">Q{i + 1}: {q.questionText}</p>
+                          {q.options && q.options.length > 0 && (
+                            <div className="ml-4 space-y-0.5">
+                              {q.options.map((opt: string, j: number) => (
+                                <p
+                                  key={j}
+                                  className={`text-xs ${opt === q.correctAnswer ? 'text-green-600 font-medium' : 'text-gray-600'}`}
+                                >
+                                  {String.fromCharCode(65 + j)}. {opt}
+                                  {opt === q.correctAnswer && ' ✓'}
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      className="w-full"
+                      onClick={handleSaveAIQuestions}
+                    >
+                      Save All {aiPreview.length} Questions to Exam
+                    </Button>
+                  </div>
+                )}
               </div>
             </DialogContent>
           </Dialog>
 
+          {/* CSV Upload Dialog */}
           <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline">
                 <Upload className="h-4 w-4 mr-2" />
-                Bulk Upload
+                CSV Upload
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Bulk Upload Questions</DialogTitle>
+                <DialogTitle>Bulk Upload Questions via CSV</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
+                <p className="text-sm text-gray-500">
+                  Download the CSV template, fill in your questions, then upload to add them in bulk.
+                </p>
                 <div className="flex justify-between items-center">
                   <Button
                     variant="outline"
@@ -405,6 +565,19 @@ export default function QuestionBank() {
                     <FileSpreadsheet className="h-4 w-4 mr-2" />
                     Select File
                   </Button>
+                </div>
+
+                {/* Template info */}
+                <div className="bg-blue-50 p-3 rounded-lg text-sm">
+                  <p className="font-medium text-blue-800 mb-1">CSV Template Columns:</p>
+                  <p className="text-blue-700 text-xs">
+                    <code className="bg-blue-100 px-1 rounded">questionText</code>,{' '}
+                    <code className="bg-blue-100 px-1 rounded">questionType</code> (multiple_choice/true_false/fill_blank),{' '}
+                    <code className="bg-blue-100 px-1 rounded">option1-4</code>,{' '}
+                    <code className="bg-blue-100 px-1 rounded">correctAnswer</code> (index for MC, text for fill),{' '}
+                    <code className="bg-blue-100 px-1 rounded">marks</code>,{' '}
+                    <code className="bg-blue-100 px-1 rounded">difficulty</code>
+                  </p>
                 </div>
 
                 {uploadErrors.length > 0 && (
@@ -462,6 +635,7 @@ export default function QuestionBank() {
             </DialogContent>
           </Dialog>
 
+          {/* Manual Add Dialog */}
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -598,7 +772,7 @@ export default function QuestionBank() {
       {/* Questions List */}
       <div className="space-y-4">
         {questions.length > 0 ? (
-          questions.map((question, index) => (
+          questions.map((question: any, index: number) => (
             <Card key={question.id}>
               <CardContent className="p-4">
                 <div className="flex justify-between items-start">
@@ -612,23 +786,25 @@ export default function QuestionBank() {
                         {question.difficulty}
                       </Badge>
                       <Badge variant="outline">{question.marks} marks</Badge>
-                      <Badge variant="outline">{question.questionType.replace('_', ' ')}</Badge>
+                      <Badge variant="outline">{(question.question_type || question.questionType || '').replace('_', ' ')}</Badge>
                     </div>
-                    <p className="text-gray-900 mb-3">{question.questionText}</p>
+                    <p className="text-gray-900 mb-3">{question.question_text || question.questionText}</p>
 
-                    {question.options.length > 0 && (
+                    {(question.options || []).length > 0 && (
                       <div className="space-y-1 ml-4">
-                        {question.options.map((option, i) => (
+                        {question.options.map((option: string, i: number) => (
                           <div
                             key={i}
                             className={`text-sm ${
-                              i === (typeof question.correctAnswer === 'number' ? question.correctAnswer : 0)
+                              i === (typeof question.correct_answer === 'number' ? question.correct_answer :
+                                     typeof question.correctAnswer === 'number' ? question.correctAnswer : 0)
                                 ? 'text-emerald-600 font-medium'
                                 : 'text-gray-600'
                             }`}
                           >
                             {String.fromCharCode(65 + i)}. {option}
-                            {i === (typeof question.correctAnswer === 'number' ? question.correctAnswer : 0) && (
+                            {i === (typeof question.correct_answer === 'number' ? question.correct_answer :
+                                    typeof question.correctAnswer === 'number' ? question.correctAnswer : 0) && (
                               <span className="ml-2 text-xs">(Correct)</span>
                             )}
                           </div>
@@ -636,16 +812,16 @@ export default function QuestionBank() {
                       </div>
                     )}
 
-                    {question.questionType === 'fill_blank' && (
+                    {(question.question_type || question.questionType) === 'fill_blank' && (
                       <p className="text-sm text-emerald-600 ml-4">
-                        Answer: {question.correctAnswer}
+                        Answer: {question.correct_answer || question.correctAnswer}
                       </p>
                     )}
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleDeleteQuestion(question.id)}
+                    onClick={() => setQuestionToDelete(question.id)}
                     className="text-red-600 hover:text-red-700 hover:bg-red-50"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -659,8 +835,16 @@ export default function QuestionBank() {
             <CardContent className="py-12 text-center">
               <BookOpen className="h-16 w-16 mx-auto mb-4 text-gray-300" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No questions yet</h3>
-              <p className="text-gray-500 mb-4">Add questions manually, upload in bulk, or generate with AI</p>
+              <p className="text-gray-500 mb-4">Add questions manually, upload via CSV, or generate with AI</p>
               <div className="flex justify-center space-x-2">
+                <Button variant="outline" onClick={() => setIsAIDialogOpen(true)}>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  AI Generate
+                </Button>
+                <Button variant="outline" onClick={() => setIsUploadDialogOpen(true)}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  CSV Upload
+                </Button>
                 <Button onClick={() => setIsAddDialogOpen(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add Question
@@ -670,6 +854,23 @@ export default function QuestionBank() {
           </Card>
         )}
       </div>
+
+      <AlertDialog open={!!questionToDelete} onOpenChange={(open) => !open && setQuestionToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Question?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this question? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteQuestion} className="bg-red-600 hover:bg-red-700">
+              Delete Question
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

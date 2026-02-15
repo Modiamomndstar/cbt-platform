@@ -1,29 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { 
-  getSchools, 
-  updateSchool,
-  getTutorsBySchool,
-  getStudentsBySchool,
-  getExamsBySchool 
-} from '@/lib/dataStore';
-import { Search, School, Mail, Phone, CheckCircle, XCircle } from 'lucide-react';
-import { toast } from 'sonner';
-import type { School as SchoolType } from '@/types';
-
-interface SchoolWithStats extends SchoolType {
-  tutorCount: number;
-  studentCount: number;
-  examCount: number;
-}
+import { analyticsAPI } from '@/services/api';
+import { Search, School, Mail } from 'lucide-react';
 
 export default function SchoolsManagement() {
-  const [schools, setSchools] = useState<SchoolWithStats[]>([]);
-  const [filteredSchools, setFilteredSchools] = useState<SchoolWithStats[]>([]);
+  const [schools, setSchools] = useState<any[]>([]);
+  const [filteredSchools, setFilteredSchools] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadSchools();
@@ -31,9 +17,9 @@ export default function SchoolsManagement() {
 
   useEffect(() => {
     if (searchQuery) {
-      const filtered = schools.filter(school => 
-        school.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        school.email.toLowerCase().includes(searchQuery.toLowerCase())
+      const filtered = schools.filter((school: any) =>
+        (school.school_name || school.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (school.email || '').toLowerCase().includes(searchQuery.toLowerCase())
       );
       setFilteredSchools(filtered);
     } else {
@@ -41,23 +27,28 @@ export default function SchoolsManagement() {
     }
   }, [searchQuery, schools]);
 
-  const loadSchools = () => {
-    const allSchools = getSchools();
-    const schoolsWithStats = allSchools.map(school => ({
-      ...school,
-      tutorCount: getTutorsBySchool(school.id).length,
-      studentCount: getStudentsBySchool(school.id).length,
-      examCount: getExamsBySchool(school.id).length,
-    }));
-    setSchools(schoolsWithStats);
-    setFilteredSchools(schoolsWithStats);
+  const loadSchools = async () => {
+    try {
+      const response = await analyticsAPI.getSuperAdminOverview();
+      if (response.data.success) {
+        const data = response.data.data;
+        setSchools(data.recentSchools || []);
+        setFilteredSchools(data.recentSchools || []);
+      }
+    } catch (err) {
+      console.error('Failed to load schools:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const toggleSchoolStatus = (school: SchoolWithStats) => {
-    updateSchool(school.id, { isActive: !school.isActive });
-    toast.success(`School ${school.isActive ? 'deactivated' : 'activated'} successfully`);
-    loadSchools();
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -81,29 +72,23 @@ export default function SchoolsManagement() {
 
       {/* Schools Grid */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredSchools.map((school) => (
+        {filteredSchools.map((school: any) => (
           <Card key={school.id} className="hover:shadow-lg transition-shadow">
             <CardHeader className="pb-3">
               <div className="flex justify-between items-start">
                 <div className="flex items-center space-x-3">
-                  {school.logo ? (
-                    <img 
-                      src={school.logo} 
-                      alt={school.name} 
-                      className="h-12 w-12 object-contain rounded-lg"
-                    />
-                  ) : (
-                    <div className="h-12 w-12 bg-indigo-100 rounded-lg flex items-center justify-center">
-                      <School className="h-6 w-6 text-indigo-600" />
-                    </div>
-                  )}
+                  <div className="h-12 w-12 bg-indigo-100 rounded-lg flex items-center justify-center">
+                    <School className="h-6 w-6 text-indigo-600" />
+                  </div>
                   <div>
-                    <CardTitle className="text-lg">{school.name}</CardTitle>
-                    <Badge 
-                      variant={school.isActive ? 'default' : 'secondary'}
-                      className={school.isActive ? 'bg-emerald-500' : ''}
+                    <CardTitle className="text-lg">
+                      {school.school_name || school.name || 'Unknown School'}
+                    </CardTitle>
+                    <Badge
+                      variant={school.subscription_status === 'active' ? 'default' : 'secondary'}
+                      className={school.subscription_status === 'active' ? 'bg-emerald-500' : ''}
                     >
-                      {school.isActive ? 'Active' : 'Inactive'}
+                      {school.subscription_status || 'Free'}
                     </Badge>
                   </div>
                 </div>
@@ -113,49 +98,21 @@ export default function SchoolsManagement() {
               <div className="space-y-2 mb-4">
                 <div className="flex items-center text-sm text-gray-600">
                   <Mail className="h-4 w-4 mr-2" />
-                  {school.email}
+                  {school.email || '-'}
                 </div>
-                <div className="flex items-center text-sm text-gray-600">
-                  <Phone className="h-4 w-4 mr-2" />
-                  {school.phone}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                <div className="bg-gray-50 rounded p-2 text-center">
-                  <p className="text-lg font-semibold">{school.tutorCount}</p>
-                  <p className="text-xs text-gray-500">Tutors</p>
-                </div>
-                <div className="bg-gray-50 rounded p-2 text-center">
-                  <p className="text-lg font-semibold">{school.studentCount}</p>
-                  <p className="text-xs text-gray-500">Students</p>
-                </div>
-                <div className="bg-gray-50 rounded p-2 text-center">
-                  <p className="text-lg font-semibold">{school.examCount}</p>
-                  <p className="text-xs text-gray-500">Exams</p>
-                </div>
+                {school.country && (
+                  <div className="text-sm text-gray-600">
+                    📍 {school.country}
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-between items-center text-sm text-gray-500">
-                <span>Registered: {new Date(school.createdAt).toLocaleDateString()}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => toggleSchoolStatus(school)}
-                  className={school.isActive ? 'text-red-600 hover:text-red-700' : 'text-emerald-600 hover:text-emerald-700'}
-                >
-                  {school.isActive ? (
-                    <>
-                      <XCircle className="h-4 w-4 mr-1" />
-                      Deactivate
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="h-4 w-4 mr-1" />
-                      Activate
-                    </>
-                  )}
-                </Button>
+                <span>
+                  Registered: {school.created_at
+                    ? new Date(school.created_at).toLocaleDateString()
+                    : '-'}
+                </span>
               </div>
             </CardContent>
           </Card>

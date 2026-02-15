@@ -90,9 +90,9 @@ router.post('/', authorize('tutor'), [
     const schoolId = req.user!.schoolId;
 
     const result = await db.query(
-      `INSERT INTO exams (school_id, tutor_id, title, description, category, duration, total_questions,
+      `INSERT INTO exams (school_id, tutor_id, title, description, category, duration, duration_minutes, total_questions,
                           passing_score, shuffle_questions, shuffle_options, show_result_immediately)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [schoolId, tutorId, title, description, category, duration, totalQuestions,
        passingScore || 50, shuffleQuestions ?? true, shuffleOptions ?? true, showResultImmediately ?? true]
@@ -124,6 +124,12 @@ router.put('/:id', [
         const dbField = key.replace(/[A-Z]/g, l => `_${l.toLowerCase()}`);
         setClauses.push(`${dbField} = $${paramIndex++}`);
         values.push(value);
+
+        // Sync duration_minutes with duration
+        if (key === 'duration') {
+          setClauses.push(`duration_minutes = $${paramIndex++}`);
+          values.push(value);
+        }
       }
     }
 
@@ -133,12 +139,12 @@ router.put('/:id', [
 
     values.push(id);
     let query = `UPDATE exams SET ${setClauses.join(', ')}, updated_at = NOW() WHERE id = $${paramIndex}`;
-    
+
     if (role === 'tutor') {
       query += ` AND tutor_id = $${paramIndex + 1}`;
       values.push(tutorId);
     }
-    
+
     query += ' RETURNING *';
 
     const result = await db.query(query, values);

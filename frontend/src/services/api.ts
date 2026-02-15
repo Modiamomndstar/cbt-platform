@@ -6,7 +6,7 @@ import type {
 } from "axios";
 
 // prefer a relative path when the frontend and backend share the same origin (nginx proxy)
-const API_BASE_URL = import.meta.env.VITE_API_URL || "/api"; // fallback to /api for production container
+export const API_BASE_URL = import.meta.env.VITE_API_URL || "/api"; // fallback to /api for production container
 
 // Create axios instance
 const api: AxiosInstance = axios.create({
@@ -258,10 +258,9 @@ export const analyticsAPI = {
   getTutorDashboard: () => api.get("/analytics/tutor/dashboard"),
 
   // Student dashboard analytics
-  getStudentDashboard: () => api.get("/analytics/student/dashboard"),
-
-  // Super admin analytics
-  getSuperAdminOverview: () => api.get("/analytics/super-admin/overview"),
+  getStudentDashboard: () => api.get('/analytics/student/dashboard'),
+  getStudentReportCard: (studentId: string) => api.get(`/analytics/student-report-card/${studentId}`),
+  getSuperAdminOverview: () => api.get('/analytics/super-admin/overview'),
 };
 
 // Upload API

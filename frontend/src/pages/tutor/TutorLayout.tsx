@@ -29,7 +29,7 @@ export default function TutorLayout() {
   const navigation = [
     { name: 'Dashboard', href: '/tutor/dashboard', icon: LayoutDashboard },
     { name: 'Exams', href: '/tutor/exams', icon: BookOpen },
-    { name: 'Categories', href: '/tutor/categories', icon: GraduationCap },
+    { name: 'Student Categories', href: '/tutor/categories', icon: GraduationCap },
     { name: 'Students', href: '/tutor/students', icon: Users },
     { name: 'Results', href: '/tutor/results', icon: BarChart3 },
   ];

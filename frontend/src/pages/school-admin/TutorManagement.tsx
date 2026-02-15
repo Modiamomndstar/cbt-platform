@@ -1,35 +1,33 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+
+import { tutorAPI } from '@/services/api';
+import { Plus, Trash2, Users, Eye, EyeOff } from 'lucide-react';
+import { toast } from 'sonner';
 
 import {
-  getTutorsBySchool,
-  createTutor,
-  createTutorsBulk,
-  deleteTutor,
-  hashPassword,
-  generatePassword
-} from '@/lib/dataStore';
-import { parseCSV, validateTutorCSV, downloadTemplate, type TutorCSVRow } from '@/lib/csvParser';
-import { Plus, Upload, Download, Trash2, Users, FileSpreadsheet, Eye, EyeOff } from 'lucide-react';
-import { toast } from 'sonner';
-import type { Tutor } from '@/types';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function TutorManagement() {
   const { user } = useAuth();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [tutors, setTutors] = useState<Tutor[]>([]);
+  const [tutors, setTutors] = useState<any[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
-  const [uploadPreview, setUploadPreview] = useState<TutorCSVRow[]>([]);
-  const [uploadErrors, setUploadErrors] = useState<string[]>([]);
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Add tutor form
   const [newTutor, setNewTutor] = useState({
@@ -42,103 +40,84 @@ export default function TutorManagement() {
   });
 
   useEffect(() => {
-    if (user?.schoolId) {
-      loadTutors();
-    }
+    loadTutors();
   }, [user]);
 
-  const loadTutors = () => {
-    if (user?.schoolId) {
-      const schoolTutors = getTutorsBySchool(user.schoolId);
-      setTutors(schoolTutors);
+  const loadTutors = async () => {
+    try {
+      const response = await tutorAPI.getAll();
+      if (response.data.success) {
+        setTutors(response.data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to load tutors:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleAddTutor = (e: React.FormEvent) => {
+  const handleAddTutor = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.schoolId) return;
-
-    const tutor = createTutor({
-      schoolId: user.schoolId,
-      username: newTutor.username,
-      password: hashPassword(newTutor.password),
-      fullName: newTutor.fullName,
-      email: newTutor.email || undefined,
-      phone: newTutor.phone || undefined,
-      subjects: newTutor.subjects.split(',').map(s => s.trim()).filter(Boolean),
-      isActive: true,
-    });
-
-    toast.success(`Tutor ${tutor.fullName} added successfully`);
-    setNewTutor({
-      username: '',
-      password: '',
-      fullName: '',
-      email: '',
-      phone: '',
-      subjects: '',
-    });
-    setIsAddDialogOpen(false);
-    loadTutors();
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
 
     try {
-      let data: TutorCSVRow[] = [];
+      await tutorAPI.create({
+        username: newTutor.username,
+        password: newTutor.password,
+        fullName: newTutor.fullName,
+        email: newTutor.email || undefined,
+        phone: newTutor.phone || undefined,
+        subjects: newTutor.subjects.split(',').map(s => s.trim()).filter(Boolean),
+      });
 
-      if (file.name.endsWith('.csv')) {
-        data = await parseCSV<TutorCSVRow>(file);
-      } else {
-        toast.error('Please upload a CSV file');
-        return;
-      }
-
-      const validation = validateTutorCSV(data);
-      setUploadPreview(validation.data);
-      setUploadErrors(validation.errors);
-    } catch (error) {
-      toast.error('Error parsing file');
-      console.error(error);
+      toast.success(`Tutor ${newTutor.fullName} added successfully`);
+      setNewTutor({
+        username: '',
+        password: '',
+        fullName: '',
+        email: '',
+        phone: '',
+        subjects: '',
+      });
+      setIsAddDialogOpen(false);
+      loadTutors();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to add tutor';
+      toast.error(msg);
     }
   };
 
-  const handleBulkUpload = () => {
-    if (!user?.schoolId || uploadPreview.length === 0) return;
+  const [tutorToDelete, setTutorToDelete] = useState<{ id: string; name: string } | null>(null);
 
-    const tutorsToCreate = uploadPreview.map(row => ({
-      schoolId: user.schoolId!,
-      username: row.username,
-      password: hashPassword(row.password),
-      fullName: row.fullName,
-      email: row.email,
-      phone: row.phone,
-      subjects: row.subjects?.split(',').map(s => s.trim()).filter(Boolean) || [],
-      isActive: true,
-    }));
-
-    createTutorsBulk(tutorsToCreate);
-    toast.success(`${tutorsToCreate.length} tutors added successfully`);
-    setIsUploadDialogOpen(false);
-    setUploadPreview([]);
-    setUploadErrors([]);
-    loadTutors();
-  };
-
-  const handleDeleteTutor = (tutorId: string, tutorName: string) => {
-    if (confirm(`Are you sure you want to delete tutor ${tutorName}?`)) {
-      deleteTutor(tutorId);
+  const confirmDeleteTutor = async () => {
+    if (!tutorToDelete) return;
+    try {
+      await tutorAPI.delete(tutorToDelete.id);
       toast.success('Tutor deleted successfully');
       loadTutors();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to delete tutor';
+      toast.error(msg);
+    } finally {
+      setTutorToDelete(null);
     }
   };
 
   const generateRandomPassword = () => {
-    const password = generatePassword(10);
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$';
+    let password = '';
+    for (let i = 0; i < 10; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
     setNewTutor(prev => ({ ...prev, password }));
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -148,92 +127,6 @@ export default function TutorManagement() {
           <p className="text-gray-600">Manage tutors who can create and conduct exams</p>
         </div>
         <div className="flex space-x-2">
-          <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <Upload className="h-4 w-4 mr-2" />
-                Bulk Upload
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Bulk Upload Tutors</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <Button
-                    variant="outline"
-                    onClick={() => downloadTemplate('tutors')}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download Template
-                  </Button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".csv"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                  <Button onClick={() => fileInputRef.current?.click()}>
-                    <FileSpreadsheet className="h-4 w-4 mr-2" />
-                    Select File
-                  </Button>
-                </div>
-
-                {uploadErrors.length > 0 && (
-                  <Alert variant="destructive">
-                    <AlertDescription>
-                      <p className="font-medium">Validation Errors:</p>
-                      <ul className="list-disc list-inside text-sm mt-2 max-h-32 overflow-auto">
-                        {uploadErrors.map((error, i) => (
-                          <li key={i}>{error}</li>
-                        ))}
-                      </ul>
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {uploadPreview.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">
-                      Preview ({uploadPreview.length} tutors):
-                    </p>
-                    <div className="max-h-64 overflow-auto border rounded-lg">
-                      <table className="w-full text-sm">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-4 py-2 text-left">Username</th>
-                            <th className="px-4 py-2 text-left">Full Name</th>
-                            <th className="px-4 py-2 text-left">Email</th>
-                            <th className="px-4 py-2 text-left">Subjects</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {uploadPreview.map((row, i) => (
-                            <tr key={i} className="border-t">
-                              <td className="px-4 py-2">{row.username}</td>
-                              <td className="px-4 py-2">{row.fullName}</td>
-                              <td className="px-4 py-2">{row.email}</td>
-                              <td className="px-4 py-2">{row.subjects}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    <Button
-                      className="w-full mt-4"
-                      onClick={handleBulkUpload}
-                      disabled={uploadPreview.length === 0}
-                    >
-                      Upload {uploadPreview.length} Tutors
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </DialogContent>
-          </Dialog>
-
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -354,23 +247,23 @@ export default function TutorManagement() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {tutors.map((tutor) => (
+                  {tutors.map((tutor: any) => (
                     <tr key={tutor.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3">
                         <div className="flex items-center space-x-3">
                           <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
                             <span className="text-indigo-700 font-semibold text-sm">
-                              {tutor.fullName.charAt(0)}
+                              {(tutor.full_name || tutor.fullName || '?').charAt(0)}
                             </span>
                           </div>
-                          <span className="font-medium text-gray-900">{tutor.fullName}</span>
+                          <span className="font-medium text-gray-900">{tutor.full_name || tutor.fullName}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-600">{tutor.username}</td>
                       <td className="px-4 py-3 text-gray-600">{tutor.email || '-'}</td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
-                          {tutor.subjects.map((subject, i) => (
+                          {(tutor.subjects || []).map((subject: string, i: number) => (
                             <span
                               key={i}
                               className="px-2 py-1 bg-indigo-50 text-indigo-700 text-xs rounded-full"
@@ -382,18 +275,18 @@ export default function TutorManagement() {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 text-xs rounded-full ${
-                          tutor.isActive
+                          tutor.is_active !== false
                             ? 'bg-emerald-100 text-emerald-700'
                             : 'bg-gray-100 text-gray-700'
                         }`}>
-                          {tutor.isActive ? 'Active' : 'Inactive'}
+                          {tutor.is_active !== false ? 'Active' : 'Inactive'}
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDeleteTutor(tutor.id, tutor.fullName)}
+                          onClick={() => setTutorToDelete({ id: tutor.id, name: tutor.full_name || tutor.fullName })}
                           className="text-red-600 hover:text-red-700 hover:bg-red-50"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -415,6 +308,23 @@ export default function TutorManagement() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!tutorToDelete} onOpenChange={(open) => !open && setTutorToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Tutor?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete tutor {tutorToDelete?.name}? This action cannot be undone and will remove all their data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteTutor} className="bg-red-600 hover:bg-red-700">
+              Delete Tutor
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -36,6 +36,9 @@ import TakeExam from '@/pages/student/TakeExam';
 import StudentResults from '@/pages/student/StudentResults';
 import StudentProfile from '@/pages/student/StudentProfile';
 
+// Common Pages
+import StudentReportCard from './pages/common/StudentReportCard';
+
 // Super Admin Pages
 import SuperAdminLayout from '@/pages/super-admin/SuperAdminLayout';
 import SuperAdminDashboard from '@/pages/super-admin/Dashboard';
@@ -135,8 +138,12 @@ function AppRoutes() {
         <Route path="analytics" element={<PlatformAnalytics />} />
       </Route>
 
+      {/* Common Protected Routes (not nested under a specific layout) */}
+      <Route path="/student/take-exam/:scheduleId" element={<RequireAuth allowedRoles={['student']}><TakeExam /></RequireAuth>} />
+      <Route path="/report-card/:studentId" element={<RequireAuth allowedRoles={['student', 'tutor', 'school_admin']}><StudentReportCard /></RequireAuth>} />
+
       {/* Catch all */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }

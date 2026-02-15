@@ -1,19 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { 
-  getSchools, 
-  getTutors, 
-  getStudents, 
-  getExams,
-  getStudentExams 
-} from '@/lib/dataStore';
-import { 
-  School, 
-  Users, 
-  BookOpen, 
-  GraduationCap, 
-  TrendingUp,
-  CheckCircle
+import { analyticsAPI } from '@/services/api';
+import {
+  School,
+  Users,
+  BookOpen,
+  GraduationCap,
 } from 'lucide-react';
 
 export default function SuperAdminDashboard() {
@@ -22,79 +14,70 @@ export default function SuperAdminDashboard() {
     totalTutors: 0,
     totalStudents: 0,
     totalExams: 0,
-    completedExams: 0,
-    averageScore: 0,
   });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadStats();
   }, []);
 
-  const loadStats = () => {
-    const schools = getSchools();
-    const tutors = getTutors();
-    const students = getStudents();
-    const exams = getExams();
-    const studentExams = getStudentExams();
-
-    const completed = studentExams.filter(se => se.status === 'completed');
-    const totalScore = completed.reduce((sum, se) => sum + se.percentage, 0);
-    const avgScore = completed.length > 0 ? Math.round(totalScore / completed.length) : 0;
-
-    setStats({
-      totalSchools: schools.length,
-      totalTutors: tutors.length,
-      totalStudents: students.length,
-      totalExams: exams.length,
-      completedExams: completed.length,
-      averageScore: avgScore,
-    });
+  const loadStats = async () => {
+    try {
+      const response = await analyticsAPI.getSuperAdminOverview();
+      if (response.data.success) {
+        const data = response.data.data;
+        setStats({
+          totalSchools: data.totalSchools || 0,
+          totalTutors: data.totalTutors || 0,
+          totalStudents: data.totalStudents || 0,
+          totalExams: data.totalExams || 0,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load stats:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const statCards = [
-    { 
-      title: 'Total Schools', 
-      value: stats.totalSchools, 
-      icon: School, 
+    {
+      title: 'Total Schools',
+      value: stats.totalSchools,
+      icon: School,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50'
     },
-    { 
-      title: 'Total Tutors', 
-      value: stats.totalTutors, 
-      icon: GraduationCap, 
+    {
+      title: 'Total Tutors',
+      value: stats.totalTutors,
+      icon: GraduationCap,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-50'
     },
-    { 
-      title: 'Total Students', 
-      value: stats.totalStudents, 
-      icon: Users, 
+    {
+      title: 'Total Students',
+      value: stats.totalStudents,
+      icon: Users,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50'
     },
-    { 
-      title: 'Total Exams', 
-      value: stats.totalExams, 
-      icon: BookOpen, 
+    {
+      title: 'Total Exams',
+      value: stats.totalExams,
+      icon: BookOpen,
       color: 'text-amber-600',
       bgColor: 'bg-amber-50'
     },
-    { 
-      title: 'Completed Exams', 
-      value: stats.completedExams, 
-      icon: CheckCircle, 
-      color: 'text-rose-600',
-      bgColor: 'bg-rose-50'
-    },
-    { 
-      title: 'Average Score', 
-      value: `${stats.averageScore}%`, 
-      icon: TrendingUp, 
-      color: 'text-cyan-600',
-      bgColor: 'bg-cyan-50'
-    },
   ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -104,7 +87,7 @@ export default function SuperAdminDashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((stat) => (
           <Card key={stat.title}>
             <CardContent className="p-4">
@@ -125,7 +108,7 @@ export default function SuperAdminDashboard() {
         <CardContent className="p-8">
           <h2 className="text-2xl font-bold mb-2">Welcome to Super Admin Panel</h2>
           <p className="text-slate-300 mb-4">
-            As the platform administrator, you have full visibility and control over all schools, 
+            As the platform administrator, you have full visibility and control over all schools,
             tutors, students, and exams on the CBT Platform.
           </p>
           <div className="grid sm:grid-cols-3 gap-4 mt-6">
@@ -154,7 +137,7 @@ export default function SuperAdminDashboard() {
               <p className="text-sm text-slate-400">Recent Activity</p>
               <p className="mt-2 text-sm text-slate-300">
                 {stats.totalSchools} schools registered<br />
-                {stats.completedExams} exams completed
+                {stats.totalExams} total exams
               </p>
             </div>
           </div>

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from '../services/api';
+import { authAPI } from '../services/api';
 
 interface User {
   id: string;
@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const token = await AsyncStorage.getItem('token');
       if (token) {
-        const response = await api.get('/auth/me');
+        const response = await authAPI.getMe();
         if (response.data.success) {
           setUser(response.data.data);
         }
@@ -44,13 +44,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const login = async (email: string, password: string, accessCode?: string): Promise<{ success: boolean; message?: string }> => {
+  const login = async (username: string, password: string): Promise<{ success: boolean; message?: string }> => {
     try {
-      const response = await api.post('/auth/student/login', {
-        email,
-        password,
-        accessCode
-      });
+      const response = await authAPI.login(username, password);
 
       if (response.data.success) {
         const { token, user: userData } = response.data.data;
@@ -61,9 +57,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return { success: false, message: response.data.message };
     } catch (error: any) {
-      return { 
-        success: false, 
-        message: error.response?.data?.message || 'Login failed' 
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Login failed'
       };
     }
   };

@@ -44,7 +44,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { studentAPI, categoryAPI, tutorAPI, uploadAPI } from '@/services/api';
+import { studentAPI, categoryAPI, tutorAPI, uploadAPI, API_BASE_URL } from '@/services/api';
 
 interface Student {
   id: string;
@@ -485,8 +485,8 @@ export default function StudentManagement() {
           <div className="space-y-4 py-4">
              <div className="bg-blue-50 border border-blue-100 p-4 rounded-md text-sm text-blue-800">
                 <p className="font-semibold mb-1">CSV Format Required:</p>
-                <p>firstName, lastName, email, phone, dateOfBirth, registrationNumber</p>
-                <a href="/api/uploads/template/students" download className="underline mt-2 inline-block">Download Template</a>
+                <p>student_id, full_name, email, phone, level_class</p>
+                <a href={`${API_BASE_URL}/uploads/template/students`} download="students_template.csv" target="_blank" rel="noopener noreferrer" className="underline mt-2 inline-block">Download Template</a>
              </div>
              <div className="space-y-2">
                 <Label>Select Category (Optional)</Label>

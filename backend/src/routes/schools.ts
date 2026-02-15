@@ -51,22 +51,7 @@ router.post('/register', [
       [name, username, passwordHash, email, phone, address, description, country || 'Nigeria']
     );
 
-    // Create default categories
-    const defaultCategories = [
-      { name: 'JSS1', color: '#4F46E5', order: 1 },
-      { name: 'JSS2', color: '#10B981', order: 2 },
-      { name: 'JSS3', color: '#F59E0B', order: 3 },
-      { name: 'SS1', color: '#EF4444', order: 4 },
-      { name: 'SS2', color: '#8B5CF6', order: 5 },
-      { name: 'SS3', color: '#06B6D4', order: 6 }
-    ];
-
-    for (const cat of defaultCategories) {
-      await db.query(
-        'INSERT INTO student_categories (school_id, name, color, sort_order) VALUES ($1, $2, $3, $4)',
-        [result.rows[0].id, cat.name, cat.color, cat.order]
-      );
-    }
+    // No default categories seeded — tutors create categories as needed
 
     res.status(201).json({
       success: true,
@@ -144,7 +129,7 @@ router.get('/dashboard', authorize('school'), async (req, res, next) => {
     const schoolId = req.user!.id;
 
     const stats = await db.query(
-      `SELECT 
+      `SELECT
         (SELECT COUNT(*) FROM tutors WHERE school_id = $1) as tutor_count,
         (SELECT COUNT(*) FROM students WHERE school_id = $1) as student_count,
         (SELECT COUNT(*) FROM exams WHERE school_id = $1) as exam_count,
