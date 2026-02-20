@@ -10,6 +10,9 @@ yarn.lock
 .env
 .env.local
 .env.*.local
+.env.production
+*.key
+*.pem
 
 # Logs
 logs/

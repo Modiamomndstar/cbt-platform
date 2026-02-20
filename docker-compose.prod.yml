@@ -1,39 +1,68 @@
-version: '3.8'
-
 services:
+  # --- Database ---
   db:
-    image: postgres:15
-    restart: unless-stopped
+    image: postgres:15-alpine
+    restart: always
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     volumes:
-      - db_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal
 
+  # --- Backend API ---
   backend:
     image: ghcr.io/__IMAGE_OWNER__/cbt-platform-backend:__IMAGE_TAG__
-    restart: unless-stopped
+    restart: always
+    environment:
+      PORT: 5000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      JWT_SECRET: ${JWT_SECRET}
+      NODE_ENV: production
+      FRONTEND_URL: ${FRONTEND_URL:-http://145.241.97.246}
     env_file:
       - .env.production
-    environment:
-      - DB_HOST=db
-      - DB_PORT=5432
-      - FRONTEND_URL=https://your-frontend-domain.example
-    ports:
-      - "5000:5000"
     depends_on:
       - db
+    networks:
+      - internal
+      - web
 
+  # --- Frontend ---
   frontend:
     image: ghcr.io/__IMAGE_OWNER__/cbt-platform-frontend:__IMAGE_TAG__
-    restart: unless-stopped
+    restart: always
+    networks:
+      - web
+
+  # --- Reverse Proxy ---
+  caddy:
+    image: caddy:2-alpine
+    restart: always
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - web
     depends_on:
+      - frontend
       - backend
 
 volumes:
-  db_data:
+  postgres_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  internal:
+  web:
