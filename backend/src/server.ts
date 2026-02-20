@@ -83,8 +83,8 @@ app.use(
 // Static files
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
-// Health check endpoint
-app.get("/health", (req, res) => {
+// Health check endpoint (both /health and /api/health for Caddy passthrough)
+app.get(["/health", "/api/health"], (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
