@@ -15,9 +15,15 @@ jobs:
   build-and-push:
     name: Build & Push Docker images
     runs-on: ubuntu-latest
+    outputs:
+      image_owner: ${{ steps.owner.outputs.lowercase }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set lowercase image owner
+        id: owner
+        run: echo "lowercase=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU (for ARM64 cross-compilation)
         uses: docker/setup-qemu-action@v3
@@ -40,8 +46,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/cbt-platform-backend:${{ github.sha }}
-            ghcr.io/${{ github.repository_owner }}/cbt-platform-backend:latest
+            ghcr.io/${{ steps.owner.outputs.lowercase }}/cbt-platform-backend:${{ github.sha }}
+            ghcr.io/${{ steps.owner.outputs.lowercase }}/cbt-platform-backend:latest
 
       - name: Build and push Frontend image
         uses: docker/build-push-action@v5
@@ -51,8 +57,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/cbt-platform-frontend:${{ github.sha }}
-            ghcr.io/${{ github.repository_owner }}/cbt-platform-frontend:latest
+            ghcr.io/${{ steps.owner.outputs.lowercase }}/cbt-platform-frontend:${{ github.sha }}
+            ghcr.io/${{ steps.owner.outputs.lowercase }}/cbt-platform-frontend:latest
 
   deploy:
     name: Deploy to OCI Server
@@ -83,12 +89,12 @@ jobs:
             set -e
             cd ~/cbt-platform
 
-            # Login to GHCR so server can pull private images
+            # Login to GHCR so server can pull images
             echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-            # Substitute the image owner and tag into the compose file
+            # Substitute image owner and tag (lowercase owner)
             TAG="${{ github.sha }}"
-            OWNER="${{ github.repository_owner }}"
+            OWNER="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
             sed -i "s|__IMAGE_OWNER__|${OWNER}|g; s|__IMAGE_TAG__|${TAG}|g" docker-compose.prod.yml
 
             # Pull new images and restart
@@ -101,9 +107,6 @@ jobs:
             echo "Deployment complete!"
 
 # ============================================================
-# REQUIRED GitHub Repository Secrets (Settings -> Secrets):
-# OCI_HOST              - Your server public IP (e.g. 145.241.97.246)
-# OCI_USER              - ubuntu (default Ubuntu user on OCI)
-# OCI_SSH_PRIVATE_KEY   - Contents of your .key file (paste the whole thing)
-# GHCR_PAT              - GitHub Personal Access Token (with packages:write scope)
+# REQUIRED GitHub Repository Secrets:
+# OCI_HOST, OCI_USER, OCI_SSH_PRIVATE_KEY, GHCR_PAT
 # ============================================================
