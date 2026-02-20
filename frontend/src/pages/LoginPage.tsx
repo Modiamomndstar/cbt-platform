@@ -158,9 +158,7 @@ export default function LoginPage() {
                       </button>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500">
-                    Demo credentials – username: <code>demoschool</code>, password: <code>password123</code>
-                  </p>
+
                 </TabsContent>
 
                 <TabsContent value="tutor" className="space-y-4">
@@ -204,9 +202,7 @@ export default function LoginPage() {
                       </button>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500">
-                    Demo: school ID from school admin, username: demotutor, password: tutor123
-                  </p>
+
                 </TabsContent>
 
                 <TabsContent value="super_admin" className="space-y-4">
@@ -240,9 +236,7 @@ export default function LoginPage() {
                       </button>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500">
-                    Demo: username: admin, password: admin123
-                  </p>
+
                 </TabsContent>
 
                 <Button

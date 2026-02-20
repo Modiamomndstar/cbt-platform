@@ -5,6 +5,7 @@ import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
 import path from "path";
+import fileUpload from "express-fileupload";
 
 // Load environment variables
 dotenv.config();
@@ -72,6 +73,15 @@ app.use("/api/auth/login", authLimiter);
 // Body parsing
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// File upload middleware
+app.use(
+  fileUpload({
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+    abortOnLimit: true,
+    useTempFiles: false,
+  }),
+);
 
 // Logging
 app.use(

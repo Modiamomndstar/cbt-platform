@@ -30,6 +30,8 @@ services:
       - .env.production
     depends_on:
       - db
+    volumes:
+      - uploads_data:/usr/src/app/uploads
     networks:
       - internal
       - web
@@ -62,6 +64,7 @@ volumes:
   postgres_data:
   caddy_data:
   caddy_config:
+  uploads_data:
 
 networks:
   internal:

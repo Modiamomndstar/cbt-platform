@@ -4,8 +4,72 @@ import { authenticate, requireRole } from '../middleware/auth';
 import csv from 'csv-parse';
 import { Readable } from 'stream';
 import bcrypt from 'bcryptjs';
+import path from 'path';
+import fs from 'fs';
+import type { UploadedFile } from 'express-fileupload';
 
 const router = Router();
+
+// Allowed image MIME types
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+
+// Ensure upload directories exist
+const UPLOAD_DIR = path.join(__dirname, '../../uploads');
+const LOGO_DIR = path.join(UPLOAD_DIR, 'logos');
+[UPLOAD_DIR, LOGO_DIR].forEach((dir) => {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+});
+
+// POST /api/uploads/image — Upload a school logo or any image
+router.post(
+  '/image',
+  authenticate,
+  requireRole(['school', 'tutor', 'super_admin']),
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.files || Object.keys(req.files).length === 0) {
+        return res.status(400).json({ success: false, message: 'No file uploaded' });
+      }
+
+      const file = req.files.image as UploadedFile;
+
+      // Server-side MIME type validation
+      if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid file type. Only JPEG, PNG, WebP, and GIF are allowed.',
+        });
+      }
+
+      if (file.size > MAX_IMAGE_SIZE) {
+        return res.status(400).json({
+          success: false,
+          message: 'File too large. Maximum size is 5MB.',
+        });
+      }
+
+      // Generate unique filename to prevent collisions/overwrites
+      const ext = path.extname(file.name).toLowerCase() || '.jpg';
+      const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}${ext}`;
+      const uploadPath = path.join(LOGO_DIR, uniqueName);
+
+      await file.mv(uploadPath);
+
+      const publicUrl = `/uploads/logos/${uniqueName}`;
+
+      res.json({
+        success: true,
+        message: 'Image uploaded successfully',
+        data: { url: publicUrl },
+      });
+    } catch (error) {
+      console.error('Image upload error:', error);
+      res.status(500).json({ success: false, message: 'Failed to upload image' });
+    }
+  },
+);
+
 
 // Parse CSV buffer
 const parseCSV = (buffer: Buffer): Promise<any[]> => {

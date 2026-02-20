@@ -2,8 +2,10 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { db } from "../config/database";
 
-const JWT_SECRET =
-  process.env.JWT_SECRET || "your-secret-key-change-in-production";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("FATAL: JWT_SECRET environment variable is not set. Server will not start.");
+}
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
 
 // Extend Express Request to include user

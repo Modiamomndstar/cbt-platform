@@ -99,6 +99,10 @@ jobs:
 
             # Pull new images and restart
             docker compose -f docker-compose.prod.yml pull
+
+            # Always sync .env from .env.production so all env vars reach containers
+            cp .env.production .env
+
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
             # Prune old images to save disk space
