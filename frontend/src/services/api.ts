@@ -85,18 +85,6 @@ export const schoolAPI = {
   getDashboard: () => api.get("/schools/dashboard"),
 };
 
-// Upload API
-export const uploadAPI = {
-  uploadImage: (file: File) => {
-    const form = new FormData();
-    form.append("image", file);
-    return api.post("/uploads/image", form, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-  },
-};
-
-
 // Tutor API
 export const tutorAPI = {
   getAll: (params?: any) => api.get("/tutors", { params }),
@@ -277,6 +265,15 @@ export const analyticsAPI = {
 
 // Upload API
 export const uploadAPI = {
+  // Upload an image (school logo, etc.)
+  uploadImage: (file: File) => {
+    const formData = new FormData();
+    formData.append("image", file);
+    return api.post("/uploads/image", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+
   // Upload students CSV
   uploadStudents: (file: File, categoryId?: string, sendEmail?: boolean) => {
     const formData = new FormData();
