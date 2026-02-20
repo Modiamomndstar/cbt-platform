@@ -5,10 +5,7 @@ import OpenAI from "openai";
 
 const router = Router();
 
-// Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// OpenAI is initialized lazily inside the AI route to avoid crashing on startup
 
 // Get questions for an exam
 router.get(
@@ -377,9 +374,11 @@ router.post(
 
       if (!process.env.OPENAI_API_KEY) {
         return res
-          .status(500)
-          .json({ success: false, message: "AI generation not configured" });
+          .status(503)
+          .json({ success: false, message: "AI generation not configured. Please set OPENAI_API_KEY." });
       }
+
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
       const prompt = `Generate ${numQuestions} ${difficulty} difficulty ${questionType} questions for ${subject} on the topic "${topic}".
 
