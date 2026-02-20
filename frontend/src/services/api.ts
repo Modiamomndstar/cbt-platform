@@ -85,6 +85,18 @@ export const schoolAPI = {
   getDashboard: () => api.get("/schools/dashboard"),
 };
 
+// Upload API
+export const uploadAPI = {
+  uploadImage: (file: File) => {
+    const form = new FormData();
+    form.append("image", file);
+    return api.post("/uploads/image", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+};
+
+
 // Tutor API
 export const tutorAPI = {
   getAll: (params?: any) => api.get("/tutors", { params }),

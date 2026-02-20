@@ -6,8 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { schoolAPI } from '@/services/api';
-import { Save, Building2 } from 'lucide-react';
+import { schoolAPI, uploadAPI } from '@/services/api';
+import { Save, Building2, Upload, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function SchoolProfile() {
@@ -17,7 +17,9 @@ export default function SchoolProfile() {
   const [school, setSchool] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
@@ -42,7 +44,10 @@ export default function SchoolProfile() {
             address: data.address || '',
             description: data.description || '',
           });
-          setLogoPreview(data.logo_url || null);
+          if (data.logo_url) {
+            setLogoUrl(data.logo_url);
+            setLogoPreview(data.logo_url);
+          }
         }
       } catch (err) {
         console.error('Failed to load profile:', err);
@@ -59,20 +64,43 @@ export default function SchoolProfile() {
     setError('');
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        setError('Logo file size must be less than 2MB');
-        return;
-      }
+    if (!file) return;
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setLogoPreview(result);
-      };
-      reader.readAsDataURL(file);
+    // Client-side validation
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      setError('Invalid file type. Please upload a JPEG, PNG, WebP, or GIF image.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image must be less than 5MB.');
+      return;
+    }
+
+    // Show local preview immediately
+    const reader = new FileReader();
+    reader.onloadend = () => setLogoPreview(reader.result as string);
+    reader.readAsDataURL(file);
+
+    // Upload to server
+    setUploading(true);
+    setError('');
+    try {
+      const response = await uploadAPI.uploadImage(file);
+      if (response.data.success) {
+        const newUrl = response.data.data.url;
+        setLogoUrl(newUrl);
+        toast.success('Logo uploaded! Save changes to apply.');
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to upload logo. Please try again.';
+      setError(msg);
+      // Revert preview if upload failed
+      setLogoPreview(logoUrl);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -90,6 +118,7 @@ export default function SchoolProfile() {
         phone: formData.phone,
         address: formData.address,
         description: formData.description,
+        logo_url: logoUrl,
       });
 
       if (response.data.success) {
@@ -143,35 +172,51 @@ export default function SchoolProfile() {
             <CardHeader>
               <CardTitle className="text-lg">School Logo</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-indigo-500 transition-colors"
+                onClick={() => !uploading && fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                  uploading
+                    ? 'border-indigo-300 bg-indigo-50 cursor-wait'
+                    : 'border-gray-300 hover:border-indigo-500 cursor-pointer'
+                }`}
               >
-                {logoPreview ? (
+                {uploading ? (
+                  <div className="flex flex-col items-center">
+                    <Loader2 className="h-10 w-10 text-indigo-500 animate-spin mb-3" />
+                    <p className="text-sm text-indigo-600 font-medium">Uploading…</p>
+                  </div>
+                ) : logoPreview ? (
                   <div className="flex flex-col items-center">
                     <img
                       src={logoPreview}
-                      alt="Logo preview"
-                      className="h-32 w-32 object-contain mb-4"
+                      alt="School logo"
+                      className="h-32 w-32 object-contain rounded mb-3 border"
                     />
-                    <p className="text-sm text-gray-600">Click to change logo</p>
+                    <p className="text-sm text-gray-600 flex items-center gap-1">
+                      <Upload className="h-3 w-3" /> Click to change logo
+                    </p>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center">
                     <Building2 className="h-16 w-16 text-gray-400 mb-4" />
                     <p className="text-sm text-gray-600">Click to upload school logo</p>
-                    <p className="text-xs text-gray-500 mt-1">PNG, JPG up to 2MB</p>
+                    <p className="text-xs text-gray-500 mt-1">PNG, JPG, WebP — max 5MB</p>
                   </div>
                 )}
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
-                  onChange={handleLogoUpload}
+                  accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                  onChange={handleLogoSelect}
                   className="hidden"
                 />
               </div>
+              {logoUrl && logoUrl !== school.logo_url && (
+                <p className="text-xs text-amber-600 text-center">
+                  ⚠ Logo uploaded but not saved yet — click Save Changes below.
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -253,7 +298,7 @@ export default function SchoolProfile() {
               </div>
 
               <div className="flex justify-end">
-                <Button type="submit" disabled={isLoading}>
+                <Button type="submit" disabled={isLoading || uploading}>
                   <Save className="h-4 w-4 mr-2" />
                   {isLoading ? 'Saving...' : 'Save Changes'}
                 </Button>
