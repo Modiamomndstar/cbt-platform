@@ -121,6 +121,24 @@ async function migrate() {
           CREATE INDEX IF NOT EXISTS idx_student_tutors_student_id ON student_tutors(student_id);
           CREATE INDEX IF NOT EXISTS idx_student_tutors_tutor_id ON student_tutors(tutor_id);
         `
+      },
+      {
+        name: '007_add_names_to_users',
+        sql: `
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                          WHERE table_name = 'students' AND column_name = 'first_name') THEN
+              ALTER TABLE students ADD COLUMN first_name VARCHAR(100);
+              ALTER TABLE students ADD COLUMN last_name VARCHAR(100);
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                          WHERE table_name = 'tutors' AND column_name = 'first_name') THEN
+              ALTER TABLE tutors ADD COLUMN first_name VARCHAR(100);
+              ALTER TABLE tutors ADD COLUMN last_name VARCHAR(100);
+            END IF;
+          END $$;
+        `
       }
     ];
 

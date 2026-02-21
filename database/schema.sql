@@ -21,7 +21,7 @@ CREATE TABLE schools (
     timezone VARCHAR(50) DEFAULT 'Africa/Lagos',
     is_active BOOLEAN DEFAULT true,
     email_verified BOOLEAN DEFAULT false,
-    
+
     -- Subscription/Payment fields
     plan_type VARCHAR(50) DEFAULT 'free', -- free, basic, premium, enterprise
     plan_status VARCHAR(50) DEFAULT 'active', -- active, suspended, cancelled
@@ -30,12 +30,12 @@ CREATE TABLE schools (
     stripe_subscription_id VARCHAR(255),
     paystack_customer_code VARCHAR(255),
     paystack_subscription_code VARCHAR(255),
-    
+
     -- Payment history
     last_payment_at TIMESTAMP,
     next_payment_at TIMESTAMP,
     total_paid DECIMAL(10, 2) DEFAULT 0,
-    
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -53,7 +53,7 @@ CREATE TABLE student_categories (
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
+
     UNIQUE(school_id, name)
 );
 
@@ -75,7 +75,7 @@ CREATE TABLE tutors (
     last_login_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
+
     UNIQUE(school_id, username)
 );
 
@@ -100,7 +100,7 @@ CREATE TABLE students (
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
+
     UNIQUE(school_id, student_id)
 );
 
@@ -115,7 +115,7 @@ CREATE TABLE exams (
     description TEXT,
     instructions TEXT,
     category VARCHAR(100), -- e.g., "Mathematics", "Science"
-    
+
     -- Exam settings
     duration INTEGER NOT NULL DEFAULT 60, -- in minutes
     total_questions INTEGER NOT NULL DEFAULT 50,
@@ -124,11 +124,11 @@ CREATE TABLE exams (
     shuffle_options BOOLEAN DEFAULT true,
     show_result_immediately BOOLEAN DEFAULT true,
     allow_review BOOLEAN DEFAULT false, -- Allow students to review answers after exam
-    
+
     -- Access control
     is_published BOOLEAN DEFAULT false,
     publish_at TIMESTAMP,
-    
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -147,12 +147,12 @@ CREATE TABLE questions (
     marks INTEGER NOT NULL DEFAULT 5,
     difficulty VARCHAR(20) DEFAULT 'medium', -- easy, medium, hard
     sort_order INTEGER DEFAULT 0,
-    
+
     -- AI Generated question fields
     is_ai_generated BOOLEAN DEFAULT false,
     ai_source_material TEXT,
     ai_topics TEXT[],
-    
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -164,37 +164,37 @@ CREATE TABLE exam_schedules (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
     student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-    
+
     -- Schedule timing
     scheduled_date DATE NOT NULL,
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
     timezone VARCHAR(50) DEFAULT 'Africa/Lagos',
-    
+
     -- Status
     status VARCHAR(50) DEFAULT 'scheduled', -- scheduled, in_progress, completed, missed, rescheduled, cancelled
-    
+
     -- Login credentials (temporary)
     login_username VARCHAR(100) NOT NULL,
     login_password VARCHAR(100) NOT NULL,
-    
+
     -- Attempt tracking
     attempt_count INTEGER DEFAULT 0,
     max_attempts INTEGER DEFAULT 1,
-    
+
     -- Email notification
     email_sent BOOLEAN DEFAULT false,
     email_sent_at TIMESTAMP,
-    
+
     -- Reschedule tracking
     rescheduled_by UUID REFERENCES tutors(id),
     rescheduled_at TIMESTAMP,
     reschedule_reason TEXT,
     original_schedule_id UUID, -- Reference to original schedule if rescheduled
-    
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
+
     UNIQUE(exam_id, student_id, scheduled_date, start_time)
 );
 
@@ -206,28 +206,28 @@ CREATE TABLE student_exams (
     exam_schedule_id UUID NOT NULL REFERENCES exam_schedules(id) ON DELETE CASCADE,
     student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
     exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
-    
+
     -- Questions and answers
     questions JSONB NOT NULL, -- Array of question IDs in order shown
     answers JSONB DEFAULT '{}', -- Object: {questionId: answer}
-    
+
     -- Results
     score INTEGER DEFAULT 0,
     total_marks INTEGER NOT NULL,
     percentage INTEGER DEFAULT 0,
     status VARCHAR(50) DEFAULT 'in_progress', -- in_progress, completed, timeout, abandoned
-    
+
     -- Timing
     started_at TIMESTAMP,
     submitted_at TIMESTAMP,
     time_spent INTEGER DEFAULT 0, -- in seconds
-    
+
     -- Proctoring data
     tab_switch_count INTEGER DEFAULT 0,
     fullscreen_exits INTEGER DEFAULT 0,
     ip_address INET,
     user_agent TEXT,
-    
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -245,11 +245,11 @@ CREATE TABLE learning_materials (
     file_type VARCHAR(50), -- pdf, doc, txt
     file_size INTEGER, -- in bytes
     topics TEXT[],
-    
+
     -- AI processing
     ai_processed BOOLEAN DEFAULT false,
     ai_extracted_questions JSONB,
-    
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -260,27 +260,27 @@ CREATE TABLE learning_materials (
 CREATE TABLE payments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
-    
+
     -- Payment details
     amount DECIMAL(10, 2) NOT NULL,
     currency VARCHAR(3) DEFAULT 'USD', -- USD, NGN, etc.
     payment_method VARCHAR(50), -- stripe, paystack, bank_transfer
-    
+
     -- Provider specific
     provider VARCHAR(50) NOT NULL, -- stripe, paystack
     provider_payment_id VARCHAR(255),
     provider_reference VARCHAR(255),
-    
+
     -- Status
     status VARCHAR(50) DEFAULT 'pending', -- pending, completed, failed, refunded
-    
+
     -- Plan info
     plan_type VARCHAR(50),
     plan_duration_months INTEGER DEFAULT 1,
-    
+
     -- Metadata
     metadata JSONB,
-    
+
     paid_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -315,12 +315,12 @@ CREATE TABLE email_queue (
     body_text TEXT,
     template_name VARCHAR(100), -- exam_schedule, result_notification, etc.
     template_data JSONB,
-    
+
     status VARCHAR(50) DEFAULT 'pending', -- pending, sent, failed
     attempts INTEGER DEFAULT 0,
     last_error TEXT,
     sent_at TIMESTAMP,
-    
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -437,7 +437,7 @@ VALUES (
     '550e8400-e29b-41d4-a716-446655440000',
     'Demo High School',
     'demoschool',
-    '$2b$10$YourHashedPasswordHere', -- Will be updated with proper hash
+    '$2a$10$sZIUQ.tSsbcSzMS8k9p/zuL7UGqASOyfWzt7oDb2f8JbcrswZ6HK2', -- Will be updated with proper hash
     'admin@demoschool.edu',
     '+2348012345678',
     '123 Education Street, Lagos, Nigeria',
@@ -461,7 +461,7 @@ VALUES (
     '550e8400-e29b-41d4-a716-446655440001',
     '550e8400-e29b-41d4-a716-446655440000',
     'demotutor',
-    '$2b$10$YourHashedPasswordHere',
+    '$2a$10$sZIUQ.tSsbcSzMS8k9p/zuL7UGqASOyfWzt7oDb2f8JbcrswZ6HK2',
     'tutor@demoschool.edu',
     '+2348087654321',
     'John Smith',
@@ -471,7 +471,7 @@ VALUES (
 
 -- Insert demo students
 INSERT INTO students (school_id, category_id, student_id, full_name, email, phone, is_active)
-SELECT 
+SELECT
     '550e8400-e29b-41d4-a716-446655440000',
     id,
     'STU' || LPAD(seq::text, 3, '0'),

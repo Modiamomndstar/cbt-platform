@@ -191,7 +191,7 @@ router.get('/tutor/dashboard', authenticate, requireRole(['tutor']), async (req:
       `SELECT es.*, e.title as exam_title, e.duration_minutes, COUNT(se.id) as student_count
        FROM exam_schedules es
        JOIN exams e ON es.exam_id = e.id
-       LEFT JOIN student_exams se ON es.id = se.schedule_id
+       LEFT JOIN student_exams se ON es.id = se.exam_schedule_id
        WHERE e.tutor_id = $1
          AND es.status = 'scheduled'
          AND es.scheduled_date >= CURRENT_DATE

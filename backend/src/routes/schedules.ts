@@ -54,13 +54,13 @@ async function autoExpireSchedules(client: any, examId?: string, studentId?: str
 
       // Create a student_exams record with 0 score if none exists
       const existing = await client.query(
-        `SELECT id FROM student_exams WHERE schedule_id = $1`,
+        `SELECT id FROM student_exams WHERE exam_schedule_id = $1`,
         [row.id]
       );
 
       if (existing.rows.length === 0) {
         await client.query(
-          `INSERT INTO student_exams (student_id, exam_id, schedule_id, score, total_marks, percentage, status, time_spent_minutes, answers)
+          `INSERT INTO student_exams (student_id, exam_id, exam_schedule_id, score, total_marks, percentage, status, time_spent_minutes, answers)
            VALUES ($1, $2, $3, 0, $4, 0, 'expired', 0, '[]')`,
           [row.student_id, row.exam_id, row.id, row.total_marks || 0]
         );
@@ -175,7 +175,7 @@ router.get(
        FROM exam_schedules es
        JOIN students s ON es.student_id = s.id
        LEFT JOIN student_categories sc ON s.category_id = sc.id
-       LEFT JOIN student_exams se ON se.schedule_id = es.id
+       LEFT JOIN student_exams se ON se.exam_schedule_id = es.id
        WHERE es.exam_id = $1 AND es.status != 'cancelled'
        ORDER BY
          CASE es.status
@@ -377,7 +377,7 @@ router.put(
 
         // Delete old student_exams record so student can retake
         await client.query(
-          `DELETE FROM student_exams WHERE schedule_id = $1`,
+          `DELETE FROM student_exams WHERE exam_schedule_id = $1`,
           [id]
         );
       }
@@ -587,7 +587,7 @@ router.post(
 
       // Check for assigned questions
       const studentExamCheck = await client.query(
-        `SELECT id, assigned_questions FROM student_exams WHERE schedule_id = $1`,
+        `SELECT id, assigned_questions FROM student_exams WHERE exam_schedule_id = $1`,
         [scheduleId]
       );
 
@@ -610,7 +610,7 @@ router.post(
         finalQuestions = await assignQuestions(client, schedule.exam_id, schedule.total_questions, schedule.shuffle_questions, schedule.shuffle_options);
 
         await client.query(
-          `INSERT INTO student_exams (student_id, exam_id, schedule_id, start_time, started_at, status, assigned_questions)
+          `INSERT INTO student_exams (student_id, exam_id, exam_schedule_id, start_time, started_at, status, assigned_questions)
            VALUES ($1, $2, $3, NOW(), NOW(), 'in_progress', $4)`,
           [user.id, schedule.exam_id, scheduleId, JSON.stringify(finalQuestions)]
         );

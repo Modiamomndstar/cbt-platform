@@ -37,7 +37,7 @@ router.post(
 
       // Get student_exams record to retrieve assigned questions
       const studentExamRows = await client.query(
-        `SELECT id, assigned_questions FROM student_exams WHERE schedule_id = $1`,
+        `SELECT id, assigned_questions FROM student_exams WHERE exam_schedule_id = $1`,
         [scheduleId]
       );
 
@@ -132,7 +132,7 @@ router.post(
            time_spent_minutes = $5,
            answers = $6,
            auto_submitted = $7
-       WHERE schedule_id = $8
+       WHERE exam_schedule_id = $8
        RETURNING *`,
         [
           totalScore,
@@ -201,8 +201,8 @@ router.get(
               es.scheduled_date, es.start_time, es.end_time as schedule_end_time
        FROM student_exams se
        JOIN exams e ON se.exam_id = e.id
-       JOIN exam_schedules es ON se.schedule_id = es.id
-       WHERE se.schedule_id = $1 AND se.student_id = $2`,
+       JOIN exam_schedules es ON se.exam_schedule_id = es.id
+       WHERE se.exam_schedule_id = $1 AND se.student_id = $2`,
         [scheduleId, user.id],
       );
 
@@ -361,7 +361,7 @@ router.get(
       FROM student_exams se
       JOIN students s ON se.student_id = s.id
       LEFT JOIN student_categories sc ON s.category_id = sc.id
-      JOIN exam_schedules es ON se.schedule_id = es.id
+      JOIN exam_schedules es ON se.exam_schedule_id = es.id
       JOIN exams e ON se.exam_id = e.id
       WHERE se.exam_id = $1
     `;
@@ -449,7 +449,7 @@ router.get(
               t.full_name as tutor_full_name, t.first_name as tutor_first_name, t.last_name as tutor_last_name
        FROM student_exams se
        JOIN exams e ON se.exam_id = e.id
-       JOIN exam_schedules es ON se.schedule_id = es.id
+       JOIN exam_schedules es ON se.exam_schedule_id = es.id
        JOIN tutors t ON e.tutor_id = t.id
        WHERE se.student_id = $1
        ORDER BY se.end_time DESC
@@ -711,7 +711,7 @@ router.get(
       FROM student_exams se
       JOIN students s ON se.student_id = s.id
       LEFT JOIN student_categories sc ON s.category_id = sc.id
-      JOIN exam_schedules es ON se.schedule_id = es.id
+      JOIN exam_schedules es ON se.exam_schedule_id = es.id
       JOIN exams e ON se.exam_id = e.id
       JOIN tutors t ON e.tutor_id = t.id
       WHERE t.school_id = $1
@@ -835,7 +835,7 @@ router.get(
       FROM student_exams se
       JOIN students s ON se.student_id = s.id
       LEFT JOIN student_categories sc ON s.category_id = sc.id
-      JOIN exam_schedules es ON se.schedule_id = es.id
+      JOIN exam_schedules es ON se.exam_schedule_id = es.id
       JOIN exams e ON se.exam_id = e.id
       JOIN tutors t ON e.tutor_id = t.id
       WHERE t.school_id = $1
