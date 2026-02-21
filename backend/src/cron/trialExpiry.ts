@@ -72,8 +72,6 @@ async function main() {
 
   console.log(`  → Expired ${expiredResult.rows.length} trial(s)`);
   console.log(`[${new Date().toISOString()}] Trial expiry cron complete`);
-
-  await db.end();
 }
 
 main().catch((err) => {
