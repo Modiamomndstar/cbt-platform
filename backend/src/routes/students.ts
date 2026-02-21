@@ -2,6 +2,7 @@ import { Router } from "express";
 import { body, param, query, validationResult } from "express-validator";
 import { db } from "../config/database";
 import { authenticate, authorize } from "../middleware/auth";
+import { requireStudentSlot } from "../middleware/planGuard";
 
 const router = Router();
 

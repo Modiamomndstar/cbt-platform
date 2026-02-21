@@ -23,6 +23,10 @@ import paymentRoutes from "./routes/payments";
 import categoryRoutes from "./routes/categories";
 import analyticsRoutes from "./routes/analytics";
 import uploadRoutes from "./routes/uploads";
+import billingRoutes from "./routes/billing";
+import staffRoutes from "./routes/staff";
+import superAdminRoutes from "./routes/superAdmin";
+import schoolSettingsRoutes from "./routes/schoolSettings";
 
 // Import services
 // import { EmailService } from "./services/email";
@@ -120,6 +124,11 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/uploads", uploadRoutes);
+// Sprint 1: Monetisation & Admin
+app.use("/api/billing", billingRoutes);
+app.use("/api/staff", staffRoutes);
+app.use("/api/super-admin", superAdminRoutes);
+app.use("/api/school-settings", schoolSettingsRoutes);
 
 // Error handling middleware
 app.use(

@@ -3,6 +3,7 @@ import { body, param, validationResult } from "express-validator";
 import bcrypt from "bcryptjs";
 import { db } from "../config/database";
 import { authenticate, authorize } from "../middleware/auth";
+import { requireTutorSlot } from "../middleware/planGuard";
 
 const router = Router();
 const validate = (req: any, res: any, next: any) => {

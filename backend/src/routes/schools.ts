@@ -3,6 +3,8 @@ import { body, param, validationResult } from 'express-validator';
 import bcrypt from 'bcryptjs';
 import { db } from '../config/database';
 import { authenticate, authorize } from '../middleware/auth';
+import { startTrial } from '../services/planService';
+import { sendWelcomeEmail } from '../services/email';
 
 const router = Router();
 const validate = (req: any, res: any, next: any) => {
@@ -46,17 +48,23 @@ router.post('/register', [
     // Create school
     const result = await db.query(
       `INSERT INTO schools (name, username, password_hash, email, phone, address, description, country, plan_type)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'free')
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'freemium')
        RETURNING id, name, username, email, phone, plan_type, created_at`,
       [name, username, passwordHash, email, phone, address, description, country || 'Nigeria']
     );
 
-    // No default categories seeded — tutors create categories as needed
+    const school = result.rows[0];
+
+    // Auto-start 14-day trial (Basic Premium features)
+    await startTrial(school.id);
+
+    // Send welcome email (non-blocking)
+    sendWelcomeEmail(email, name).catch(() => {});
 
     res.status(201).json({
       success: true,
-      message: 'School registered successfully',
-      data: result.rows[0]
+      message: 'School registered successfully. Your 14-day trial has started!',
+      data: school
     });
   } catch (error) {
     next(error);
