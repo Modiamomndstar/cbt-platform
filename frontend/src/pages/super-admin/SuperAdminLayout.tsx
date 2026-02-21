@@ -1,14 +1,16 @@
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { 
-  LayoutDashboard, 
-  School, 
-  BarChart3, 
+import {
+  LayoutDashboard,
+  School,
+  BarChart3,
   LogOut,
   Shield,
   Menu,
-  X
+  X,
+  DollarSign,
+  Gift
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -25,6 +27,8 @@ export default function SuperAdminLayout() {
   const navigation = [
     { name: 'Dashboard', href: '/super-admin/dashboard', icon: LayoutDashboard },
     { name: 'Schools', href: '/super-admin/schools', icon: School },
+    { name: 'School Overrides', href: '/super-admin/school-overrides', icon: Gift },
+    { name: 'Monetization', href: '/super-admin/monetization', icon: DollarSign },
     { name: 'Analytics', href: '/super-admin/analytics', icon: BarChart3 },
   ];
 
@@ -62,9 +66,9 @@ export default function SuperAdminLayout() {
               <p className="text-xs text-slate-400">Super Administrator</p>
             </div>
           </div>
-          <Button 
-            variant="outline" 
-            className="w-full border-slate-600 text-slate-300 hover:bg-slate-800" 
+          <Button
+            variant="outline"
+            className="w-full border-slate-600 text-slate-300 hover:bg-slate-800"
             onClick={handleLogout}
           >
             <LogOut className="h-4 w-4 mr-2" />
@@ -76,8 +80,8 @@ export default function SuperAdminLayout() {
       {/* Sidebar - Mobile */}
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-50">
-          <div 
-            className="absolute inset-0 bg-black/50" 
+          <div
+            className="absolute inset-0 bg-black/50"
             onClick={() => setSidebarOpen(false)}
           />
           <aside className="absolute left-0 top-0 bottom-0 w-64 bg-slate-900 text-white">
@@ -103,9 +107,9 @@ export default function SuperAdminLayout() {
               ))}
             </nav>
             <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-700">
-              <Button 
-                variant="outline" 
-                className="w-full border-slate-600 text-slate-300 hover:bg-slate-800" 
+              <Button
+                variant="outline"
+                className="w-full border-slate-600 text-slate-300 hover:bg-slate-800"
                 onClick={handleLogout}
               >
                 <LogOut className="h-4 w-4 mr-2" />

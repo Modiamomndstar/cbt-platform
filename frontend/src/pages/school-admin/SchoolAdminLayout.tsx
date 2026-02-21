@@ -10,7 +10,9 @@ import {
   GraduationCap,
   Menu,
   X,
-  BookOpen
+  BookOpen,
+  CreditCard,
+  Settings
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { schoolAPI } from '@/services/api';
@@ -51,6 +53,8 @@ export default function SchoolAdminLayout() {
     { name: 'Student Management', href: '/school-admin/students', icon: GraduationCap },
     { name: 'Student Categories', href: '/school-admin/categories', icon: BookOpen },
     { name: 'Analytics', href: '/school-admin/analytics', icon: BarChart3 },
+    { name: 'Billing & Plan', href: '/school-admin/billing', icon: CreditCard },
+    { name: 'Settings', href: '/school-admin/settings', icon: Settings },
   ];
 
   const isActive = (path: string) => location.pathname === path;

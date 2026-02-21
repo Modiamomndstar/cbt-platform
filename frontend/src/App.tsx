@@ -17,6 +17,8 @@ import TutorManagement from '@/pages/school-admin/TutorManagement';
 import SchoolAnalytics from '@/pages/school-admin/Analytics';
 import CategoryManagement from '@/pages/common/CategoryManagement';
 import SchoolStudentManagement from '@/pages/school-admin/StudentManagement';
+import BillingPage from '@/pages/school-admin/Billing';
+import SchoolSettingsPage from '@/pages/school-admin/SchoolSettings';
 
 // Tutor Pages
 import TutorLayout from '@/pages/tutor/TutorLayout';
@@ -44,6 +46,8 @@ import SuperAdminLayout from '@/pages/super-admin/SuperAdminLayout';
 import SuperAdminDashboard from '@/pages/super-admin/Dashboard';
 import SchoolsManagement from '@/pages/super-admin/SchoolsManagement';
 import PlatformAnalytics from '@/pages/super-admin/PlatformAnalytics';
+import MonetizationPage from '@/pages/super-admin/Monetization';
+import SchoolOverridesPage from '@/pages/super-admin/SchoolOverrides';
 
 function AppRoutes() {
   const { isLoading } = useAuth();
@@ -85,6 +89,8 @@ function AppRoutes() {
         <Route path="students" element={<SchoolStudentManagement />} />
         <Route path="analytics" element={<SchoolAnalytics />} />
         <Route path="categories" element={<CategoryManagement />} />
+        <Route path="billing" element={<BillingPage />} />
+        <Route path="settings" element={<SchoolSettingsPage />} />
       </Route>
 
       {/* Tutor Routes */}
@@ -136,6 +142,8 @@ function AppRoutes() {
         <Route path="dashboard" element={<SuperAdminDashboard />} />
         <Route path="schools" element={<SchoolsManagement />} />
         <Route path="analytics" element={<PlatformAnalytics />} />
+        <Route path="monetization" element={<MonetizationPage />} />
+        <Route path="school-overrides" element={<SchoolOverridesPage />} />
       </Route>
 
       {/* Common Protected Routes (not nested under a specific layout) */}

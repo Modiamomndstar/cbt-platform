@@ -310,4 +310,60 @@ export const uploadAPI = {
     api.get(`/uploads/template/${type}`, { responseType: "blob" }),
 };
 
+// ── Billing API ─────────────────────────────────────────────
+export const billingAPI = {
+  getStatus: () => api.get("/billing/status"),
+  getPlans: () => api.get("/billing/plans"),
+  validateCoupon: (code: string, planType: string) =>
+    api.post("/billing/coupon/validate", { code, planType }),
+  getPaygBalance: () => api.get("/billing/payg/balance"),
+  getPaygHistory: () => api.get("/billing/payg/history"),
+};
+
+// ── School Settings API ─────────────────────────────────────
+export const schoolSettingsAPI = {
+  get: () => api.get("/school-settings"),
+  update: (data: Record<string, any>) => api.put("/school-settings", data),
+};
+
+// ── Super Admin API ─────────────────────────────────────────
+export const superAdminAPI = {
+  // Overview
+  getOverview: () => api.get("/super-admin/overview"),
+
+  // Plans
+  getPlans: () => api.get("/super-admin/plans"),
+  updatePlan: (planType: string, data: Record<string, any>) =>
+    api.put(`/super-admin/plans/${planType}`, data),
+
+  // Feature flags
+  getFeatureFlags: () => api.get("/super-admin/feature-flags"),
+  updateFeatureFlag: (featureKey: string, data: Record<string, any>) =>
+    api.put(`/super-admin/feature-flags/${featureKey}`, data),
+
+  // School overrides
+  giftPlan: (schoolId: string, planType: string, days: number, reason?: string) =>
+    api.post(`/super-admin/schools/${schoolId}/gift-plan`, { planType, days, reason }),
+  revokePlan: (schoolId: string, reason?: string) =>
+    api.post(`/super-admin/schools/${schoolId}/revoke-plan`, { reason }),
+  suspendSchool: (schoolId: string, suspended: boolean, reason?: string) =>
+    api.post(`/super-admin/schools/${schoolId}/suspend`, { suspended, reason }),
+  addCredits: (schoolId: string, credits: number, reason: string) =>
+    api.post(`/super-admin/schools/${schoolId}/add-credits`, { credits, reason }),
+  extendTrial: (schoolId: string, days: number) =>
+    api.post(`/super-admin/schools/${schoolId}/extend-trial`, { days }),
+
+  // Coupons
+  getCoupons: () => api.get("/super-admin/coupons"),
+  createCoupon: (data: Record<string, any>) => api.post("/super-admin/coupons", data),
+  updateCoupon: (id: string, data: Record<string, any>) =>
+    api.patch(`/super-admin/coupons/${id}`, data),
+
+  // Staff
+  getStaff: () => api.get("/staff"),
+  createStaff: (data: Record<string, any>) => api.post("/staff", data),
+  updateStaff: (id: string, data: Record<string, any>) => api.patch(`/staff/${id}`, data),
+  getAuditLog: () => api.get("/staff/audit-log"),
+};
+
 export default api;
