@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { superAdminAPI } from '@/services/api';
 import { toast } from 'sonner';
 import {
   Gift, ShieldOff, PauseCircle, PlayCircle, Coins, Clock,
-  Search, School, RefreshCw, ChevronDown, ChevronUp, ExternalLink
+  Search, School, RefreshCw, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 interface SchoolData {

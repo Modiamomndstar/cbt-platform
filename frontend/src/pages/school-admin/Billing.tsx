@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { billingAPI } from '@/services/api';
 import { toast } from 'sonner';
 import {
-  CreditCard, Zap, Users, GraduationCap, BookOpen, Brain,
+  CreditCard, Users, GraduationCap, BookOpen, Brain,
   TrendingUp, CheckCircle2, XCircle, Clock, Coins, ArrowUpRight,
   Tag, RefreshCw, Wallet
 } from 'lucide-react';
