@@ -33,8 +33,8 @@ router.get(
 
       const result = await client.query(
         `SELECT * FROM questions
-       WHERE exam_id = $1 AND is_deleted = false
-       ORDER BY question_order, created_at`,
+       WHERE exam_id = $1
+       ORDER BY sort_order, created_at`,
         [examId],
       );
 
@@ -99,7 +99,7 @@ router.post(
       }
 
       const result = await client.query(
-        `INSERT INTO questions (exam_id, question_text, question_type, options, correct_answer, marks, question_order, image_url)
+        `INSERT INTO questions (exam_id, question_text, question_type, options, correct_answer, marks, sort_order, image_url)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
         [
@@ -117,7 +117,7 @@ router.post(
       // Update exam total marks
       await client.query(
         `UPDATE exams SET total_marks = (
-        SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1 AND is_deleted = false
+        SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1
       ) WHERE id = $1`,
         [examId],
       );
@@ -169,7 +169,7 @@ router.post(
       for (let i = 0; i < questions.length; i++) {
         const q = questions[i];
         const result = await client.query(
-          `INSERT INTO questions (exam_id, question_text, question_type, options, correct_answer, marks, question_order)
+          `INSERT INTO questions (exam_id, question_text, question_type, options, correct_answer, marks, sort_order)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING *`,
           [
@@ -188,7 +188,7 @@ router.post(
       // Update exam total marks
       await client.query(
         `UPDATE exams SET total_marks = (
-        SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1 AND is_deleted = false
+        SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1
       ) WHERE id = $1`,
         [examId],
       );
@@ -261,7 +261,7 @@ router.put(
            options = COALESCE($3, options),
            correct_answer = COALESCE($4, correct_answer),
            marks = COALESCE($5, marks),
-           question_order = COALESCE($6, question_order),
+           sort_order = COALESCE($6, sort_order),
            image_url = COALESCE($7, image_url)
        WHERE id = $8
        RETURNING *`,
@@ -280,7 +280,7 @@ router.put(
       // Update exam total marks
       await client.query(
         `UPDATE exams SET total_marks = (
-        SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1 AND is_deleted = false
+        SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1
       ) WHERE id = $1`,
         [questionCheck.rows[0].exam_id],
       );
@@ -335,14 +335,14 @@ router.delete(
       }
 
       await client.query(
-        "UPDATE questions SET is_deleted = true WHERE id = $1",
+        "DELETE FROM questions WHERE id = $1",
         [id],
       );
 
       // Update exam total marks
       await client.query(
         `UPDATE exams SET total_marks = (
-        SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1 AND is_deleted = false
+        SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1
       ) WHERE id = $1`,
         [questionCheck.rows[0].exam_id],
       );
@@ -483,7 +483,7 @@ router.post(
 
       for (const { questionId, newOrder } of questionOrders) {
         await client.query(
-          "UPDATE questions SET question_order = $1 WHERE id = $2 AND exam_id = $3",
+          "UPDATE questions SET sort_order = $1 WHERE id = $2 AND exam_id = $3",
           [newOrder, questionId, examId],
         );
       }

@@ -26,7 +26,7 @@ async function autoExpireSchedules(client: any, examId?: string, studentId?: str
   // Find schedules that are still 'scheduled' but past their end time
   let query = `
     SELECT es.id, es.exam_id, es.student_id, es.scheduled_date, es.end_time,
-           e.total_marks, e.pass_mark_percentage
+           e.total_questions as total_marks, e.passing_score
     FROM exam_schedules es
     JOIN exams e ON es.exam_id = e.id
     WHERE es.status = 'scheduled'
@@ -60,7 +60,7 @@ async function autoExpireSchedules(client: any, examId?: string, studentId?: str
 
       if (existing.rows.length === 0) {
         await client.query(
-          `INSERT INTO student_exams (student_id, exam_id, exam_schedule_id, score, total_marks, percentage, status, time_spent_minutes, answers)
+          `INSERT INTO student_exams (student_id, exam_id, exam_schedule_id, score, total_marks, percentage, status, time_spent, answers)
            VALUES ($1, $2, $3, 0, $4, 0, 'expired', 0, '[]')`,
           [row.student_id, row.exam_id, row.id, row.total_marks || 0]
         );
@@ -81,7 +81,7 @@ router.get(
       const user = req.user!;
 
       let query = `
-      SELECT s.id, s.full_name, s.first_name, s.last_name, s.email, s.registration_number, s.category_id,
+      SELECT s.id, s.full_name, s.first_name, s.last_name, s.email, s.student_id, s.category_id,
              sc.name as category_name
       FROM students s
       LEFT JOIN student_categories sc ON s.category_id = sc.id
@@ -117,7 +117,7 @@ router.get(
           firstName: s.first_name,
           lastName: s.last_name,
           email: s.email,
-          registrationNumber: s.registration_number,
+          registrationNumber: s.student_id,
           categoryId: s.category_id,
           categoryName: s.category_name,
         })),
@@ -144,7 +144,7 @@ router.get(
 
       // Verify exam belongs to user's school
       const examCheck = await client.query(
-        `SELECT e.*, e.pass_mark_percentage FROM exams e
+        `SELECT e.*, e.passing_score FROM exams e
        JOIN tutors t ON e.tutor_id = t.id
        WHERE e.id = $1 AND t.school_id = $2`,
         [examId, user.schoolId],
@@ -154,7 +154,7 @@ router.get(
         return res.status(404).json({ success: false, message: "Exam not found" });
       }
 
-      const examPassMark = examCheck.rows[0].pass_mark_percentage || 50;
+      const examPassMark = examCheck.rows[0].passing_score || 50;
 
       // Auto-expire overdue schedules
       await autoExpireSchedules(client, examId);
@@ -164,14 +164,14 @@ router.get(
       // However, we must check if 'assigned_questions' is available in student_exams.
       const result = await client.query(
         `SELECT es.*,
-              s.full_name, s.first_name, s.last_name, s.email, s.registration_number,
+              s.full_name, s.first_name, s.last_name, s.email, s.student_id,
               sc.name as category_name,
               se.score,
               -- CALCULATE DYNAMIC TOTAL MARKS
               (SELECT COALESCE(SUM((q->>'marks')::int), 0) FROM jsonb_array_elements(se.assigned_questions) q) as se_total_marks,
               se.percentage,
-              se.time_spent_minutes, se.start_time as se_start_time, se.end_time as se_end_time,
-              se.auto_submitted as se_auto_submitted, se.status as se_status, se.started_at as se_started_at
+              se.time_spent, se.started_at as se_start_time, se.submitted_at as se_end_time,
+              se.auto_submitted as se_auto_submitted, se.status as se_status
        FROM exam_schedules es
        JOIN students s ON es.student_id = s.id
        LEFT JOIN student_categories sc ON s.category_id = sc.id
@@ -219,7 +219,7 @@ router.get(
             firstName: row.first_name,
             lastName: row.last_name,
             email: row.email,
-            registrationNumber: row.registration_number,
+            registrationNumber: row.student_id,
             categoryName: row.category_name,
             scheduledDate: row.scheduled_date,
             startTime: row.start_time,
@@ -234,8 +234,8 @@ router.get(
             totalMarks: actualTotalMarks,
             percentage: row.percentage !== null ? parseFloat(row.percentage) : null,
             passed,
-            timeSpentMinutes: row.time_spent_minutes,
-            startedAt: row.started_at || row.se_started_at || row.se_start_time,
+            timeSpentMinutes: row.time_spent,
+            startedAt: row.started_at || row.se_start_time,
             completedAt: row.completed_at || row.se_end_time,
             autoSubmitted: row.auto_submitted || row.se_auto_submitted || false,
             createdAt: row.created_at,
@@ -300,10 +300,10 @@ router.post(
           // Generate access code and credentials
           const accessCode = Math.random().toString(36).substring(2, 8).toUpperCase();
           const studentRes = await client.query(
-            "SELECT registration_number FROM students WHERE id = $1",
+            "SELECT student_id FROM students WHERE id = $1",
             [studentId]
           );
-          const regNum = studentRes.rows[0]?.registration_number || `STU${studentId.substring(0, 4)}`;
+          const regNum = studentRes.rows[0]?.student_id || `STU${studentId.substring(0, 4)}`;
           const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
           const username = `exam_${regNum}_${randomSuffix}`.replace(/[^a-zA-Z0-9_]/g, '');
           const password = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -355,7 +355,7 @@ router.put(
 
       // Verify schedule belongs to user's school
       const scheduleCheck = await client.query(
-        `SELECT es.*, e.total_marks FROM exam_schedules es
+        `SELECT es.*, e.total_questions as total_marks FROM exam_schedules es
        JOIN exams e ON es.exam_id = e.id
        JOIN tutors t ON e.tutor_id = t.id
        WHERE es.id = $1 AND t.school_id = $2`,
@@ -469,7 +469,7 @@ router.get(
 
       const result = await client.query(
         `SELECT es.*,
-              e.title as exam_title, e.description, e.duration_minutes, e.total_marks, e.category, e.total_questions,
+              e.title as exam_title, e.description, e.duration, e.category, e.total_questions,
               t.first_name as tutor_first_name, t.last_name as tutor_last_name, t.full_name as tutor_full_name
        FROM exam_schedules es
        JOIN exams e ON es.exam_id = e.id
@@ -490,7 +490,7 @@ router.get(
           examId: row.exam_id,
           examTitle: row.exam_title,
           description: row.description,
-          durationMinutes: row.duration_minutes,
+          durationMinutes: row.duration,
           totalQuestions: row.total_questions,
           totalMarks: row.total_marks, // Note: This is exam total. For student specific, we might need a join, but for list view this is fine.
           examCategory: row.category,
@@ -523,7 +523,7 @@ router.post(
       const user = req.user!;
 
       const result = await client.query(
-        `SELECT es.*, e.duration_minutes, e.title, e.id as eid, e.total_questions, e.shuffle_questions, e.shuffle_options
+        `SELECT es.*, e.duration, e.title, e.id as eid, e.total_questions, e.shuffle_questions, e.shuffle_options
          FROM exam_schedules es
          JOIN exams e ON es.exam_id = e.id
          WHERE es.id = $1 AND es.student_id = $2 AND es.status IN ('scheduled', 'in_progress')`,
@@ -610,8 +610,8 @@ router.post(
         finalQuestions = await assignQuestions(client, schedule.exam_id, schedule.total_questions, schedule.shuffle_questions, schedule.shuffle_options);
 
         await client.query(
-          `INSERT INTO student_exams (student_id, exam_id, exam_schedule_id, start_time, started_at, status, assigned_questions)
-           VALUES ($1, $2, $3, NOW(), NOW(), 'in_progress', $4)`,
+          `INSERT INTO student_exams (student_id, exam_id, exam_schedule_id, started_at, status, assigned_questions)
+           VALUES ($1, $2, $3, NOW(), 'in_progress', $4)`,
           [user.id, schedule.exam_id, scheduleId, JSON.stringify(finalQuestions)]
         );
       }
@@ -637,7 +637,7 @@ router.post(
           scheduleId: schedule.id,
           examId: schedule.exam_id,
           examTitle: schedule.title,
-          durationMinutes: schedule.duration_minutes,
+          durationMinutes: schedule.duration,
           startedAt: schedule.started_at || new Date(),
           questions: sanitizedQuestions,
         },
@@ -781,8 +781,8 @@ router.post(
 async function assignQuestions(client: any, examId: string, limit: number, shuffleQs: boolean, shuffleOpts: boolean) {
     // 1. Fetch ALL active questions for this exam
     const result = await client.query(
-      `SELECT id, question_text, question_type, options, marks, correct_answer, image_url, created_at, question_order
-       FROM questions WHERE exam_id = $1 AND is_deleted = false`,
+      `SELECT id, question_text, question_type, options, marks, correct_answer, image_url, created_at, sort_order
+       FROM questions WHERE exam_id = $1`,
       [examId]
     );
 
@@ -794,7 +794,7 @@ async function assignQuestions(client: any, examId: string, limit: number, shuff
         allQuestions = shuffleArray([...allQuestions]);
       } else {
          // Sort by order or created_at if not shuffling
-         allQuestions.sort((a: any, b: any) => (a.question_order || 0) - (b.question_order || 0) || new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+         allQuestions.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0) || new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
       }
       return processOptions(allQuestions, shuffleOpts);
     }
@@ -844,7 +844,7 @@ async function assignQuestions(client: any, examId: string, limit: number, shuff
        if (shuffleQs) {
           selected = shuffleArray(selected);
        } else {
-          selected.sort((a: any, b: any) => (a.question_order || 0) - (b.question_order || 0) || new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+          selected.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0) || new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
        }
        return selected.slice(0, target);
     };
@@ -875,7 +875,7 @@ async function assignQuestions(client: any, examId: string, limit: number, shuff
     } else {
        // If not shuffled, maybe keep them grouped?
        // Or sort by original order
-       finalSelection.sort((a: any, b: any) => (a.question_order || 0) - (b.question_order || 0) || new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+       finalSelection.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0) || new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     }
 
     return processOptions(finalSelection, shuffleOpts);

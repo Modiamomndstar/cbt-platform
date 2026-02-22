@@ -19,7 +19,7 @@ router.post(
 
       // Get exam details
       const scheduleResult = await client.query(
-        `SELECT es.*, e.duration_minutes, e.total_marks, e.pass_mark_percentage
+        `SELECT es.*, e.duration, e.total_questions as total_marks, e.passing_score
        FROM exam_schedules es
        JOIN exams e ON es.exam_id = e.id
        WHERE es.id = $1 AND es.student_id = $2`,
@@ -58,7 +58,7 @@ router.post(
          // Fallback: Get all questions from bank (Legacy behavior, but we want to avoid this if possible)
          const questionsResult = await client.query(
            `SELECT id, correct_answer, marks, question_type FROM questions
-            WHERE exam_id = $1 AND is_deleted = false`,
+            WHERE exam_id = $1`,
            [schedule.exam_id],
          );
          questions = questionsResult.rows;
@@ -117,7 +117,7 @@ router.post(
         totalPossibleMarks > 0
           ? (totalScore / totalPossibleMarks) * 100
           : 0;
-      const passed = percentage >= schedule.pass_mark_percentage;
+      const passed = percentage >= schedule.passing_score;
 
 
 
@@ -129,7 +129,7 @@ router.post(
            total_marks = $2,
            percentage = $3,
            status = $4,
-           time_spent_minutes = $5,
+           time_spent = $5,
            answers = $6,
            auto_submitted = $7
        WHERE exam_schedule_id = $8
@@ -197,7 +197,7 @@ router.get(
 
       const result = await client.query(
         `SELECT se.*,
-              e.title as exam_title, e.description, e.duration_minutes, e.total_marks as exam_total_marks, e.pass_mark_percentage,
+              e.title as exam_title, e.description, e.duration, e.total_questions as exam_total_marks, e.passing_score,
               es.scheduled_date, es.start_time, es.end_time as schedule_end_time
        FROM student_exams se
        JOIN exams e ON se.exam_id = e.id
@@ -224,12 +224,12 @@ router.get(
           totalMarks: row.total_marks,
           percentage: row.percentage,
           status: row.status,
-          timeSpentMinutes: row.time_spent_minutes,
+          timeSpentMinutes: row.time_spent,
           startTime: row.start_time,
           endTime: row.end_time,
           scheduledDate: row.scheduled_date,
           answers: row.answers,
-          passed: row.percentage >= row.pass_mark_percentage,
+          passed: row.percentage >= row.passing_score,
         },
       });
     } catch (error) {
@@ -257,8 +257,8 @@ router.get(
       // Verify exam belongs to user's school
       const result = await client.query(
         `SELECT se.*,
-              e.title as exam_title, e.duration_minutes, e.total_marks as exam_total_marks, e.pass_mark_percentage,
-              s.full_name, s.first_name, s.last_name, s.registration_number, s.email
+              e.title as exam_title, e.duration, e.total_questions as exam_total_marks, e.passing_score,
+              s.full_name, s.first_name, s.last_name, s.student_id, s.email
          FROM student_exams se
          JOIN exams e ON se.exam_id = e.id
          JOIN students s ON se.student_id = s.id
@@ -303,14 +303,14 @@ router.get(
         data: {
           id: row.id,
           studentName: row.full_name || `${row.first_name || ''} ${row.last_name || ''}`.trim(),
-          registrationNumber: row.registration_number,
+          registrationNumber: row.student_id,
           examTitle: row.exam_title,
           score: parseFloat(row.score),
           totalMarks: parseFloat(row.total_marks),
           percentage: parseFloat(row.percentage),
-          passed: parseFloat(row.percentage) >= row.pass_mark_percentage,
+          passed: parseFloat(row.percentage) >= row.passing_score,
           status: row.status,
-          timeSpentMinutes: row.time_spent_minutes,
+          timeSpentMinutes: row.time_spent,
           submittedAt: row.end_time || row.completed_at,
           questions: detailedQuestions
         },
@@ -354,10 +354,10 @@ router.get(
 
       let query = `
       SELECT se.*,
-             s.full_name, s.first_name, s.last_name, s.email, s.registration_number,
+             s.full_name, s.first_name, s.last_name, s.email, s.student_id,
              sc.name as category_name,
-             es.scheduled_date, es.started_at as schedule_started_at, es.completed_at, es.auto_submitted as schedule_auto_submitted,
-             e.pass_mark_percentage
+             es.scheduled_date, es.start_time as schedule_started_at, es.completed_at, es.auto_submitted as schedule_auto_submitted,
+             e.passing_score
       FROM student_exams se
       JOIN students s ON se.student_id = s.id
       LEFT JOIN student_categories sc ON s.category_id = sc.id
@@ -370,7 +370,7 @@ router.get(
       let paramIndex = 2;
 
       if (search) {
-        query += ` AND (s.full_name ILIKE $${paramIndex} OR s.first_name ILIKE $${paramIndex} OR s.last_name ILIKE $${paramIndex} OR s.email ILIKE $${paramIndex} OR s.registration_number ILIKE $${paramIndex})`;
+        query += ` AND (s.full_name ILIKE $${paramIndex} OR s.first_name ILIKE $${paramIndex} OR s.last_name ILIKE $${paramIndex} OR s.email ILIKE $${paramIndex} OR s.student_id ILIKE $${paramIndex})`;
         params.push(`%${search}%`);
         paramIndex++;
       }
@@ -394,7 +394,7 @@ router.get(
       res.json({
         success: true,
         data: result.rows.map((row) => {
-          const passed = row.percentage !== null ? parseFloat(row.percentage) >= (row.pass_mark_percentage || 50) : null;
+          const passed = row.percentage !== null ? parseFloat(row.percentage) >= (row.passing_score || 50) : null;
           return {
             id: row.id,
             studentId: row.student_id,
@@ -402,14 +402,14 @@ router.get(
             firstName: row.first_name,
             lastName: row.last_name,
             email: row.email,
-            registrationNumber: row.registration_number,
+            registrationNumber: row.student_id,
             categoryName: row.category_name,
             score: row.score !== null ? parseFloat(row.score) : null,
             totalMarks: row.total_marks !== null ? parseFloat(row.total_marks) : null,
             percentage: row.percentage !== null ? parseFloat(row.percentage) : null,
             passed,
             status: row.status,
-            timeSpentMinutes: row.time_spent_minutes,
+            timeSpentMinutes: row.time_spent,
             startedAt: row.schedule_started_at || row.start_time,
             completedAt: row.completed_at || row.end_time,
             autoSubmitted: row.schedule_auto_submitted || row.auto_submitted || false,
@@ -444,7 +444,7 @@ router.get(
 
       const result = await client.query(
         `SELECT se.*,
-              e.title as exam_title, e.description, e.duration_minutes, e.pass_mark_percentage,
+              e.title as exam_title, e.description, e.duration, e.passing_score,
               es.scheduled_date,
               t.full_name as tutor_full_name, t.first_name as tutor_first_name, t.last_name as tutor_last_name
        FROM student_exams se
@@ -475,8 +475,8 @@ router.get(
           totalMarks: row.total_marks,
           percentage: row.percentage,
           status: row.status,
-          passed: row.percentage >= row.pass_mark_percentage,
-          timeSpentMinutes: row.time_spent_minutes,
+          passed: row.percentage >= row.passing_score,
+          timeSpentMinutes: row.time_spent,
           scheduledDate: row.scheduled_date,
           submittedAt: row.end_time,
         })),
@@ -560,7 +560,7 @@ router.post(
           totalScore,
           percentage,
           JSON.stringify(answers),
-          percentage >= studentExam.pass_mark_percentage
+          percentage >= studentExam.passing_score
             ? "completed"
             : "failed",
           studentExamId,
@@ -699,15 +699,15 @@ router.get(
              COALESCE(s.full_name,
                NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), ''),
                s.email,
-               s.registration_number,
+               s.student_id,
                'Unknown Student'
              ) as student_name,
-             s.email, s.registration_number,
+             s.email, s.student_id,
              sc.name as category_name,
              e.title as exam_title,
              e.category as exam_category,
-             es.scheduled_date, es.started_at as schedule_started_at, es.completed_at, es.auto_submitted as schedule_auto_submitted,
-             e.pass_mark_percentage, e.total_marks as exam_total_marks
+             es.scheduled_date, es.start_time as schedule_started_at, es.completed_at, es.auto_submitted as schedule_auto_submitted,
+             e.passing_score, e.total_questions as exam_total_marks
       FROM student_exams se
       JOIN students s ON se.student_id = s.id
       LEFT JOIN student_categories sc ON s.category_id = sc.id
@@ -744,7 +744,7 @@ router.get(
           s.first_name ILIKE $${paramIndex} OR
           s.last_name ILIKE $${paramIndex} OR
           s.email ILIKE $${paramIndex} OR
-          s.registration_number ILIKE $${paramIndex}
+          s.student_id ILIKE $${paramIndex}
         )`;
         params.push(`%${search}%`);
         paramIndex++;
@@ -776,13 +776,13 @@ router.get(
       res.json({
         success: true,
         data: result.rows.map((row) => {
-          const passed = row.percentage !== null ? parseFloat(row.percentage) >= (row.pass_mark_percentage || 50) : null;
+          const passed = row.percentage !== null ? parseFloat(row.percentage) >= (row.passing_score || 50) : null;
           return {
             id: row.id,
             studentId: row.student_id,
             studentName: row.student_name,
             email: row.email,
-            registrationNumber: row.registration_number,
+            registrationNumber: row.student_id,
             categoryName: row.category_name,
             examTitle: row.exam_title,
             examCategory: row.exam_category,
@@ -791,7 +791,7 @@ router.get(
             percentage: row.percentage !== null ? parseFloat(row.percentage) : null,
             passed,
             status: row.status,
-            timeSpentMinutes: row.time_spent_minutes,
+            timeSpentMinutes: row.time_spent,
             scheduledDate: row.scheduled_date,
             submittedAt: row.end_time || row.completed_at,
           };
@@ -805,7 +805,7 @@ router.get(
       });
     } catch (error) {
       console.error("Get school results error:", error);
-      res.status(500).json({ success: false, message: "Failed to fetch school results" });
+      res.status(500).json({ success: false, message: "Failed to fetch school results", dbError: (error as any).message });
     } finally {
       client.release();
     }
@@ -826,13 +826,14 @@ router.get(
       // Reuse the same query logic (simplified)
       let query = `
       SELECT se.*,
-             COALESCE(s.full_name, NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), ''), s.email, s.registration_number, 'Unknown Student') as student_name,
-             s.email, s.registration_number,
+             COALESCE(s.full_name, NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), ''), s.email, s.student_id, 'Unknown Student') as student_name,
+             s.email, s.student_id,
              sc.name as category_name,
              e.title as exam_title, e.category as exam_category,
-             es.scheduled_date, se.started_at, se.end_time,
-             se.score, se.total_marks, se.percentage, se.status, se.time_spent_minutes
+             es.scheduled_date, se.started_at, se.submitted_at,
+             se.score, se.total_marks, se.percentage, se.status, se.time_spent
       FROM student_exams se
+      -- ts-node-dev cache bust
       JOIN students s ON se.student_id = s.id
       LEFT JOIN student_categories sc ON s.category_id = sc.id
       JOIN exam_schedules es ON se.exam_schedule_id = es.id
@@ -860,7 +861,7 @@ router.get(
         paramIndex++;
       }
       if (search) {
-        query += ` AND (s.full_name ILIKE $${paramIndex} OR s.email ILIKE $${paramIndex} OR s.registration_number ILIKE $${paramIndex})`;
+        query += ` AND (s.full_name ILIKE $${paramIndex} OR s.email ILIKE $${paramIndex} OR s.student_id ILIKE $${paramIndex})`;
         params.push(`%${search}%`);
         paramIndex++;
       }
@@ -884,7 +885,7 @@ router.get(
       const rows = result.rows.map((row: any) => [
         `"${row.student_name.replace(/"/g, '""')}"`,
         `"${(row.email || '').replace(/"/g, '""')}"`,
-        `"${(row.registration_number || '').replace(/"/g, '""')}"`,
+        `"${(row.student_id || '').replace(/"/g, '""')}"`,
         `"${(row.category_name || '').replace(/"/g, '""')}"`,
         `"${(row.exam_title || '').replace(/"/g, '""')}"`,
         `"${(row.exam_category || '').replace(/"/g, '""')}"`,
@@ -893,8 +894,8 @@ router.get(
         row.score,
         row.total_marks,
         `${Number(row.percentage).toFixed(2)}%`,
-        row.time_spent_minutes,
-        row.end_time ? new Date(row.end_time).toLocaleString() : '-'
+        row.time_spent,
+        row.submitted_at ? new Date(row.submitted_at).toLocaleString() : '-'
       ]);
 
       const csvContent = [
@@ -908,7 +909,7 @@ router.get(
 
     } catch (error) {
       console.error("Export results error:", error);
-      res.status(500).json({ success: false, message: "Failed to export results" });
+      res.status(500).json({ success: false, message: "Failed to export results", dbError: (error as any).message });
     } finally {
       client.release();
     }

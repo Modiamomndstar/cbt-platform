@@ -211,7 +211,7 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
 
         // Map fields from new template or fallback to old
         // Template: student_id, full_name, email, phone, level_class
-        const studentIdRaw = record.student_id || record.studentId || record.registrationNumber || record.registration_number;
+        const studentIdRaw = record.student_id || record.studentId || record.registrationNumber || record.student_id;
         const fullNameRaw = record.full_name || record.fullName;
         const email = record.email;
         const phone = record.phone;
@@ -262,7 +262,7 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
         // Insert student
         const result = await client.query(
           `INSERT INTO students (school_id, category_id, first_name, last_name, full_name, email,
-           phone, registration_number, username, password_hash, is_active)
+           phone, student_id, username, password_hash, is_active)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true)
            RETURNING *`,
           [
@@ -490,7 +490,7 @@ router.post('/questions', authenticate, requireRole(['school', 'tutor']), async 
 
         const result = await client.query(
           `INSERT INTO questions (exam_id, question_text, question_type, options,
-           correct_answer, marks, question_order)
+           correct_answer, marks, sort_order)
            VALUES ($1, $2, $3, $4, $5, $6, $7)
            RETURNING *`,
           [
@@ -517,7 +517,7 @@ router.post('/questions', authenticate, requireRole(['school', 'tutor']), async 
     // Update exam total marks
     await client.query(
       `UPDATE exams SET total_marks = (
-        SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1 AND is_deleted = false
+        SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1
       ) WHERE id = $1`,
       [examId]
     );

@@ -188,14 +188,14 @@ router.get('/tutor/dashboard', authenticate, requireRole(['tutor']), async (req:
 
     // Upcoming exams (scheduled)
     const upcomingExams = await client.query(
-      `SELECT es.*, e.title as exam_title, e.duration_minutes, COUNT(se.id) as student_count
+      `SELECT es.*, e.title as exam_title, e.duration, COUNT(se.id) as student_count
        FROM exam_schedules es
        JOIN exams e ON es.exam_id = e.id
        LEFT JOIN student_exams se ON es.id = se.exam_schedule_id
        WHERE e.tutor_id = $1
          AND es.status = 'scheduled'
          AND es.scheduled_date >= CURRENT_DATE
-       GROUP BY es.id, e.title, e.duration_minutes
+       GROUP BY es.id, e.title, e.duration
        ORDER BY es.scheduled_date ASC
        LIMIT 5`,
       [user.id]
@@ -276,7 +276,7 @@ router.get('/student/dashboard', authenticate, requireRole(['student']), async (
 
     // Upcoming scheduled exams
     const upcomingExams = await client.query(
-      `SELECT es.*, e.title as exam_title, e.duration_minutes
+      `SELECT es.*, e.title as exam_title, e.duration
        FROM exam_schedules es
        JOIN exams e ON es.exam_id = e.id
        WHERE es.student_id = $1
@@ -336,7 +336,7 @@ router.get('/student/dashboard', authenticate, requireRole(['student']), async (
         upcomingExams: upcomingExams.rows.map(e => ({
           id: e.id,
           examTitle: e.exam_title,
-          durationMinutes: e.duration_minutes,
+          durationMinutes: e.duration,
           scheduledDate: e.scheduled_date,
           startTime: e.start_time,
           endTime: e.end_time

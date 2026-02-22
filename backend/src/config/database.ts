@@ -9,9 +9,9 @@ const pool = new Pool({
   user: process.env.DB_USER || "postgres",
   password: process.env.DB_PASSWORD || "password",
   ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : false,
-  max: 20, // Maximum number of clients in the pool
+  max: 50, // Maximum number of clients in the pool
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 10000,
 });
 
 // Handle pool errors
