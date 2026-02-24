@@ -206,9 +206,10 @@ router.get("/:id", [param("id").isUUID(), validate], async (req, res, next) => {
     // Get exam history
     const examsResult = await db.query(
       `SELECT se.id, se.score, se.total_marks, se.percentage, se.status, se.started_at, se.submitted_at,
-              e.title as exam_title, e.category as exam_category
+              e.title as exam_title, ec.name as exam_category
        FROM student_exams se
        JOIN exams e ON se.exam_id = e.id
+       LEFT JOIN exam_categories ec ON e.category_id = ec.id
        WHERE se.student_id = $1
        ORDER BY se.created_at DESC`,
       [id],

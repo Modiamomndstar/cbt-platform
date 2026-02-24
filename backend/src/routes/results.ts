@@ -705,7 +705,7 @@ router.get(
              s.email, s.student_id,
              sc.name as category_name,
              e.title as exam_title,
-             e.category as exam_category,
+             ec.name as exam_category,
              es.scheduled_date, es.start_time as schedule_started_at, es.completed_at, es.auto_submitted as schedule_auto_submitted,
              e.passing_score, e.total_questions as exam_total_marks
       FROM student_exams se
@@ -713,6 +713,7 @@ router.get(
       LEFT JOIN student_categories sc ON s.category_id = sc.id
       JOIN exam_schedules es ON se.exam_schedule_id = es.id
       JOIN exams e ON se.exam_id = e.id
+      LEFT JOIN exam_categories ec ON e.category_id = ec.id
       JOIN tutors t ON e.tutor_id = t.id
       WHERE t.school_id = $1
     `;
@@ -727,7 +728,7 @@ router.get(
       }
 
       if (categoryId && categoryId !== 'all') {
-        query += ` AND e.category = $${paramIndex}`; // Filter by exam category (or student category? usually exam category for results)
+        query += ` AND e.category_id = $${paramIndex}`; // Filter by exam category
         params.push(categoryId);
         paramIndex++;
       }
@@ -829,7 +830,7 @@ router.get(
              COALESCE(s.full_name, NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), ''), s.email, s.student_id, 'Unknown Student') as student_name,
              s.email, s.student_id,
              sc.name as category_name,
-             e.title as exam_title, e.category as exam_category,
+             e.title as exam_title, ec.name as exam_category,
              es.scheduled_date, se.started_at, se.submitted_at,
              se.score, se.total_marks, se.percentage, se.status, se.time_spent
       FROM student_exams se
@@ -838,6 +839,7 @@ router.get(
       LEFT JOIN student_categories sc ON s.category_id = sc.id
       JOIN exam_schedules es ON se.exam_schedule_id = es.id
       JOIN exams e ON se.exam_id = e.id
+      LEFT JOIN exam_categories ec ON e.category_id = ec.id
       JOIN tutors t ON e.tutor_id = t.id
       WHERE t.school_id = $1
     `;
@@ -851,7 +853,7 @@ router.get(
         paramIndex++;
       }
       if (categoryId && categoryId !== 'all') {
-        query += ` AND e.category = $${paramIndex}`;
+        query += ` AND e.category_id = $${paramIndex}`;
         params.push(categoryId);
         paramIndex++;
       }
