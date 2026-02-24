@@ -561,7 +561,7 @@ export default function ScheduleExam() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">School Students (All)</SelectItem>
-                      <SelectItem value="external" className="text-indigo-600 font-medium">Private Students</SelectItem>
+                      <SelectItem value="external" className="text-indigo-600 font-medium">External Students</SelectItem>
                       {categories.map((cat: any) => (
                         <SelectItem key={cat.id} value={cat.id}>
                           {cat.name}

@@ -50,8 +50,6 @@ export default function ExternalStudents() {
   // Form State
   const [formData, setFormData] = useState({
     fullName: '',
-    username: '',
-    password: '',
     email: '',
     phone: '',
     categoryId: 'none',
@@ -89,7 +87,7 @@ export default function ExternalStudents() {
   const handleCreateNew = () => {
     setIsCreating(true);
     setEditingId(null);
-    setFormData({ fullName: '', username: '', password: '', email: '', phone: '', categoryId: 'none', isActive: true });
+    setFormData({ fullName: '', email: '', phone: '', categoryId: 'none', isActive: true });
   };
 
   const handleEdit = (student: ExternalStudent) => {
@@ -97,8 +95,6 @@ export default function ExternalStudents() {
     setEditingId(student.id);
     setFormData({
       fullName: student.full_name,
-      username: student.username,
-      password: '', // blank intentionally
       email: student.email || '',
       phone: student.phone || '',
       categoryId: student.category_id || 'none',
@@ -121,15 +117,10 @@ export default function ExternalStudents() {
       }
 
       if (isCreating) {
-        if (!formData.password) {
-          toast.error("Password is required for new accounts");
-          return;
-        }
         const res = await api.post('/tutor/external-students', payload);
         setStudents([res.data.data, ...students]);
         toast.success("External student added successfully.");
         setIsCreating(false);
-      } else if (editingId) {
         const updatePayload: any = {
           fullName: formData.fullName,
           email: formData.email,
@@ -137,7 +128,6 @@ export default function ExternalStudents() {
           isActive: formData.isActive,
           categoryId: payload.categoryId
         };
-        if (formData.password) updatePayload.password = formData.password;
 
         const res = await api.patch(`/tutor/external-students/${editingId}`, updatePayload);
         setStudents(students.map(s => s.id === editingId ? res.data.data : s));
@@ -304,11 +294,6 @@ export default function ExternalStudents() {
                 <Label>Full Name <span className="text-red-500">*</span></Label>
                 <Input required value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} />
               </div>
-              <div className="space-y-2">
-                <Label>Username <span className="text-red-500">*</span></Label>
-                <Input required disabled={!!editingId} value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} />
-                {editingId && <p className="text-xs text-gray-400">Username cannot be changed</p>}
-              </div>
 
               <div className="space-y-2">
                 <Label>Category</Label>
@@ -328,22 +313,6 @@ export default function ExternalStudents() {
               <div className="space-y-2">
                 <Label>Phone <span className="text-gray-400">(Optional)</span></Label>
                 <Input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Password {isCreating && <span className="text-red-500">*</span>}</Label>
-                <div className="relative">
-                  <Input
-                    required={isCreating}
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder={editingId ? 'Leave blank to keep current password' : ''}
-                    value={formData.password}
-                    onChange={e => setFormData({...formData, password: e.target.value})}
-                  />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
-                    {showPassword ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
               </div>
 
               {editingId && (

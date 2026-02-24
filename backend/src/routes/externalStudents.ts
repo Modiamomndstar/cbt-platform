@@ -152,17 +152,15 @@ router.get('/', async (req: any, res: any, next: any) => {
 // -----------------------------------------------------------
 router.post('/', [
   body('fullName').trim().notEmpty().withMessage('Full name is required'),
-  body('username').trim().isLength({ min: 4 }).withMessage('Username must be 4+ chars'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be 6+ chars'),
   body('email').optional({ checkFalsy: true }).isEmail(),
   body('phone').optional().trim(),
   body('categoryId').optional().isUUID(),
   validate
 ], async (req: any, res: any, next: any) => {
   try {
-    const tutorId = req.user.tutorId;
+    const tutorId = req.user.tutorId || req.user.id;
     const schoolId = req.user.schoolId;
-    const { fullName, username, password, email, phone, categoryId } = req.body;
+    const { fullName, email, phone, categoryId } = req.body;
 
     const allowed = await checkExternalEnabled(schoolId);
     if (!allowed) {
@@ -193,12 +191,17 @@ router.post('/', [
       }
     }
 
-    // Check unique username global across external students to avoid login collision
-    const exists = await db.query('SELECT id FROM external_students WHERE username = $1', [username]);
-    if (exists.rows.length > 0) {
-      return res.status(409).json({ success: false, message: 'Username is already taken by another external student.' });
+    // Generate unique username
+    let base = fullName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().substring(0, 8);
+    if (!base) base = 'extuser';
+    let username = `${base}${Math.floor(Math.random() * 10000)}`;
+
+    const usernameCheck = await db.query('SELECT username FROM external_students WHERE username = $1', [username]);
+    if (usernameCheck.rows.length > 0) {
+       username = `${base}${Date.now().toString().slice(-4)}`;
     }
 
+    const password = Math.random().toString(36).slice(-8);
     const passwordHash = await bcrypt.hash(password, 10);
 
     const result = await db.query(
@@ -223,13 +226,12 @@ router.patch('/:id', [
   body('email').optional({ checkFalsy: true }).isEmail(),
   body('phone').optional().trim(),
   body('isActive').optional().isBoolean(),
-  body('password').optional().isLength({ min: 6 }),
   body('categoryId').optional({ nullable: true }),
   validate
 ], async (req: any, res: any, next: any) => {
   try {
     const { id } = req.params;
-    const tutorId = req.user.tutorId;
+    const tutorId = req.user.tutorId || req.user.id;
 
     // Ensure tutor owns this student
     const ownership = await db.query('SELECT id FROM external_students WHERE id = $1 AND tutor_id = $2', [id, tutorId]);

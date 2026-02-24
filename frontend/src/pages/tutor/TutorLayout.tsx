@@ -32,7 +32,7 @@ export default function TutorLayout() {
     { name: 'Exams', href: '/tutor/exams', icon: BookOpen },
     { name: 'Student Categories', href: '/tutor/categories', icon: GraduationCap },
     { name: 'School Students', href: '/tutor/students', icon: Users },
-    { name: 'Private Students', href: '/tutor/external-students', icon: UserPlus },
+    { name: 'External Students', href: '/tutor/external-students', icon: UserPlus },
     { name: 'Results', href: '/tutor/results', icon: BarChart3 },
   ];
 
