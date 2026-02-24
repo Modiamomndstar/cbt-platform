@@ -54,12 +54,27 @@ router.put('/', [
 ], async (req, res, next) => {
   try {
     const schoolId = req.user!.id;
-    const {
+    let {
       allowExternalStudents, maxExternalPerTutor, allowTutorCreateStudents,
       allowTutorEditCategories, studentPortalEnabled, resultReleaseMode, allowStudentPdfDownload,
       defaultExamAttempts, emailOnExamComplete, emailOnNewStudent,
       emailOnResultsRelease, primaryColor
     } = req.body;
+
+    // Clamp maxExternalPerTutor to plan ceiling
+    if (maxExternalPerTutor !== undefined) {
+      const planRow = await db.query(
+        `SELECT COALESCE(p.max_external_per_tutor, 999999) AS plan_max,
+                COALESCE(ss.extra_external_students, 0) AS extra
+         FROM school_subscriptions ss
+         JOIN plan_definitions p ON ss.plan_type = p.plan_type
+         WHERE ss.school_id = $1 AND ss.status IN ('active', 'trialing')
+         LIMIT 1`,
+        [schoolId]
+      );
+      const planCap = planRow.rows[0] ? (planRow.rows[0].plan_max + planRow.rows[0].extra) : 5;
+      maxExternalPerTutor = Math.min(maxExternalPerTutor, planCap);
+    }
 
     const updates: string[] = [];
     const values: any[] = [];

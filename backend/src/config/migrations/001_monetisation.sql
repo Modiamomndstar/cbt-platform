@@ -43,7 +43,7 @@ INSERT INTO plan_definitions (
 ) VALUES
 -- Freemium
 ('freemium', 'Free', 0, 0, 0,
-  2, 20, 0, 5, 0,
+  2, 20, 5, 5, 0,
   false, false, false, false,
   false, false, false, false,
   false, false, 0, 0),

@@ -167,21 +167,36 @@ router.post('/', [
       return res.status(403).json({ success: false, message: 'External students are disabled.' });
     }
 
-    // Check school_settings limit for external students per tutor
-    const limitQuery = await db.query(
+    // ── Tiered external student limit ──
+    // 1. Plan cap = plan_definitions.max_external_per_tutor + school_subscriptions.extra_external_students
+    // 2. School admin setting = school_settings.max_external_per_tutor (clamped to plan cap)
+    // 3. Effective limit = MIN(school_admin_setting, plan_cap)
+    const planQuery = await db.query(
+      `SELECT COALESCE(p.max_external_per_tutor, 999999) AS plan_max,
+              COALESCE(ss.extra_external_students, 0) AS extra
+       FROM school_subscriptions ss
+       JOIN plan_definitions p ON ss.plan_type = p.plan_type
+       WHERE ss.school_id = $1 AND ss.status IN ('active', 'trialing')
+       LIMIT 1`,
+      [schoolId]
+    );
+    const settingsQuery = await db.query(
       `SELECT max_external_per_tutor FROM school_settings WHERE school_id = $1`,
       [schoolId]
     );
 
-    const maxAllowed = limitQuery.rows[0]?.max_external_per_tutor ?? 30; // default 30 if not set
+    const planMax = planQuery.rows[0] ? (planQuery.rows[0].plan_max + planQuery.rows[0].extra) : 5; // fallback 5
+    const adminSetting = settingsQuery.rows[0]?.max_external_per_tutor ?? planMax;
+    const effectiveMax = Math.min(adminSetting, planMax);
+
     const currentQuery = await db.query('SELECT COUNT(*) FROM external_students WHERE tutor_id = $1', [tutorId]);
     const currentCount = parseInt(currentQuery.rows[0].count);
 
-    if (currentCount >= maxAllowed) {
+    if (currentCount >= effectiveMax) {
       return res.status(402).json({
         success: false,
         code: 'PLAN_LIMIT_EXCEEDED',
-        message: `You have reached your limit of ${maxAllowed} external students. Contact your school admin to upgrade.`
+        message: `You have reached your limit of ${effectiveMax} external students. Contact your school admin to upgrade.`
       });
     }
 
