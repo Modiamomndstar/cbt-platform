@@ -228,9 +228,9 @@ router.get(
             endTime: row.end_time,
             status: row.status,
             statusLabel,
-            accessCode: row.access_code,
-            examUsername: row.exam_username,
-            examPassword: row.exam_password,
+            accessCode: row.login_username, // use login_username as access identifier
+            examUsername: row.login_username,
+            examPassword: row.login_password,
             // Result data
             score: row.score !== null ? parseFloat(row.score) : null,
             totalMarks: actualTotalMarks,
@@ -261,7 +261,7 @@ router.post(
   async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
-      const { examId, studentIds, externalStudentIds, scheduledDate, startTime, endTime } = req.body;
+      const { examId, studentIds, externalStudentIds, scheduledDate, startTime, endTime, maxAttempts } = req.body;
       const user = req.user!;
 
       // Verify exam belongs to user's school
@@ -313,11 +313,11 @@ router.post(
           const result = await client.query(
             `INSERT INTO exam_schedules (
               exam_id, student_id, scheduled_date, start_time, end_time,
-              access_code, exam_username, exam_password, status, created_by
+              login_username, login_password, status, max_attempts
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'scheduled', $9)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, 'scheduled', $8)
             RETURNING *`,
-            [examId, studentId, scheduledDate, startTime, endTime, accessCode, username, password, user.id],
+            [examId, studentId, scheduledDate, startTime, endTime || null, username, password, maxAttempts || 1],
           );
 
           scheduledStudents.push(result.rows[0]);
@@ -351,11 +351,11 @@ router.post(
           const result = await client.query(
             `INSERT INTO exam_schedules (
               exam_id, external_student_id, scheduled_date, start_time, end_time,
-              access_code, exam_username, exam_password, status, created_by
+              login_username, login_password, status, max_attempts
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'scheduled', $9)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, 'scheduled', $8)
             RETURNING *`,
-            [examId, externalId, scheduledDate, startTime, endTime, accessCode, username, password, user.id],
+            [examId, externalId, scheduledDate, startTime, endTime || null, username, password, maxAttempts || 1],
           );
 
           scheduledStudents.push(result.rows[0]);
@@ -540,7 +540,7 @@ router.get(
           startTime: row.start_time,
           endTime: row.end_time,
           status: row.status,
-          accessCode: row.access_code,
+          accessCode: row.login_username,
         })),
       });
     } catch (error) {
@@ -577,7 +577,7 @@ router.post(
 
       const schedule = result.rows[0];
 
-      if (schedule.access_code !== accessCode.toUpperCase()) {
+      if (schedule.login_username !== accessCode.toUpperCase()) {
         return res.status(400).json({ success: false, message: "Invalid access code" });
       }
 
@@ -732,9 +732,9 @@ router.post(
         {
           date: new Date(schedule.scheduled_date).toLocaleDateString(),
           time: `${schedule.start_time} - ${schedule.end_time}`,
-          username: schedule.exam_username,
-          password: schedule.exam_password,
-          accessCode: schedule.access_code
+          username: schedule.login_username,
+          password: schedule.login_password,
+          accessCode: schedule.login_username
         }
       );
 
@@ -792,9 +792,9 @@ router.post(
           {
             date: new Date(schedule.scheduled_date).toLocaleDateString(),
             time: `${schedule.start_time} - ${schedule.end_time}`,
-            username: schedule.exam_username,
-            password: schedule.exam_password,
-            accessCode: schedule.access_code
+            username: schedule.login_username,
+            password: schedule.login_password,
+            accessCode: schedule.login_username
           }
         );
 
