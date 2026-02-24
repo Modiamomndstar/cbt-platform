@@ -61,8 +61,10 @@ export default function StudentLogin() {
 
     if (result && !result.success) {
       setError(result.message || 'Invalid credentials.');
+    } else if (activeTab === 'exam' && result?.data?.exam?.scheduleId) {
+       navigate(`/student/exam/${result.data.exam.scheduleId}`); // Direct to specific exam lobby
     } else if (activeTab === 'exam') {
-       navigate('/student/dashboard'); // Exam dashboard (or exam lobby)
+       navigate('/student/dashboard'); // Fallback
     }
 
     setIsLoading(false);

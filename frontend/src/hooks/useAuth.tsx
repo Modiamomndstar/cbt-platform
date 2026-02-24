@@ -4,7 +4,7 @@ import { authAPI } from '@/services/api';
 
 interface AuthContextType {
   user: UserSession | null;
-  login: (role: UserRole, email: string, password: string, accessCode?: string) => Promise<{ success: boolean; message?: string }>;
+  login: (role: UserRole, email: string, password: string, accessCode?: string) => Promise<{ success: boolean; message?: string; data?: any }>;
   logout: () => void;
   isLoading: boolean;
   refreshUser: () => Promise<void>;
@@ -104,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         localStorage.setItem('user', JSON.stringify(session));
         setUser(session);
-        return { success: true };
+        return { success: true, data: response.data.data };
       }
 
       return { success: false, message: response.data.message || 'Login failed' };
