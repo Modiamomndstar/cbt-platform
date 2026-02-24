@@ -206,15 +206,38 @@ export default function QuestionBank() {
 
     const questionsToCreate = uploadPreview.map(row => {
       const options = [row.option1, row.option2, row.option3, row.option4].filter(Boolean) as string[];
+      let finalCorrectAnswer: string | number = "0";
+
+      if (row.questionType === 'fill_blank') {
+          finalCorrectAnswer = row.correctAnswer || "";
+      } else if (row.questionType === 'true_false') {
+          if (row.correctAnswer === '0' || row.correctAnswer?.toLowerCase() === 'true') {
+              finalCorrectAnswer = "0";
+          } else {
+              finalCorrectAnswer = "1"; // False
+          }
+      } else {
+          // Multiple choice
+          if (!isNaN(parseInt(row.correctAnswer))) {
+              finalCorrectAnswer = parseInt(row.correctAnswer).toString();
+          } else {
+              // try to map A, B, C, D to 0, 1, 2, 3
+              const val = row.correctAnswer?.trim().toUpperCase();
+              if (val === 'A') finalCorrectAnswer = "0";
+              else if (val === 'B') finalCorrectAnswer = "1";
+              else if (val === 'C') finalCorrectAnswer = "2";
+              else if (val === 'D') finalCorrectAnswer = "3";
+              else finalCorrectAnswer = "0"; // fallback
+          }
+      }
+
       return {
         questionText: row.questionText,
         questionType: row.questionType,
         options,
-        correctAnswer: row.questionType === 'fill_blank'
-          ? row.correctAnswer
-          : parseInt(row.correctAnswer),
+        correctAnswer: finalCorrectAnswer.toString(),
         marks: parseInt(row.marks) || 5,
-        difficulty: row.difficulty,
+        difficulty: row.difficulty || 'medium',
       };
     });
 
@@ -626,6 +649,7 @@ export default function QuestionBank() {
                     <Button
                       className="w-full mt-4"
                       onClick={handleBulkUpload}
+                      disabled={uploadErrors.length > 0}
                     >
                       Upload {uploadPreview.length} Questions
                     </Button>

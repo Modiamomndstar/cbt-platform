@@ -205,7 +205,7 @@ router.post(
       console.error("Bulk create questions error:", error);
       res
         .status(500)
-        .json({ success: false, message: "Failed to create questions" });
+        .json({ success: false, message: error instanceof Error ? error.message : "Failed to create questions" });
     } finally {
       client.release();
     }

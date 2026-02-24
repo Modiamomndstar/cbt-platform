@@ -129,17 +129,23 @@ export function validateQuestionCSV(
   data.forEach((row, index) => {
     const rowNum = index + 2;
 
+    let rowValid = true;
+
     if (!row.questionText?.trim()) {
       errors.push(`Row ${rowNum}: Question text is required`);
+      rowValid = false;
     }
     if (!row.questionType) {
       errors.push(`Row ${rowNum}: Question type is required`);
+      rowValid = false;
     }
     if (!row.correctAnswer?.trim()) {
       errors.push(`Row ${rowNum}: Correct answer is required`);
+      rowValid = false;
     }
     if (!row.marks) {
       errors.push(`Row ${rowNum}: Marks is required`);
+      rowValid = false;
     }
 
     // Validate based on question type
@@ -148,15 +154,11 @@ export function validateQuestionCSV(
         errors.push(
           `Row ${rowNum}: Multiple choice questions require at least 2 options`,
         );
+        rowValid = false;
       }
     }
 
-    if (
-      row.questionText &&
-      row.questionType &&
-      row.correctAnswer &&
-      row.marks
-    ) {
+    if (rowValid) {
       validData.push(row);
     }
   });
