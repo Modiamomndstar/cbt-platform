@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { UserPlus, Pencil, Trash2, Eye, EyeOff, Upload, FolderOpen } from 'lucide-react';
+import { UserPlus, Pencil, Trash2, Eye, EyeOff, Upload, FolderOpen, Download } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import api, { uploadAPI } from '@/services/api';
@@ -259,6 +259,26 @@ export default function ExternalStudents() {
             <DialogDescription>Upload a CSV file containing columns: Registration Number, Full Name, Category ID, Email.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="flex items-center gap-2 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+              <Download className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+              <span className="text-sm text-gray-600">Need the correct format?</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const csv = 'Registration Number,Full Name,Email\nSTU001,John Doe,john@example.com\nSTU002,Jane Smith,jane@example.com';
+                  const blob = new Blob([csv], { type: 'text/csv' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = 'external_students_template.csv';
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 underline"
+              >
+                Download CSV Template
+              </button>
+            </div>
             <div className="space-y-2">
               <Label>Assign Category (Optional)</Label>
               <Select value={bulkCategoryId} onValueChange={setBulkCategoryId}>

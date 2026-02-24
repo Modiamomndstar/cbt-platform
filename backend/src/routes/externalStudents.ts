@@ -167,28 +167,22 @@ router.post('/', [
       return res.status(403).json({ success: false, message: 'External students are disabled.' });
     }
 
-    // Check plan limits for external students
+    // Check school_settings limit for external students per tutor
     const limitQuery = await db.query(
-      `SELECT p.max_external_per_tutor, ss.extra_external_students
-       FROM school_subscriptions ss
-       JOIN plan_definitions p ON ss.plan_type = p.plan_type
-       WHERE ss.school_id = $1 AND ss.status IN ('active', 'trialing')`,
+      `SELECT max_external_per_tutor FROM school_settings WHERE school_id = $1`,
       [schoolId]
     );
 
-    const limits = limitQuery.rows[0];
-    if (limits && limits.max_external_per_tutor !== null) {
-      const currentQuery = await db.query('SELECT COUNT(*) FROM external_students WHERE tutor_id = $1', [tutorId]);
-      const currentCount = parseInt(currentQuery.rows[0].count);
-      const totalAllowed = limits.max_external_per_tutor + (limits.extra_external_students || 0);
+    const maxAllowed = limitQuery.rows[0]?.max_external_per_tutor ?? 30; // default 30 if not set
+    const currentQuery = await db.query('SELECT COUNT(*) FROM external_students WHERE tutor_id = $1', [tutorId]);
+    const currentCount = parseInt(currentQuery.rows[0].count);
 
-      if (currentCount >= totalAllowed) {
-        return res.status(402).json({
-          success: false,
-          code: 'PLAN_LIMIT_EXCEEDED',
-          message: `You have reached your limit of ${totalAllowed} private students. Contact your school admin to upgrade.`
-        });
-      }
+    if (currentCount >= maxAllowed) {
+      return res.status(402).json({
+        success: false,
+        code: 'PLAN_LIMIT_EXCEEDED',
+        message: `You have reached your limit of ${maxAllowed} external students. Contact your school admin to upgrade.`
+      });
     }
 
     // Generate unique username
