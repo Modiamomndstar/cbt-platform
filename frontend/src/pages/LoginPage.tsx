@@ -44,11 +44,6 @@ export default function LoginPage() {
         password = tutorPassword;
         schoolId = tutorSchoolId;
         break;
-      case 'tutor':
-        username = tutorUsername;
-        password = tutorPassword;
-        schoolId = tutorSchoolId;
-        break;
     }
 
     const result = await login(activeTab, username, password, schoolId || undefined);
@@ -57,9 +52,6 @@ export default function LoginPage() {
       switch (activeTab) {
         case 'school_admin':
           navigate('/school-admin/dashboard');
-          break;
-        case 'tutor':
-          navigate('/tutor/dashboard');
           break;
         case 'tutor':
           navigate('/tutor/dashboard');

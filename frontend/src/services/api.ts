@@ -112,6 +112,8 @@ export const studentAPI = {
     api.get(`/students/by-category?categoryId=${categoryId}`),
   assignTutor: (studentId: string, tutorId: string) =>
     api.post(`/students/${studentId}/assign-tutor`, { tutorId }),
+  assignTutorsBulk: (studentIds: string[], tutorId: string) =>
+    api.post(`/students/bulk-assign-tutor`, { studentIds, tutorId }),
   removeTutor: (studentId: string, tutorId: string) =>
     api.delete(`/students/${studentId}/assign-tutor/${tutorId}`),
   resetPassword: (id: string) => api.put(`/students/${id}/reset-password`),

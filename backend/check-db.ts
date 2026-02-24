@@ -1,19 +1,11 @@
-import dotenv from 'dotenv';
-dotenv.config();
-import { pool } from './src/config/database';
+import { db } from "./src/config/database";
+import * as dotenv from "dotenv";
+import * as path from "path";
+dotenv.config({ path: path.resolve(__dirname, ".env") });
 
-async function verifyTables() {
-  try {
-    let res = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'school_settings'");
-    console.log("school_settings columns:", res.rows.map(r => r.column_name));
-
-    res = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'external_students'");
-    console.log("external_students columns:", res.rows.map(r => r.column_name));
-
-    res = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'student_categories'");
-    console.log("student_categories columns:", res.rows.map(r => r.column_name));
-
-  } catch(e) { console.error(e); }
-  finally { process.exit(); }
+async function check() {
+  const result = await db.query(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'exams'`);
+  console.log("Exams columns:", result.rows);
+  process.exit(0);
 }
-verifyTables();
+check();

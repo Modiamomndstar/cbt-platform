@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { scheduleAPI, resultAPI } from '@/services/api';
-import { Calendar, Clock, CheckCircle, AlertCircle, ArrowRight, FileText } from 'lucide-react';
+import { Calendar, Clock, CheckCircle, AlertCircle, ArrowRight, FileText, UserCircle } from 'lucide-react';
 
 export default function StudentDashboard() {
   const navigate = useNavigate();
@@ -205,6 +205,37 @@ export default function StudentDashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Assigned Tutors */}
+      {user?.assigned_tutors && user.assigned_tutors.filter((t: any) => t && t.id).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center">
+              <UserCircle className="h-5 w-5 mr-2 text-indigo-600" />
+              My Instructors
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {user.assigned_tutors.filter((t: any) => t && t.id).map((tutor: any) => (
+                <div key={tutor.id} className="flex items-center p-4 border rounded-lg bg-gray-50">
+                  <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold mr-4">
+                    {tutor.name.charAt(0)}
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900">{tutor.name}</h4>
+                    {tutor.subjects && (
+                      <Badge variant="secondary" className="mt-1 font-normal opacity-90">
+                        {tutor.subjects}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Instructions */}
       <Card className="bg-blue-50 border-blue-200">

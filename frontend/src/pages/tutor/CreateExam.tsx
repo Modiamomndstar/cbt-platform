@@ -8,9 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { examAPI } from '@/services/api';
 import { ArrowLeft, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
+import api, { examAPI } from '@/services/api';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function CreateExam() {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ export default function CreateExam() {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    category: '',
+    categoryId: 'none',
     duration: 60,
     totalQuestions: 20,
     passingScore: 50,
@@ -39,6 +40,18 @@ export default function CreateExam() {
     setError('');
   };
 
+  const [categories, setCategories] = useState<any[]>([]);
+
+  useState(() => {
+    const loadCats = async () => {
+      try {
+        const res = await api.get('/exam-categories');
+        setCategories(res.data.data || []);
+      } catch (err) {}
+    };
+    loadCats();
+  });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title.trim()) {
@@ -50,17 +63,22 @@ export default function CreateExam() {
     setError('');
 
     try {
-      const response = await examAPI.create({
+      const payload: any = {
         title: formData.title,
         description: formData.description,
-        category: formData.category,
         duration: formData.duration,
         totalQuestions: formData.totalQuestions,
         passingScore: formData.passingScore,
         shuffleQuestions: formData.shuffleQuestions,
         shuffleOptions: formData.shuffleOptions,
         showResultImmediately: formData.showResultImmediately,
-      });
+      };
+
+      if (formData.categoryId !== 'none') {
+         payload.categoryId = formData.categoryId;
+      }
+
+      const response = await examAPI.create(payload);
 
       if (response.data.success) {
         toast.success('Exam created successfully!');
@@ -134,14 +152,18 @@ export default function CreateExam() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="category">Category/Subject</Label>
-                <Input
-                  id="category"
-                  name="category"
-                  placeholder="e.g., Mathematics, Physics, English"
-                  value={formData.category}
-                  onChange={handleInputChange}
-                />
+                <Label htmlFor="categoryId">Category/Tag (Optional)</Label>
+                <Select value={formData.categoryId} onValueChange={(val) => setFormData(p => ({...p, categoryId: val}))}>
+                  <SelectTrigger id="categoryId">
+                    <SelectValue placeholder="No Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Category</SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </Card>

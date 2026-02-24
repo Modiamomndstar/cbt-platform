@@ -478,10 +478,17 @@ router.get("/me", authenticate, async (req, res, next) => {
       case "student":
         const studentResult = await db.query(
           `SELECT s.id, s.student_id, s.full_name, s.email, s.phone,
-                  sc.name as category_name, sch.name as school_name
+                  sc.name as category_name, sch.name as school_name,
+                  assigned_tutors.tutors as assigned_tutors
            FROM students s
            LEFT JOIN student_categories sc ON s.category_id = sc.id
            JOIN schools sch ON s.school_id = sch.id
+           LEFT JOIN LATERAL (
+             SELECT COALESCE(json_agg(json_build_object('id', t.id, 'name', t.full_name, 'subjects', t.subjects)), '[]'::json) as tutors
+             FROM student_tutors st
+             JOIN tutors t ON st.tutor_id = t.id
+             WHERE st.student_id = s.id
+           ) as assigned_tutors ON true
            WHERE s.id = $1`,
           [id],
         );

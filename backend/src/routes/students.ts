@@ -77,15 +77,13 @@ router.get("/", async (req, res, next) => {
 
     let sql = `SELECT s.id, s.student_id, s.full_name, s.email, s.phone, s.date_of_birth, s.gender,
                       s.parent_name, s.parent_phone, s.is_active, s.created_at,
-                      sc.id as category_id, sc.name as category_name, sc.color as category_color
+                      sc.id as category_id, sc.name as category_name, sc.color as category_color,
+                      (SELECT COALESCE(json_agg(json_build_object('id', t.id, 'name', t.full_name, 'subjects', t.subjects)), '[]'::json)
+                       FROM student_tutors st
+                       JOIN tutors t ON st.tutor_id = t.id
+                       WHERE st.student_id = s.id) as assigned_tutors
                FROM students s
                LEFT JOIN student_categories sc ON s.category_id = sc.id
-               LEFT JOIN LATERAL (
-                 SELECT array_agg(json_build_object('id', t.id, 'name', t.full_name)) as tutors
-                 FROM student_tutors st
-                 JOIN tutors t ON st.tutor_id = t.id
-                 WHERE st.student_id = s.id
-               ) as assigned_tutors ON true
                WHERE s.school_id = $1 AND s.is_active = true`;
     const params: any[] = [querySchoolId];
     let paramIndex = 2;
@@ -658,6 +656,55 @@ router.post(
       );
 
       res.json({ success: true, message: "Tutor assigned successfully" });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Bulk assign tutor to students
+router.post(
+  "/bulk-assign-tutor",
+  [
+    body("tutorId").isUUID().withMessage("Valid tutor ID is required"),
+    body("studentIds").isArray({ min: 1 }).withMessage("At least one student ID is required"),
+    body("studentIds.*").isUUID().withMessage("Invalid student ID format"),
+    validate,
+  ],
+  async (req: any, res: any, next: any) => {
+    try {
+      const { tutorId, studentIds } = req.body;
+      const { schoolId } = req.user!;
+
+      const tutor = await db.query(
+        "SELECT id FROM tutors WHERE id = $1 AND school_id = $2",
+        [tutorId, schoolId]
+      );
+      if (tutor.rows.length === 0) {
+        return res.status(404).json({ success: false, message: "Tutor not found" });
+      }
+
+      const validStudentsQuery = await db.query(
+        "SELECT id FROM students WHERE id = ANY($1) AND school_id = $2",
+        [studentIds, schoolId]
+      );
+      const validStudentIds = validStudentsQuery.rows.map(r => r.id);
+
+      if (validStudentIds.length === 0) {
+        return res.status(400).json({ success: false, message: "No valid students found for this school" });
+      }
+
+      const values = validStudentIds.map((_, index) => `($${index * 2 + 1}, $${index * 2 + 2})`).join(', ');
+      const queryParams = validStudentIds.flatMap(id => [id, tutorId]);
+
+      await db.query(
+        `INSERT INTO student_tutors (student_id, tutor_id)
+         VALUES ${values}
+         ON CONFLICT (student_id, tutor_id) DO NOTHING`,
+        queryParams
+      );
+
+      res.json({ success: true, message: `Tutor assigned to ${validStudentIds.length} students` });
     } catch (error) {
       next(error);
     }

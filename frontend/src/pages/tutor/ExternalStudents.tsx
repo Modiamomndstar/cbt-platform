@@ -5,8 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { UserPlus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react';
-import api from '@/services/api';
+import { UserPlus, Pencil, Trash2, Eye, EyeOff, Upload, FolderOpen } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import api, { uploadAPI } from '@/services/api';
 
 interface ExternalStudent {
   id: string;
@@ -16,6 +18,16 @@ interface ExternalStudent {
   username: string;
   is_active: boolean;
   created_at: string;
+  category_id?: string;
+  category_name?: string;
+  category_color?: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
 }
 
 export default function ExternalStudents() {
@@ -25,6 +37,16 @@ export default function ExternalStudents() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [categoryName, setCategoryName] = useState('');
+  const [categoryColor, setCategoryColor] = useState('#4F46E5');
+  const [categoryDesc, setCategoryDesc] = useState('');
+
+  const [isBulkOpen, setIsBulkOpen] = useState(false);
+  const [bulkFile, setBulkFile] = useState<File | null>(null);
+  const [bulkCategoryId, setBulkCategoryId] = useState('');
+
   // Form State
   const [formData, setFormData] = useState({
     fullName: '',
@@ -32,12 +54,21 @@ export default function ExternalStudents() {
     password: '',
     email: '',
     phone: '',
+    categoryId: 'none',
     isActive: true
   });
 
   useEffect(() => {
     fetchStudents();
+    fetchCategories();
   }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const res = await api.get('/tutor/external-students/categories');
+      setCategories(res.data.data);
+    } catch (e) {}
+  };
 
   const fetchStudents = async () => {
     try {
@@ -58,7 +89,7 @@ export default function ExternalStudents() {
   const handleCreateNew = () => {
     setIsCreating(true);
     setEditingId(null);
-    setFormData({ fullName: '', username: '', password: '', email: '', phone: '', isActive: true });
+    setFormData({ fullName: '', username: '', password: '', email: '', phone: '', categoryId: 'none', isActive: true });
   };
 
   const handleEdit = (student: ExternalStudent) => {
@@ -70,6 +101,7 @@ export default function ExternalStudents() {
       password: '', // blank intentionally
       email: student.email || '',
       phone: student.phone || '',
+      categoryId: student.category_id || 'none',
       isActive: student.is_active
     });
   };
@@ -82,25 +114,32 @@ export default function ExternalStudents() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const payload: any = { ...formData };
+      if (payload.categoryId === 'none') {
+         delete payload.categoryId;
+         payload.categoryId = null; // explicit null updates db to null
+      }
+
       if (isCreating) {
         if (!formData.password) {
           toast.error("Password is required for new accounts");
           return;
         }
-        const res = await api.post('/tutor/external-students', formData);
+        const res = await api.post('/tutor/external-students', payload);
         setStudents([res.data.data, ...students]);
-        toast.success("Private student added successfully.");
+        toast.success("External student added successfully.");
         setIsCreating(false);
       } else if (editingId) {
-        const payload: any = {
+        const updatePayload: any = {
           fullName: formData.fullName,
           email: formData.email,
           phone: formData.phone,
-          isActive: formData.isActive
+          isActive: formData.isActive,
+          categoryId: payload.categoryId
         };
-        if (formData.password) payload.password = formData.password;
+        if (formData.password) updatePayload.password = formData.password;
 
-        const res = await api.patch(`/tutor/external-students/${editingId}`, payload);
+        const res = await api.patch(`/tutor/external-students/${editingId}`, updatePayload);
         setStudents(students.map(s => s.id === editingId ? res.data.data : s));
         toast.success("Student updated successfully.");
         setEditingId(null);
@@ -125,24 +164,136 @@ export default function ExternalStudents() {
     }
   };
 
-  if (isLoading) return <div className="p-8 text-center text-gray-500">Loading your private students...</div>;
+  const handleDeleteCategory = async (id: string, name: string) => {
+    if (!confirm(`Delete category "${name}"? Ext. Students in this category will become uncategorized.`)) return;
+    try {
+      await api.delete(`/tutor/external-students/categories/${id}`);
+      setCategories(categories.filter(c => c.id !== id));
+      toast.success('Category deleted');
+      fetchStudents(); // Refresh to clear the category marks
+    } catch (e) { toast.error('Failed to delete category'); }
+  };
+
+  const handleCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!categoryName) return;
+    try {
+      const res = await api.post('/tutor/external-students/categories', { name: categoryName, color: categoryColor, description: categoryDesc });
+      setCategories([...categories, res.data.data]);
+      setCategoryName(''); setCategoryDesc(''); setCategoryColor('#4F46E5');
+      toast.success('Category created');
+    } catch (error: any) { toast.error(error.response?.data?.message || 'Failed to create category'); }
+  };
+
+  const handleBulkUpload = async () => {
+    if (!bulkFile) {
+      toast.error("Please select a file");
+      return;
+    }
+    try {
+      toast.loading('Uploading students...');
+      await uploadAPI.uploadStudents(bulkFile, bulkCategoryId === 'none' ? undefined : bulkCategoryId);
+      // Wait a sec for triggers/data then reload
+      setTimeout(fetchStudents, 500);
+      toast.dismiss();
+      toast.success("External Students uploaded successfully");
+      setIsBulkOpen(false);
+      setBulkFile(null);
+    } catch (error: any) {
+      toast.dismiss();
+      toast.error(error.response?.data?.message || "Failed to upload students");
+    }
+  };
+
+  if (isLoading) return <div className="p-8 text-center text-gray-500">Loading your external students...</div>;
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center bg-white p-6 rounded-lg shadow-sm">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Private Students</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">External Students</h1>
           <p className="text-gray-500 mt-1">Manage your independent students separate from the main school directory.</p>
         </div>
-        <Button onClick={handleCreateNew} disabled={isCreating || !!editingId} className="bg-indigo-600 hover:bg-indigo-700">
-          <UserPlus className="w-4 h-4 mr-2" /> Add Private Student
-        </Button>
+        <div className="flex space-x-2">
+          <Button variant="outline" onClick={() => setIsCategoryModalOpen(true)}>
+            <FolderOpen className="w-4 h-4 mr-2" /> Categories
+          </Button>
+          <Button variant="outline" onClick={() => setIsBulkOpen(true)}>
+            <Upload className="w-4 h-4 mr-2" /> Bulk Add
+          </Button>
+          <Button onClick={handleCreateNew} disabled={isCreating || !!editingId} className="bg-indigo-600 hover:bg-indigo-700">
+            <UserPlus className="w-4 h-4 mr-2" /> Add Student
+          </Button>
+        </div>
       </div>
+
+      <Dialog open={isCategoryModalOpen} onOpenChange={setIsCategoryModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>External Student Categories</DialogTitle>
+            <DialogDescription>Group your external students to efficiently assign exams to cohorts.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-muted p-4 rounded-md">
+              <form onSubmit={handleCreateCategory} className="space-y-3">
+                <div className="flex gap-2">
+                  <Input placeholder="Category Name" value={categoryName} onChange={e => setCategoryName(e.target.value)} required/>
+                  <Input type="color" value={categoryColor} onChange={e => setCategoryColor(e.target.value)} className="w-14 px-1" title="Badge Color"/>
+                </div>
+                <Input placeholder="Description (optional)" value={categoryDesc} onChange={e => setCategoryDesc(e.target.value)} />
+                <Button type="submit" className="w-full" size="sm">Create Category</Button>
+              </form>
+            </div>
+            <div className="max-h-[300px] overflow-y-auto space-y-2">
+              {categories.map(cat => (
+                <div key={cat.id} className="flex justify-between items-center border p-3 rounded-md">
+                   <div>
+                     <Badge style={{ backgroundColor: cat.color }}>{cat.name}</Badge>
+                     <p className="text-xs text-muted-foreground mt-1">{cat.description}</p>
+                   </div>
+                   <Button variant="ghost" size="sm" onClick={() => handleDeleteCategory(cat.id, cat.name)}><Trash2 className="w-4 h-4 text-red-500"/></Button>
+                </div>
+              ))}
+              {categories.length === 0 && <p className="text-sm text-center text-muted-foreground">No categories yet.</p>}
+            </div>
+          </div>
+          <DialogFooter><Button onClick={() => setIsCategoryModalOpen(false)}>Done</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isBulkOpen} onOpenChange={setIsBulkOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Bulk Upload External Students</DialogTitle>
+            <DialogDescription>Upload a CSV file containing columns: Registration Number, Full Name, Category ID, Email.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Assign Category (Optional)</Label>
+              <Select value={bulkCategoryId} onValueChange={setBulkCategoryId}>
+                <SelectTrigger><SelectValue placeholder="No Category" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Category</SelectItem>
+                  {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>CSV File *</Label>
+              <Input type="file" accept=".csv" onChange={(e) => setBulkFile(e.target.files?.[0] || null)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBulkOpen(false)}>Cancel</Button>
+            <Button onClick={handleBulkUpload}>Upload Students</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {(isCreating || editingId) && (
         <Card className="border-indigo-100 shadow-md">
           <CardHeader className="bg-indigo-50/50">
-            <CardTitle>{isCreating ? 'Add New Private Student' : 'Edit Student Details'}</CardTitle>
+            <CardTitle>{isCreating ? 'Add New External Student' : 'Edit Student Details'}</CardTitle>
             <CardDescription>
               These students will be assigned to your account directly.
             </CardDescription>
@@ -157,6 +308,17 @@ export default function ExternalStudents() {
                 <Label>Username <span className="text-red-500">*</span></Label>
                 <Input required disabled={!!editingId} value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} />
                 {editingId && <p className="text-xs text-gray-400">Username cannot be changed</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select value={formData.categoryId} onValueChange={(val) => setFormData({...formData, categoryId: val})}>
+                  <SelectTrigger><SelectValue placeholder="No Category" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Category</SelectItem>
+                    {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
@@ -222,7 +384,12 @@ export default function ExternalStudents() {
                 <tr key={student.id} className="border-b bg-white hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <div className="font-medium text-gray-900">{student.full_name}</div>
-                    <div className="text-xs text-indigo-600 font-medium">@{student.username}</div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-indigo-600 font-medium">@{student.username}</span>
+                      {student.category_name && (
+                         <Badge style={{ backgroundColor: student.category_color || '#4F46E5', color: 'white' }} className="text-[10px] h-4 px-1 pb-0 shadow-sm border-none leading-none items-center">{student.category_name}</Badge>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-gray-900">{student.email || '—'}</div>
@@ -256,8 +423,8 @@ export default function ExternalStudents() {
                       <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                         <UserPlus className="w-8 h-8 text-gray-400" />
                       </div>
-                      <p className="text-lg font-medium text-gray-900">No Private Students Yet</p>
-                      <p className="text-sm mt-1">Add your first private student to start assigning exams.</p>
+                      <p className="text-lg font-medium text-gray-900">No External Students Yet</p>
+                      <p className="text-sm mt-1">Add your first external student to start assigning exams.</p>
                       <Button onClick={handleCreateNew} className="mt-4" variant="outline">Create Initial Profile</Button>
                     </div>
                   </td>

@@ -9,6 +9,7 @@ interface SchoolSettings {
   allow_external_students: boolean;
   max_external_per_tutor: number;
   allow_tutor_create_students: boolean;
+  allow_tutor_edit_categories: boolean;
   student_portal_enabled: boolean;
   result_release_mode: 'immediate' | 'manual';
   allow_student_pdf_download: boolean;
@@ -74,6 +75,7 @@ export default function SchoolSettingsPage() {
         allowExternalStudents: settings.allow_external_students,
         maxExternalPerTutor: settings.max_external_per_tutor,
         allowTutorCreateStudents: settings.allow_tutor_create_students,
+        allowTutorEditCategories: settings.allow_tutor_edit_categories,
         studentPortalEnabled: settings.student_portal_enabled,
         resultReleaseMode: settings.result_release_mode,
         allowStudentPdfDownload: settings.allow_student_pdf_download,
@@ -179,6 +181,12 @@ export default function SchoolSettingsPage() {
             onChange={(v) => update('allow_tutor_create_students', v)}
             label="Allow tutors to create internal students"
             description="When OFF, only school admins can create students."
+          />
+          <Toggle
+            enabled={settings.allow_tutor_edit_categories}
+            onChange={(v) => update('allow_tutor_edit_categories', v)}
+            label="Allow tutors to edit school categories"
+            description="When ON, tutors can create, edit, or delete central school categories."
           />
           <Toggle
             enabled={settings.student_portal_enabled}

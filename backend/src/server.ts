@@ -28,6 +28,8 @@ import staffRoutes from "./routes/staff";
 import superAdminRoutes from "./routes/superAdmin";
 import schoolSettingsRoutes from "./routes/schoolSettings";
 import externalStudentRoutes from "./routes/externalStudents";
+import examCategoryRoutes from "./routes/examCategories";
+import { initCronJobs } from "./services/cronService";
 
 // Import services
 // import { EmailService } from "./services/email";
@@ -131,6 +133,7 @@ app.use("/api/staff", staffRoutes);
 app.use("/api/super-admin", superAdminRoutes);
 app.use("/api/school-settings", schoolSettingsRoutes);
 app.use("/api/tutor/external-students", externalStudentRoutes);
+app.use("/api/exam-categories", examCategoryRoutes);
 
 // Error handling middleware
 app.use(
@@ -162,8 +165,8 @@ app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
   logger.info(`Environment: ${process.env.NODE_ENV || "development"}`);
 
-  // Initialize email service
-  // EmailService.getInstance().initialize();
+  // Initialize automated jobs (e.g., Trial expiries)
+  initCronJobs();
 });
 
 export default app;

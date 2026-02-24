@@ -20,7 +20,7 @@ router.get('/', authorize('tutor'), async (req, res, next) => {
     const tutorId = req.user!.tutorId;
 
     const result = await db.query(
-      `SELECT e.id, e.title, e.description, e.category, e.duration, e.total_questions,
+      `SELECT e.id, e.title, e.description, e.category_id, e.duration, e.total_questions,
               e.passing_score, e.shuffle_questions, e.shuffle_options, e.show_result_immediately,
               e.is_published, e.created_at,
               (SELECT COUNT(*) FROM questions WHERE exam_id = e.id) as question_count,
@@ -82,7 +82,7 @@ router.post('/', authorize('tutor'), [
 ], async (req, res, next) => {
   try {
     const {
-      title, description, category, duration, totalQuestions,
+      title, description, categoryId, duration, totalQuestions,
       passingScore, shuffleQuestions, shuffleOptions, showResultImmediately
     } = req.body;
 
@@ -90,11 +90,11 @@ router.post('/', authorize('tutor'), [
     const schoolId = req.user!.schoolId;
 
     const result = await db.query(
-      `INSERT INTO exams (school_id, tutor_id, title, description, category, duration, total_questions,
+      `INSERT INTO exams (school_id, tutor_id, title, description, category_id, duration, total_questions,
                           passing_score, shuffle_questions, shuffle_options, show_result_immediately)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
-      [schoolId, tutorId, title, description, category, duration, totalQuestions,
+      [schoolId, tutorId, title, description, categoryId || null, duration, totalQuestions,
        passingScore || 50, shuffleQuestions ?? true, shuffleOptions ?? true, showResultImmediately ?? true]
     );
 
@@ -114,14 +114,16 @@ router.put('/:id', [
     const updates = req.body;
     const { role, tutorId } = req.user!;
 
-    const allowedFields = ['title', 'description', 'category', 'duration', 'totalQuestions', 'passingScore', 'shuffleQuestions', 'shuffleOptions', 'showResultImmediately', 'isPublished'];
+    const allowedFields = ['title', 'description', 'categoryId', 'duration', 'totalQuestions', 'passingScore', 'shuffleQuestions', 'shuffleOptions', 'showResultImmediately', 'isPublished'];
     const setClauses: string[] = [];
     const values: any[] = [];
     let paramIndex = 1;
 
     for (const [key, value] of Object.entries(updates)) {
       if (allowedFields.includes(key) && value !== undefined) {
-        const dbField = key.replace(/[A-Z]/g, l => `_${l.toLowerCase()}`);
+        let dbField = key.replace(/[A-Z]/g, l => `_${l.toLowerCase()}`);
+        if (key === 'categoryId') dbField = 'category_id';
+
         setClauses.push(`${dbField} = $${paramIndex++}`);
         values.push(value);
 

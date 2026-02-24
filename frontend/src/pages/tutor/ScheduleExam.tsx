@@ -152,10 +152,18 @@ export default function ScheduleExam() {
   const displayStudents = selectedCategory === 'external' ? externalStudents : students;
 
   const handleSelectAll = () => {
-    if (selectedStudents.length === displayStudents.length) {
-      setSelectedStudents([]);
+    const displayIds = displayStudents.map((s: any) => s.id);
+    const allSelected = displayIds.every((id: string) => selectedStudents.includes(id));
+
+    if (allSelected) {
+      // Remove displayIds from selectedStudents
+      setSelectedStudents(prev => prev.filter(id => !displayIds.includes(id)));
     } else {
-      setSelectedStudents(displayStudents.map((s: any) => s.id));
+      // Add missing displayIds to selectedStudents
+      setSelectedStudents(prev => {
+        const newIds = displayIds.filter((id: string) => !prev.includes(id));
+        return [...prev, ...newIds];
+      });
     }
   };
 
@@ -178,11 +186,14 @@ export default function ScheduleExam() {
     }
 
     try {
-      const isExternal = selectedCategory === 'external';
+      // Partition selected students into Internal and External based on which list they belong to
+      const internalIds = selectedStudents.filter((id: string) => students.some((s: any) => s.id === id));
+      const externalIds = selectedStudents.filter((id: string) => externalStudents.some((s: any) => s.id === id));
+
       const payload: any = {
         examId,
-        studentIds: isExternal ? [] : selectedStudents,
-        externalStudentIds: isExternal ? selectedStudents : [],
+        studentIds: internalIds,
+        externalStudentIds: externalIds,
         scheduledDate: scheduleForm.date,
         startTime: scheduleForm.startTime,
         endTime: scheduleForm.endTime,
@@ -559,9 +570,10 @@ export default function ScheduleExam() {
                 </div>
 
                 <div className="flex justify-between items-center mb-2">
-                  <Label>Select Students ({selectedStudents.length} selected)</Label>
+                  <Label>Select Students ({selectedStudents.length} total selected)</Label>
                   <Button variant="ghost" size="sm" onClick={handleSelectAll}>
-                    {selectedStudents.length === students.length ? 'Deselect All' : 'Select All'}
+                    {displayStudents.length > 0 && displayStudents.every((s: any) => selectedStudents.includes(s.id))
+                      ? 'Deselect Visible' : 'Select All Visible'}
                   </Button>
                 </div>
                 <div className="max-h-64 overflow-y-auto border rounded-lg">

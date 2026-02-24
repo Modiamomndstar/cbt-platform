@@ -41,6 +41,7 @@ router.put('/', [
   body('allowExternalStudents').optional().isBoolean(),
   body('maxExternalPerTutor').optional().isInt({ min: 0, max: 1000 }),
   body('allowTutorCreateStudents').optional().isBoolean(),
+  body('allowTutorEditCategories').optional().isBoolean(),
   body('studentPortalEnabled').optional().isBoolean(),
   body('resultReleaseMode').optional().isIn(['immediate', 'manual']),
   body('allowStudentPdfDownload').optional().isBoolean(),
@@ -55,7 +56,7 @@ router.put('/', [
     const schoolId = req.user!.id;
     const {
       allowExternalStudents, maxExternalPerTutor, allowTutorCreateStudents,
-      studentPortalEnabled, resultReleaseMode, allowStudentPdfDownload,
+      allowTutorEditCategories, studentPortalEnabled, resultReleaseMode, allowStudentPdfDownload,
       defaultExamAttempts, emailOnExamComplete, emailOnNewStudent,
       emailOnResultsRelease, primaryColor
     } = req.body;
@@ -68,6 +69,7 @@ router.put('/', [
       allow_external_students: allowExternalStudents,
       max_external_per_tutor: maxExternalPerTutor,
       allow_tutor_create_students: allowTutorCreateStudents,
+      allow_tutor_edit_categories: allowTutorEditCategories,
       student_portal_enabled: studentPortalEnabled,
       result_release_mode: resultReleaseMode,
       allow_student_pdf_download: allowStudentPdfDownload,

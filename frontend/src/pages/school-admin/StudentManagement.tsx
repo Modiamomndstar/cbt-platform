@@ -45,7 +45,8 @@ import {
   Loader2,
   UserPlus,
   MoreVertical,
-  Upload
+  Upload,
+  X
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -67,7 +68,7 @@ interface Student {
   category_name?: string;
   category_color?: string;
   is_active: boolean;
-  assigned_tutors?: Array<{ id: string; name: string }>;
+  assigned_tutors?: Array<{ id: string; name: string; subjects?: string }>;
   username?: string; // Optional because legacy students might not have it immediately in UI
 }
 
@@ -116,6 +117,9 @@ export default function StudentManagement() {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [assignTutorId, setAssignTutorId] = useState<string>('');
 
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
+
   // Form state
   const [formData, setFormData] = useState({
     fullName: '',
@@ -142,7 +146,10 @@ export default function StudentManagement() {
         tutorAPI.getAll()
       ]);
 
-      if (studentsRes.data.success) setStudents(studentsRes.data.data);
+      if (studentsRes.data.success) {
+        console.log("Fetched students payload:", studentsRes.data.data);
+        setStudents(studentsRes.data.data);
+      }
       if (categoriesRes.data.success) setCategories(categoriesRes.data.data);
       if (tutorsRes.data.success) setTutors(tutorsRes.data.data);
     } catch (error) {
@@ -227,6 +234,23 @@ export default function StudentManagement() {
       loadData();
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to assign tutor");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleBulkAssignTutor = async () => {
+    if (!assignTutorId || selectedStudents.length === 0) return;
+    setSubmitting(true);
+    try {
+      await studentAPI.assignTutorsBulk(selectedStudents, assignTutorId);
+      toast.success("Tutor assigned to selected students successfully");
+      setIsBulkAssignOpen(false);
+      setAssignTutorId('');
+      setSelectedStudents([]);
+      loadData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to bulk assign tutor");
     } finally {
       setSubmitting(false);
     }
@@ -336,6 +360,12 @@ export default function StudentManagement() {
           </p>
         </div>
         <div className="flex gap-2">
+          {selectedStudents.length > 0 && (
+            <Button variant="secondary" onClick={() => setIsBulkAssignOpen(true)}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Assign Tutor ({selectedStudents.length})
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setIsBulkOpen(true)}>
             <Upload className="mr-2 h-4 w-4" />
             Bulk Upload
@@ -374,6 +404,18 @@ export default function StudentManagement() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-12">
+                <Checkbox
+                  checked={filteredStudents.length > 0 && selectedStudents.length === filteredStudents.length}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedStudents(filteredStudents.map(s => s.id));
+                    } else {
+                      setSelectedStudents([]);
+                    }
+                  }}
+                />
+              </TableHead>
               <TableHead>Student</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Contact</TableHead>
@@ -401,6 +443,18 @@ export default function StudentManagement() {
               filteredStudents.map((student) => (
                 <TableRow key={student.id}>
                   <TableCell>
+                    <Checkbox
+                      checked={selectedStudents.includes(student.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedStudents(prev => [...prev, student.id]);
+                        } else {
+                          setSelectedStudents(prev => prev.filter(id => id !== student.id));
+                        }
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell>
                     <div>
                       <div className="font-medium">{student.full_name}</div>
                       <div className="text-xs text-muted-foreground">ID: {student.student_id}</div>
@@ -426,15 +480,15 @@ export default function StudentManagement() {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {student.assigned_tutors && student.assigned_tutors.length > 0 ? (
-                        student.assigned_tutors.map(t => (
+                      {student.assigned_tutors && student.assigned_tutors.filter(t => t.id).length > 0 ? (
+                        student.assigned_tutors.filter(t => t.id).map(t => (
                           <Badge key={t.id} variant="outline" className="flex gap-1 items-center">
-                            {t.name}
+                            {t.name} {t.subjects && <span className="opacity-70 text-[10px] ml-1 font-normal select-none">({t.subjects})</span>}
                             <button
                               onClick={() => handleRemoveTutor(student.id, t.id)}
                               className="ml-1 hover:text-red-600 rounded-full p-0.5"
                             >
-                              <XIcon className="h-3 w-3" />
+                              <X className="h-3 w-3" />
                             </button>
                           </Badge>
                         ))
@@ -607,6 +661,40 @@ export default function StudentManagement() {
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setIsAssignOpen(false)}>Cancel</Button>
             <Button onClick={handleAssignTutor} disabled={!assignTutorId || submitting}>
+              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Assign Tutor
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Assign Tutor Modal */}
+      <Dialog open={isBulkAssignOpen} onOpenChange={setIsBulkAssignOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign Tutor to {selectedStudents.length} Students</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Select Tutor</Label>
+              <Select value={assignTutorId} onValueChange={setAssignTutorId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a tutor..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {tutors.map(tutor => (
+                    <SelectItem key={tutor.id} value={tutor.id}>{tutor.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              By assigning a tutor, they will be able to view these students' profiles, set exams for them, and track their progress.
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsBulkAssignOpen(false)}>Cancel</Button>
+            <Button onClick={handleBulkAssignTutor} disabled={!assignTutorId || submitting}>
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Assign Tutor
             </Button>
