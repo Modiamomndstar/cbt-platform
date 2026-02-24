@@ -324,6 +324,14 @@ export const billingAPI = {
   getPaygHistory: () => api.get("/billing/payg/history"),
 };
 
+// ── External Students API ───────────────────────────────────
+export const externalStudentAPI = {
+  getAll: () => api.get("/tutor/external-students"),
+  create: (data: any) => api.post("/tutor/external-students", data),
+  update: (id: string, data: any) => api.put(`/tutor/external-students/${id}`, data),
+  delete: (id: string) => api.delete(`/tutor/external-students/${id}`),
+};
+
 // ── School Settings API ─────────────────────────────────────
 export const schoolSettingsAPI = {
   get: () => api.get("/school-settings"),

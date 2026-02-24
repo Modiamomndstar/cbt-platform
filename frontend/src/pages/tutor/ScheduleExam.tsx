@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
-import { examAPI, scheduleAPI, categoryAPI, studentAPI, uploadAPI, API_BASE_URL } from '@/services/api';
+import { examAPI, scheduleAPI, categoryAPI, studentAPI, uploadAPI, API_BASE_URL, externalStudentAPI } from '@/services/api';
 import {
   Calendar,
   ArrowLeft,
@@ -59,6 +59,7 @@ export default function ScheduleExam() {
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [debugError, setDebugError] = useState<string | null>(null);
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
@@ -109,7 +110,7 @@ export default function ScheduleExam() {
         examAPI.getById(examId),
         scheduleAPI.getByExam(examId),
         categoryAPI.getAll().catch(() => ({ data: { success: false, data: [] } })),
-        api.get('/tutor/external-students').catch(() => ({ data: { success: false, data: [] } }))
+        externalStudentAPI.getAll().catch(() => ({ data: { success: false, data: [] } }))
       ]);
 
       if (examRes.data.success) {
@@ -130,8 +131,9 @@ export default function ScheduleExam() {
       if (externalRes.data?.success) {
         setExternalStudents(externalRes.data.data.filter((s: any) => s.is_active));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load schedule data:', err);
+      setDebugError(err.response?.data?.message || err.message || JSON.stringify(err));
     } finally {
       setLoading(false);
     }
@@ -450,8 +452,13 @@ export default function ScheduleExam() {
 
   if (!exam) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex flex-col items-center justify-center h-64 space-y-4">
         <p className="text-gray-500">Exam not found</p>
+        {debugError && (
+            <div className="bg-red-50 text-red-600 p-4 border border-red-200 rounded max-w-xl text-sm">
+                <strong>Debug Error:</strong> {debugError}
+            </div>
+        )}
       </div>
     );
   }
