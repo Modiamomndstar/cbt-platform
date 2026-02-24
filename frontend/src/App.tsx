@@ -7,6 +7,7 @@ import { Toaster } from '@/components/ui/sonner';
 // Public Pages
 import LandingPage from '@/pages/LandingPage';
 import LoginPage from '@/pages/LoginPage';
+import AdminLogin from '@/pages/auth/AdminLogin';
 import SchoolRegistrationPage from '@/pages/SchoolRegistrationPage';
 
 // School Admin Pages
@@ -29,6 +30,7 @@ import QuestionBank from '@/pages/tutor/QuestionBank';
 import TutorStudentManagement from '@/pages/tutor/StudentManagement';
 import ScheduleExam from '@/pages/tutor/ScheduleExam';
 import ExamResults from '@/pages/tutor/ExamResults';
+import ExternalStudents from '@/pages/tutor/ExternalStudents';
 
 // Student Pages
 import StudentLogin from '@/pages/student/StudentLogin';
@@ -48,6 +50,7 @@ import SchoolsManagement from '@/pages/super-admin/SchoolsManagement';
 import PlatformAnalytics from '@/pages/super-admin/PlatformAnalytics';
 import MonetizationPage from '@/pages/super-admin/Monetization';
 import SchoolOverridesPage from '@/pages/super-admin/SchoolOverrides';
+import StaffManagement from '@/pages/super-admin/StaffManagement';
 
 function AppRoutes() {
   const { isLoading } = useAuth();
@@ -70,6 +73,7 @@ function AppRoutes() {
       {/* Public Routes */}
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/register-school" element={<SchoolRegistrationPage />} />
       <Route path="/student/login" element={<StudentLogin />} />
 
@@ -110,6 +114,7 @@ function AppRoutes() {
         <Route path="exams/:examId/questions" element={<QuestionBank />} />
         <Route path="exams/:examId/schedule" element={<ScheduleExam />} />
         <Route path="students" element={<TutorStudentManagement />} />
+        <Route path="external-students" element={<ExternalStudents />} />
         <Route path="results" element={<ExamResults />} />
       </Route>
 
@@ -142,6 +147,7 @@ function AppRoutes() {
         <Route path="dashboard" element={<SuperAdminDashboard />} />
         <Route path="schools" element={<SchoolsManagement />} />
         <Route path="analytics" element={<PlatformAnalytics />} />
+        <Route path="staff" element={<StaffManagement />} />
         <Route path="monetization" element={<MonetizationPage />} />
         <Route path="school-overrides" element={<SchoolOverridesPage />} />
       </Route>

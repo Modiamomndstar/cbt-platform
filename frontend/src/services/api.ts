@@ -97,6 +97,7 @@ export const tutorAPI = {
   getStudents: (tutorId: string, params?: any) =>
     api.get(`/tutors/${tutorId}/students`, { params }), // params: { categoryId, search }
   getCategories: (tutorId: string) => api.get(`/tutors/${tutorId}/categories`),
+  toggleStatus: (id: string, is_active: boolean) => api.put(`/tutors/${id}/toggle-status`, { is_active }),
 };
 
 // Student API
@@ -113,6 +114,7 @@ export const studentAPI = {
     api.post(`/students/${studentId}/assign-tutor`, { tutorId }),
   removeTutor: (studentId: string, tutorId: string) =>
     api.delete(`/students/${studentId}/assign-tutor/${tutorId}`),
+  resetPassword: (id: string) => api.put(`/students/${id}/reset-password`),
 };
 
 // Category API

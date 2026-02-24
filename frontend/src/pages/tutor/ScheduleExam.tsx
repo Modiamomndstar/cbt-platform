@@ -55,6 +55,7 @@ export default function ScheduleExam() {
   const [students, setStudents] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [schedules, setSchedules] = useState<any[]>([]);
+  const [externalStudents, setExternalStudents] = useState<any[]>([]);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,10 +105,11 @@ export default function ScheduleExam() {
   const loadData = async () => {
     if (!examId) return;
     try {
-      const [examRes, schedulesRes, categoriesRes] = await Promise.all([
+      const [examRes, schedulesRes, categoriesRes, externalRes] = await Promise.all([
         examAPI.getById(examId),
         scheduleAPI.getByExam(examId),
         categoryAPI.getAll().catch(() => ({ data: { success: false, data: [] } })),
+        api.get('/tutor/external-students').catch(() => ({ data: { success: false, data: [] } }))
       ]);
 
       if (examRes.data.success) {
@@ -123,6 +125,10 @@ export default function ScheduleExam() {
 
       if (categoriesRes.data?.success) {
         setCategories(categoriesRes.data.data || []);
+      }
+
+      if (externalRes.data?.success) {
+        setExternalStudents(externalRes.data.data.filter((s: any) => s.is_active));
       }
     } catch (err) {
       console.error('Failed to load schedule data:', err);
@@ -143,11 +149,13 @@ export default function ScheduleExam() {
     }
   };
 
+  const displayStudents = selectedCategory === 'external' ? externalStudents : students;
+
   const handleSelectAll = () => {
-    if (selectedStudents.length === students.length) {
+    if (selectedStudents.length === displayStudents.length) {
       setSelectedStudents([]);
     } else {
-      setSelectedStudents(students.map((s: any) => s.id));
+      setSelectedStudents(displayStudents.map((s: any) => s.id));
     }
   };
 
@@ -170,14 +178,18 @@ export default function ScheduleExam() {
     }
 
     try {
-      const { data } = await scheduleAPI.schedule({
+      const isExternal = selectedCategory === 'external';
+      const payload: any = {
         examId,
-        studentIds: selectedStudents,
+        studentIds: isExternal ? [] : selectedStudents,
+        externalStudentIds: isExternal ? selectedStudents : [],
         scheduledDate: scheduleForm.date,
         startTime: scheduleForm.startTime,
         endTime: scheduleForm.endTime,
         maxAttempts: scheduleForm.maxAttempts,
-      });
+      };
+
+      const { data } = await scheduleAPI.schedule(payload);
 
       if (data.success) {
         toast.success(data.message || `${selectedStudents.length} student(s) scheduled successfully`);
@@ -535,7 +547,8 @@ export default function ScheduleExam() {
                       <SelectValue placeholder="All Categories" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
+                      <SelectItem value="all">School Students (All)</SelectItem>
+                      <SelectItem value="external" className="text-indigo-600 font-medium">Private Students</SelectItem>
                       {categories.map((cat: any) => (
                         <SelectItem key={cat.id} value={cat.id}>
                           {cat.name}
@@ -552,8 +565,8 @@ export default function ScheduleExam() {
                   </Button>
                 </div>
                 <div className="max-h-64 overflow-y-auto border rounded-lg">
-                  {students.length > 0 ? (
-                    students.map((student: any) => (
+                  {displayStudents.length > 0 ? (
+                    displayStudents.map((student: any) => (
                       <label
                         key={student.id}
                         className="flex items-center p-3 border-b last:border-b-0 hover:bg-gray-50 cursor-pointer"
@@ -569,10 +582,15 @@ export default function ScheduleExam() {
                             {student.studentName || student.full_name || student.fullName}
                           </p>
                           <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <span>{student.registrationNumber || student.student_id || student.studentId}</span>
+                            <span>{student.registrationNumber || student.student_id || student.studentId || `@${student.username}`}</span>
                             {student.categoryName && (
                               <Badge variant="secondary" className="text-xs h-5 px-1.5 font-normal">
                                 {student.categoryName}
+                              </Badge>
+                            )}
+                            {selectedCategory === 'external' && (
+                              <Badge variant="outline" className="text-xs text-indigo-600 bg-indigo-50 border-indigo-200">
+                                External
                               </Badge>
                             )}
                           </div>

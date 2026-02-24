@@ -24,8 +24,6 @@ export default function LoginPage() {
   const [tutorUsername, setTutorUsername] = useState('');
   const [tutorPassword, setTutorPassword] = useState('');
   const [tutorSchoolId, setTutorSchoolId] = useState('');
-  const [adminUsername, setAdminUsername] = useState('');
-  const [adminPassword, setAdminPassword] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,9 +44,10 @@ export default function LoginPage() {
         password = tutorPassword;
         schoolId = tutorSchoolId;
         break;
-      case 'super_admin':
-        username = adminUsername;
-        password = adminPassword;
+      case 'tutor':
+        username = tutorUsername;
+        password = tutorPassword;
+        schoolId = tutorSchoolId;
         break;
     }
 
@@ -62,8 +61,8 @@ export default function LoginPage() {
         case 'tutor':
           navigate('/tutor/dashboard');
           break;
-        case 'super_admin':
-          navigate('/super-admin/dashboard');
+        case 'tutor':
+          navigate('/tutor/dashboard');
           break;
       }
     } else {
@@ -105,7 +104,7 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as UserRole)}>
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="school_admin" className="flex items-center gap-2">
                   <School className="h-4 w-4" />
                   <span className="hidden sm:inline">School</span>
@@ -113,10 +112,6 @@ export default function LoginPage() {
                 <TabsTrigger value="tutor" className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
                   <span className="hidden sm:inline">Tutor</span>
-                </TabsTrigger>
-                <TabsTrigger value="super_admin" className="flex items-center gap-2">
-                  <Shield className="h-4 w-4" />
-                  <span className="hidden sm:inline">Admin</span>
                 </TabsTrigger>
               </TabsList>
 
@@ -191,40 +186,6 @@ export default function LoginPage() {
                         placeholder="Enter password"
                         value={tutorPassword}
                         onChange={(e) => setTutorPassword(e.target.value)}
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                </TabsContent>
-
-                <TabsContent value="super_admin" className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="admin-username">Username</Label>
-                    <Input
-                      id="admin-username"
-                      placeholder="Enter admin username"
-                      value={adminUsername}
-                      onChange={(e) => setAdminUsername(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="admin-password">Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="admin-password"
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="Enter password"
-                        value={adminPassword}
-                        onChange={(e) => setAdminPassword(e.target.value)}
                         required
                       />
                       <button

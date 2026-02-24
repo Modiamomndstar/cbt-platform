@@ -27,6 +27,7 @@ import billingRoutes from "./routes/billing";
 import staffRoutes from "./routes/staff";
 import superAdminRoutes from "./routes/superAdmin";
 import schoolSettingsRoutes from "./routes/schoolSettings";
+import externalStudentRoutes from "./routes/externalStudents";
 
 // Import services
 // import { EmailService } from "./services/email";
@@ -129,6 +130,7 @@ app.use("/api/billing", billingRoutes);
 app.use("/api/staff", staffRoutes);
 app.use("/api/super-admin", superAdminRoutes);
 app.use("/api/school-settings", schoolSettingsRoutes);
+app.use("/api/tutor/external-students", externalStudentRoutes);
 
 // Error handling middleware
 app.use(

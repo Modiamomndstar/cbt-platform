@@ -206,3 +206,34 @@ export const sendPaymentConfirmationEmail = async (
 
   return sendEmail(to, `✅ Payment Confirmed — ${planName} Plan Active`, html);
 };
+
+// =============================================
+// Student Portal Credentials
+// =============================================
+export const sendStudentPortalCredentialsEmail = async (
+  studentEmail: string,
+  studentName: string,
+  schoolName: string,
+  details: { username: string; password?: string }
+): Promise<boolean> => {
+  const html = emailLayout(`
+    <h2 style="color:#1f2937;margin:0 0 16px;">Welcome to ${schoolName} Student Portal</h2>
+    <p style="color:#374151;line-height:1.6;">Hello <strong>${studentName}</strong>,</p>
+    <p style="color:#374151;line-height:1.6;">
+      Your Student Portal account has been created or updated. You can use this portal to access your profile and take your scheduled exams.
+    </p>
+    <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:20px;margin:20px 0;">
+      <h3 style="color:#1f2937;margin:0 0 12px;">Your Login Credentials</h3>
+      <p style="margin:6px 0;"><strong>Username:</strong> <code style="background:#e2e8f0;padding:2px 8px;border-radius:4px;color:#7c3aed;">${details.username}</code></p>
+      ${details.password ? `<p style="margin:6px 0;"><strong>Password:</strong> <code style="background:#e2e8f0;padding:2px 8px;border-radius:4px;color:#7c3aed;">${details.password}</code></p>` : ''}
+    </div>
+    <div style="text-align:center;margin:32px 0;">
+      <a href="${PLATFORM_URL}/student/login" style="background:#6366f1;color:#fff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:bold;">
+        Login to Portal →
+      </a>
+    </div>
+    <p style="color:#6b7280;font-size:13px;">Please keep these credentials private. If you lose them, ask your administrator to reset them.</p>
+  `);
+
+  return sendEmail(studentEmail, `Your Student Portal Credentials`, html);
+};

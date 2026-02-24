@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 import { tutorAPI } from '@/services/api';
-import { Plus, Trash2, Users, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Users, Eye, EyeOff, Ban, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -99,6 +99,21 @@ export default function TutorManagement() {
       toast.error(msg);
     } finally {
       setTutorToDelete(null);
+    }
+  };
+
+  const [tutorToToggle, setTutorToToggle] = useState<{ id: string; name: string; is_active: boolean } | null>(null);
+
+  const confirmToggleStatus = async () => {
+    if (!tutorToToggle) return;
+    try {
+      await tutorAPI.toggleStatus(tutorToToggle.id, !tutorToToggle.is_active);
+      toast.success(`Tutor ${tutorToToggle.is_active ? 'paused' : 'unpaused'} successfully`);
+      loadTutors();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to toggle status');
+    } finally {
+      setTutorToToggle(null);
     }
   };
 
@@ -283,14 +298,26 @@ export default function TutorManagement() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setTutorToDelete({ id: tutor.id, name: tutor.full_name || tutor.fullName })}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setTutorToToggle({ id: tutor.id, name: tutor.full_name || tutor.fullName, is_active: tutor.is_active !== false })}
+                            className={tutor.is_active !== false ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"}
+                            title={tutor.is_active !== false ? "Pause Tutor" : "Unpause Tutor"}
+                          >
+                            {tutor.is_active !== false ? <Ban className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setTutorToDelete({ id: tutor.id, name: tutor.full_name || tutor.fullName })}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="Delete Tutor"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -321,6 +348,28 @@ export default function TutorManagement() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteTutor} className="bg-red-600 hover:bg-red-700">
               Delete Tutor
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!tutorToToggle} onOpenChange={(open) => !open && setTutorToToggle(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{tutorToToggle?.is_active ? 'Pause Tutor?' : 'Unpause Tutor?'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {tutorToToggle?.is_active
+                ? `Are you sure you want to pause ${tutorToToggle.name}? They will lose login access temporarily.`
+                : `Are you sure you want to unpause ${tutorToToggle?.name}? They will regain access to log in.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmToggleStatus}
+              className={tutorToToggle?.is_active ? "bg-amber-600 hover:bg-amber-700" : "bg-emerald-600 hover:bg-emerald-700"}
+            >
+              {tutorToToggle?.is_active ? 'Pause Tutor' : 'Unpause Tutor'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -18,6 +18,7 @@ declare global {
         schoolId?: string;
         tutorId?: string;
         studentId?: string;
+        staffRole?: string;
       };
     }
   }
@@ -29,6 +30,7 @@ export interface JWTPayload {
   schoolId?: string;
   tutorId?: string;
   studentId?: string;
+  staffRole?: string;
   iat?: number;
   exp?: number;
 }

@@ -3,6 +3,8 @@ import { body, param, query, validationResult } from "express-validator";
 import { db } from "../config/database";
 import { authenticate, authorize } from "../middleware/auth";
 import { requireStudentSlot } from "../middleware/planGuard";
+import crypto from "crypto";
+import { sendStudentPortalCredentialsEmail } from "../services/email";
 
 const router = Router();
 
@@ -251,6 +253,7 @@ router.post(
         parentPhone,
         parentEmail,
         categoryId,
+        sendEmail: shouldSendEmail,
       } = req.body;
       const { role, schoolId, tutorId } = req.user!;
 
@@ -279,13 +282,10 @@ router.post(
 
       // Generate unique username
       const username = await generateUniqueUsername(db, fullName, querySchoolId);
-      // Default password hash (e.g., student123 or same as username for now? User said "password generated for them")
-      // Let's set a default password for now. Ideally, we should email it or let admin set it.
-      // For now, let's use a standard default so they can change it later.
-      // Or use the studentId/reg number as initial password?
-      // Let's use 'password123' hash for simplicity in this phase, or better:
+
       const bcrypt = require("bcryptjs");
-      const defaultPasswordHash = await bcrypt.hash("password123", 10);
+      const plainTextPassword = crypto.randomBytes(4).toString("hex"); // 8 chars
+      const passwordHash = await bcrypt.hash(plainTextPassword, 10);
 
       const result = await db.query(
         `INSERT INTO students (school_id, category_id, student_id, full_name, email, phone, date_of_birth, gender, address, parent_name, parent_phone, parent_email, username, password_hash)
@@ -305,16 +305,29 @@ router.post(
           parentPhone,
           parentEmail,
           username,
-          defaultPasswordHash
+          passwordHash
         ],
       );
+
+      const studentData = result.rows[0];
+      studentData.plainTextPassword = plainTextPassword; // Attach for frontend display
+
+      if (email && shouldSendEmail !== false) { // Default to true if not specified, or we can default to false. Let's strictly check if shouldSendEmail is true, but since UI might not send it yet, let's treat truthy as true. Actually, explicitly check `shouldSendEmail`.
+        // Find school name for the email
+        const schoolRes = await db.query("SELECT name FROM schools WHERE id = $1", [querySchoolId]);
+        const schoolName = schoolRes.rows[0]?.name || "CBT Platform";
+        sendStudentPortalCredentialsEmail(email, fullName, schoolName, {
+          username,
+          password: plainTextPassword
+        }).catch(err => console.error("Failed to send student creation email:", err));
+      }
 
       res
         .status(201)
         .json({
           success: true,
           message: "Student created",
-          data: result.rows[0],
+          data: studentData,
         });
     } catch (error) {
       next(error);
@@ -328,11 +341,12 @@ router.post(
   [
     body("students").isArray({ min: 1 }),
     body("categoryId").optional().isUUID(),
+    body("sendEmail").optional().isBoolean(),
     validate,
   ],
   async (req, res, next) => {
     try {
-      const { students, categoryId } = req.body;
+      const { students, categoryId, sendEmail: shouldSendEmail } = req.body;
       const { role, schoolId, tutorId } = req.user!;
 
       let querySchoolId = schoolId;
@@ -351,7 +365,10 @@ router.post(
       const errors: any[] = [];
       const batchUsernames = new Set<string>(); // Track usernames used in this batch
       const bcrypt = require("bcryptjs");
-      const defaultPasswordHash = await bcrypt.hash("password123", 10);
+
+      // Fetch school name once for all emails
+      const schoolRes = await db.query("SELECT name FROM schools WHERE id = $1", [querySchoolId]);
+      const schoolName = schoolRes.rows[0]?.name || "CBT Platform";
 
       await db.transaction(async (client) => {
         for (const student of students) {
@@ -372,10 +389,13 @@ router.post(
             const username = await generateUniqueUsername(client, student.fullName, querySchoolId, batchUsernames);
             batchUsernames.add(username);
 
+            const plainTextPassword = crypto.randomBytes(4).toString("hex");
+            const passwordHash = await bcrypt.hash(plainTextPassword, 10);
+
             const result = await client.query(
               `INSERT INTO students (school_id, category_id, student_id, full_name, email, phone, level, username, password_hash)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-             RETURNING id, student_id, full_name, username`,
+             RETURNING id, student_id, full_name, username, email`,
               [
                 querySchoolId,
                 (categoryId && categoryId !== "") ? categoryId : (student.categoryId && student.categoryId !== "") ? student.categoryId : null,
@@ -385,10 +405,11 @@ router.post(
                 student.phone,
                 student.level,
                 username,
-                defaultPasswordHash
+                passwordHash
               ],
             );
             const newStudent = result.rows[0];
+            newStudent.plainTextPassword = plainTextPassword; // Pass to frontend logic
             created.push(newStudent);
 
             // If Creator is Tutor, assign to them
@@ -397,6 +418,14 @@ router.post(
                     `INSERT INTO student_tutors (student_id, tutor_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
                     [newStudent.id, tutorId]
                 );
+            }
+
+            // Send email if applicable
+            if (student.email && shouldSendEmail !== false) {
+              sendStudentPortalCredentialsEmail(student.email, student.fullName, schoolName, {
+                username,
+                password: plainTextPassword
+              }).catch(err => console.error("Failed to send bulk student creation email:", err));
             }
 
           } catch (err) {
@@ -525,6 +554,68 @@ router.delete("/:id", async (req, res, next) => {
     next(error);
   }
 });
+
+// Reset student password
+router.put(
+  "/:id/reset-password",
+  [param("id").isUUID(), validate],
+  async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const { role, schoolId, tutorId } = req.user!;
+      let querySchoolId = schoolId;
+
+      if (role === "tutor" && tutorId) {
+        const tutorResult = await db.query(
+          "SELECT school_id FROM tutors WHERE id = $1",
+          [tutorId],
+        );
+        if (tutorResult.rows.length > 0) {
+          querySchoolId = tutorResult.rows[0].school_id;
+        }
+      }
+
+      // Check student exists
+      const studentResult = await db.query(
+        "SELECT id, full_name, email, username FROM students WHERE id = $1 AND school_id = $2",
+        [id, querySchoolId],
+      );
+
+      if (studentResult.rows.length === 0) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Student not found" });
+      }
+
+      const student = studentResult.rows[0];
+      const bcrypt = require("bcryptjs");
+      const plainTextPassword = crypto.randomBytes(4).toString("hex");
+      const passwordHash = await bcrypt.hash(plainTextPassword, 10);
+
+      await db.query(`UPDATE students SET password_hash = $1, updated_at = NOW() WHERE id = $2`, [
+        passwordHash,
+        id,
+      ]);
+
+      if (student.email) {
+        const schoolRes = await db.query("SELECT name FROM schools WHERE id = $1", [querySchoolId]);
+        const schoolName = schoolRes.rows[0]?.name || "CBT Platform";
+        sendStudentPortalCredentialsEmail(student.email, student.full_name, schoolName, {
+          username: student.username,
+          password: plainTextPassword
+        }).catch(err => console.error("Failed to send student password reset email:", err));
+      }
+
+      res.json({
+        success: true,
+        message: "Password reset successfully",
+        data: { newPassword: plainTextPassword }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 // Assign tutor to student
 router.post(

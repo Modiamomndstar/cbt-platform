@@ -10,7 +10,8 @@ import {
   Menu,
   X,
   DollarSign,
-  Gift
+  Gift,
+  Users
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -28,6 +29,7 @@ export default function SuperAdminLayout() {
     { name: 'Dashboard', href: '/super-admin/dashboard', icon: LayoutDashboard },
     { name: 'Schools', href: '/super-admin/schools', icon: School },
     { name: 'School Overrides', href: '/super-admin/school-overrides', icon: Gift },
+    { name: 'Staff Management', href: '/super-admin/staff', icon: Users },
     { name: 'Monetization', href: '/super-admin/monetization', icon: DollarSign },
     { name: 'Analytics', href: '/super-admin/analytics', icon: BarChart3 },
   ];

@@ -9,7 +9,8 @@ import {
   LogOut,
   GraduationCap,
   Menu,
-  X
+  X,
+  UserPlus
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -30,7 +31,8 @@ export default function TutorLayout() {
     { name: 'Dashboard', href: '/tutor/dashboard', icon: LayoutDashboard },
     { name: 'Exams', href: '/tutor/exams', icon: BookOpen },
     { name: 'Student Categories', href: '/tutor/categories', icon: GraduationCap },
-    { name: 'Students', href: '/tutor/students', icon: Users },
+    { name: 'School Students', href: '/tutor/students', icon: Users },
+    { name: 'Private Students', href: '/tutor/external-students', icon: UserPlus },
     { name: 'Results', href: '/tutor/results', icon: BarChart3 },
   ];
 

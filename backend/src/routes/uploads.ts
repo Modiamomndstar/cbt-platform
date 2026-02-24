@@ -7,6 +7,7 @@ import bcrypt from 'bcryptjs';
 import path from 'path';
 import fs from 'fs';
 import type { UploadedFile } from 'express-fileupload';
+import { sendStudentPortalCredentialsEmail } from '../services/email';
 
 const router = Router();
 
@@ -283,6 +284,15 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
           ...result.rows[0],
           generatedPassword: password
         });
+
+        if (sendEmail === 'true' && email) {
+          const schoolRes = await client.query("SELECT name FROM schools WHERE id = $1", [schoolId]);
+          const schoolName = schoolRes.rows[0]?.name || "CBT Platform";
+          sendStudentPortalCredentialsEmail(email, fullNameRaw, schoolName, {
+              username,
+              password
+          }).catch(err => console.error("Failed to send bulk upload welcome email:", err));
+        }
 
         // If Creator is Tutor, assign to them
         if (user.role === "tutor" && user.tutorId) {

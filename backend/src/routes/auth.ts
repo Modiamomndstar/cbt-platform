@@ -501,6 +501,95 @@ router.get("/me", authenticate, async (req, res, next) => {
   }
 });
 
+// @route   POST /api/auth/staff/login
+// @desc    Staff login (Super Admin and Company Staff)
+// @access  Public
+router.post(
+  "/staff/login",
+  [
+    body("username").trim().notEmpty().withMessage("Username is required"),
+    body("password").notEmpty().withMessage("Password is required"),
+    validate,
+  ],
+  async (req, res, next) => {
+    try {
+      const { username, password } = req.body;
+
+      // Find staff by username
+      const result = await db.query(
+        "SELECT id, name, username, password_hash, email, role, is_active FROM staff_accounts WHERE username = $1",
+        [username],
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid credentials",
+        });
+      }
+
+      const staff = result.rows[0];
+
+      if (!staff.is_active) {
+        return res.status(401).json({
+          success: false,
+          message: "Account is inactive. Please contact your supervisor.",
+        });
+      }
+
+      // Verify password
+      const isMatch = await bcrypt.compare(password, staff.password_hash);
+      if (!isMatch) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid credentials",
+        });
+      }
+
+      // Update last login
+      await db.query("UPDATE staff_accounts SET last_login_at = NOW() WHERE id = $1", [
+        staff.id,
+      ]);
+
+      // Generate token
+      const token = generateToken({
+        id: staff.id,
+        role: "super_admin",
+        staffRole: staff.role
+      });
+
+      // Log activity to staff_audit_log (since activity_logs is school tailored)
+      // Ignore errors if this fails
+      try {
+        await db.query(
+          "INSERT INTO staff_audit_log (actor_type, actor_id, actor_name, action, target_type, target_name, ip_address) VALUES ('super_admin', $1, $2, 'login', 'system', 'login', $3)",
+          [staff.id, staff.username, req.ip],
+        );
+      } catch (e) {
+        // Silently fail audit log on login if table missing or schema mismatch for some reason
+      }
+
+      res.json({
+        success: true,
+        message: "Login successful",
+        data: {
+          token,
+          user: {
+            id: staff.id,
+            name: staff.name,
+            username: staff.username,
+            email: staff.email,
+            role: "super_admin",
+            staffRole: staff.role
+          },
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 // @route   POST /api/auth/change-password
 // @desc    Change password
 // @access  Private

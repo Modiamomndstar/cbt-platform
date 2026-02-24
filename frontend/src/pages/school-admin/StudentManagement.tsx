@@ -24,6 +24,17 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import {
@@ -57,6 +68,7 @@ interface Student {
   category_color?: string;
   is_active: boolean;
   assigned_tutors?: Array<{ id: string; name: string }>;
+  username?: string; // Optional because legacy students might not have it immediately in UI
 }
 
 interface Category {
@@ -79,10 +91,28 @@ export default function StudentManagement() {
 
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isCredentialsModalOpen, setIsCredentialsModalOpen] = useState(false);
+  const [generatedCredentials, setGeneratedCredentials] = useState<{username: string, password?: string} | null>(null);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [bulkFile, setBulkFile] = useState<File | null>(null);
   const [bulkCategoryId, setBulkCategoryId] = useState<string>('');
+  const [bulkSendEmail, setBulkSendEmail] = useState(true);
+  const [bulkResults, setBulkResults] = useState<{success: any[], failed: any[]} | null>(null);
+  const [isBulkResultOpen, setIsBulkResultOpen] = useState(false);
+
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: '',
+    description: '',
+    onConfirm: () => {}
+  });
+
+  const confirmAction = (title: string, description: string, onConfirm: () => void) => {
+    setConfirmDialog({ isOpen: true, title, description, onConfirm });
+  };
+
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [assignTutorId, setAssignTutorId] = useState<string>('');
 
@@ -93,7 +123,8 @@ export default function StudentManagement() {
     email: '',
     phone: '',
     categoryId: '',
-    password: 'password123' // Default initial password
+    password: 'password123',
+    sendEmail: true
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -126,8 +157,18 @@ export default function StudentManagement() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await studentAPI.create(formData);
+      const res = await studentAPI.create(formData);
       toast.success("Student created successfully");
+
+      const newStudent = res.data.data;
+      if (newStudent.plainTextPassword) {
+        setGeneratedCredentials({
+          username: newStudent.username,
+          password: newStudent.plainTextPassword
+        });
+        setIsCredentialsModalOpen(true);
+      }
+
       setIsAddOpen(false);
       resetForm();
       loadData(); // Reload to get new student
@@ -136,6 +177,43 @@ export default function StudentManagement() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleEditStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStudent) return;
+    setSubmitting(true);
+    try {
+      await studentAPI.update(selectedStudent.id, formData);
+      toast.success("Student updated successfully");
+      setIsEditOpen(false);
+      resetForm();
+      loadData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to update student");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = (id: string, username?: string) => {
+    confirmAction(
+      "Reset Password",
+      "Are you sure you want to reset this student's password? The old password will no longer work.",
+      async () => {
+        try {
+          const res = await studentAPI.resetPassword(id);
+          toast.success("Password reset successfully");
+          setGeneratedCredentials({
+            username: username || "Student Username",
+            password: res.data.data.newPassword
+          });
+          setIsCredentialsModalOpen(true);
+        } catch (error: any) {
+          toast.error(error.response?.data?.message || "Failed to reset password");
+        }
+      }
+    );
   };
 
   const handleAssignTutor = async () => {
@@ -154,26 +232,36 @@ export default function StudentManagement() {
     }
   };
 
-  const handleRemoveTutor = async (studentId: string, tutorId: string) => {
-    if (!window.confirm("Are you sure you want to remove this tutor assignment?")) return;
-    try {
-      await studentAPI.removeTutor(studentId, tutorId);
-      toast.success("Tutor removed successfully");
-      loadData();
-    } catch (error: any) {
-      toast.error("Failed to remove tutor");
-    }
+  const handleRemoveTutor = (studentId: string, tutorId: string) => {
+    confirmAction(
+      "Remove Tutor",
+      "Are you sure you want to remove this tutor assignment?",
+      async () => {
+        try {
+          await studentAPI.removeTutor(studentId, tutorId);
+          toast.success("Tutor removed successfully");
+          loadData();
+        } catch (error: any) {
+          toast.error("Failed to remove tutor");
+        }
+      }
+    );
   };
 
-  const handleDeleteStudent = async (id: string) => {
-    if (!window.confirm("Are you sure? This will delete the student and their exam history.")) return;
-    try {
-      await studentAPI.delete(id);
-      toast.success("Student deleted successfully");
-      loadData();
-    } catch (error: any) {
-      toast.error("Failed to delete student");
-    }
+  const handleDeleteStudent = (id: string) => {
+    confirmAction(
+      "Delete Student",
+      "Are you sure? This will delete the student and their exam history.",
+      async () => {
+        try {
+          await studentAPI.delete(id);
+          toast.success("Student deleted successfully");
+          loadData();
+        } catch (error: any) {
+          toast.error("Failed to delete student");
+        }
+      }
+    );
   };
 
   const handleBulkUpload = async () => {
@@ -183,17 +271,38 @@ export default function StudentManagement() {
     }
     setSubmitting(true);
     try {
-      await uploadAPI.uploadStudents(bulkFile, bulkCategoryId || undefined);
+      const res = await uploadAPI.uploadStudents(bulkFile, bulkCategoryId || undefined, bulkSendEmail);
       toast.success("Students uploaded successfully");
       setIsBulkOpen(false);
       setBulkFile(null);
       setBulkCategoryId('');
+      setBulkSendEmail(true);
       loadData();
+
+      if (res.data?.data) {
+        setBulkResults(res.data.data);
+        setIsBulkResultOpen(true);
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to upload students");
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const downloadBulkCredentialsCSV = () => {
+    if (!bulkResults?.success?.length) return;
+    let csvContent = "data:text/csv;charset=utf-8,Student Name,Student ID,Username,Password\n";
+    bulkResults.success.forEach(s => {
+      csvContent += `"${s.full_name}","${s.student_id}","${s.username}","${s.generatedPassword || ''}"\n`;
+    });
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "bulk_student_credentials.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const resetForm = () => {
@@ -203,7 +312,8 @@ export default function StudentManagement() {
       email: '',
       phone: '',
       categoryId: '',
-      password: 'password123'
+      password: 'password123',
+      sendEmail: true
     });
     setSelectedStudent(null);
   };
@@ -345,8 +455,25 @@ export default function StudentManagement() {
                         <DropdownMenuItem onClick={() => { setSelectedStudent(student); setIsAssignOpen(true); }}>
                           <UserPlus className="mr-2 h-4 w-4" /> Assign Tutor
                         </DropdownMenuItem>
-                        <DropdownMenuItem disabled>
+                        <DropdownMenuItem onClick={() => {
+                          setSelectedStudent(student);
+                          setFormData({
+                            fullName: student.full_name,
+                            studentId: student.student_id,
+                            email: student.email || '',
+                            phone: student.phone || '',
+                            categoryId: student.category_id || '',
+                            password: ''
+                          });
+                          setIsEditOpen(true);
+                        }}>
                           <Edit2 className="mr-2 h-4 w-4" /> Edit Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleResetPassword(student.id, student.student_id)}>
+                          <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4v-3.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                          </svg>
+                          Reset Password
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -396,13 +523,14 @@ export default function StudentManagement() {
             <div className="space-y-2">
               <Label htmlFor="category">Category / Class</Label>
               <Select
-                value={formData.categoryId}
-                onValueChange={(val) => setFormData({ ...formData, categoryId: val })}
+                value={formData.categoryId || "none"}
+                onValueChange={(val) => setFormData({ ...formData, categoryId: val === "none" ? "" : val })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select category..." />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none" className="text-gray-500 italic">No Category</SelectItem>
                   {categories.map(cat => (
                     <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                   ))}
@@ -428,6 +556,17 @@ export default function StudentManagement() {
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 />
               </div>
+            </div>
+
+            <div className="flex items-center space-x-2 pt-2 pb-2">
+              <Checkbox
+                id="sendEmail"
+                checked={formData.sendEmail}
+                onCheckedChange={(checked) => setFormData({ ...formData, sendEmail: checked as boolean })}
+              />
+              <Label htmlFor="sendEmail" className="text-sm font-normal cursor-pointer">
+                Send login credentials to student's email (if provided)
+              </Label>
             </div>
 
             <DialogFooter>
@@ -513,6 +652,17 @@ export default function StudentManagement() {
                   }}
                 />
              </div>
+
+             <div className="flex items-center space-x-2 pt-2">
+               <Checkbox
+                 id="bulkSendEmail"
+                 checked={bulkSendEmail}
+                 onCheckedChange={(checked) => setBulkSendEmail(checked as boolean)}
+               />
+               <Label htmlFor="bulkSendEmail" className="text-sm font-normal cursor-pointer">
+                 Automatically email generated login credentials to students with an email
+               </Label>
+             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsBulkOpen(false)}>Cancel</Button>
@@ -523,6 +673,192 @@ export default function StudentManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Edit Student Modal */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Student</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditStudent} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="editFullName">Full Name</Label>
+                <Input
+                  id="editFullName"
+                  value={formData.fullName}
+                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editStudentId">Student ID</Label>
+                <Input
+                  id="editStudentId"
+                  value={formData.studentId}
+                  onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="editCategory">Category / Class</Label>
+              <Select
+                value={formData.categoryId || "none"}
+                onValueChange={(val) => setFormData({ ...formData, categoryId: val === "none" ? "" : val })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none" className="text-gray-500 italic">No Category</SelectItem>
+                  {categories.map(cat => (
+                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="editEmail">Email (Optional)</Label>
+                <Input
+                  id="editEmail"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editPhone">Phone (Optional)</Label>
+                <Input
+                  id="editPhone"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Credentials Modal */}
+      <Dialog open={isCredentialsModalOpen} onOpenChange={setIsCredentialsModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Student Portal Credentials</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Please save these credentials or send them to the student. They will need them to log in to the Student Portal.
+            </p>
+            <div className="bg-muted p-4 rounded-md space-y-2 font-mono text-sm">
+              <div className="flex justify-between items-center">
+                <span className="font-semibold text-foreground">Username:</span>
+                <span>{generatedCredentials?.username}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-semibold text-foreground">Password:</span>
+                <span>{generatedCredentials?.password}</span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setIsCredentialsModalOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Results / Credentials Modal */}
+      <Dialog open={isBulkResultOpen} onOpenChange={setIsBulkResultOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Upload Completed</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+            <p className="text-sm text-foreground">
+              {bulkResults?.success.length} students were successfully created and assigned passwords.
+            </p>
+            {bulkResults?.failed && bulkResults.failed.length > 0 && (
+              <div className="bg-red-50 text-red-700 p-3 rounded-md text-sm">
+                <strong>{bulkResults.failed.length} students failed to upload:</strong>
+                <ul className="list-disc pl-5 mt-1 space-y-1">
+                  {bulkResults.failed.slice(0, 5).map((err, i) => (
+                    <li key={i}>{typeof err.record === 'object' ? JSON.stringify(err.record) : err.record} - {err.reason}</li>
+                  ))}
+                  {bulkResults.failed.length > 5 && <li>... and {bulkResults.failed.length - 5} more</li>}
+                </ul>
+              </div>
+            )}
+
+            {bulkResults?.success && bulkResults.success.length > 0 && (
+              <div className="border rounded-md mt-4 overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-muted">
+                    <TableRow>
+                      <TableHead>Full Name</TableHead>
+                      <TableHead>Username</TableHead>
+                      <TableHead>Password</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {bulkResults.success.slice(0, 10).map((s, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="py-2">{s.full_name}</TableCell>
+                        <TableCell className="py-2 font-mono text-xs">{s.username}</TableCell>
+                        <TableCell className="py-2 font-mono text-xs">{s.generatedPassword}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {bulkResults.success.length > 10 && (
+                  <div className="text-center text-xs text-muted-foreground p-2 border-t bg-muted/30">
+                    Showing top 10 rows. Download CSV to see all {bulkResults.success.length} students.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+             {bulkResults?.success && bulkResults.success.length > 0 && (
+               <Button variant="default" onClick={downloadBulkCredentialsCSV} className="mr-auto">
+                 Download Excel/CSV
+               </Button>
+             )}
+            <Button onClick={() => setIsBulkResultOpen(false)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reusable Confirm Dialog */}
+      <AlertDialog open={confirmDialog.isOpen} onOpenChange={(isOpen) => setConfirmDialog(prev => ({ ...prev, isOpen }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmDialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDialog.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+              confirmDialog.onConfirm();
+            }}>
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }

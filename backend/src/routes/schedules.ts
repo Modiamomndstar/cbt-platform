@@ -166,6 +166,7 @@ router.get(
         `SELECT es.*,
               s.full_name, s.first_name, s.last_name, s.email, s.student_id,
               sc.name as category_name,
+              ext.full_name as ext_full_name, ext.email as ext_email,
               se.score,
               -- CALCULATE DYNAMIC TOTAL MARKS
               (SELECT COALESCE(SUM((q->>'marks')::int), 0) FROM jsonb_array_elements(se.assigned_questions) q) as se_total_marks,
@@ -173,7 +174,8 @@ router.get(
               se.time_spent, se.started_at as se_start_time, se.submitted_at as se_end_time,
               se.auto_submitted as se_auto_submitted, se.status as se_status
        FROM exam_schedules es
-       JOIN students s ON es.student_id = s.id
+       LEFT JOIN students s ON es.student_id = s.id
+       LEFT JOIN external_students ext ON es.external_student_id = ext.id
        LEFT JOIN student_categories sc ON s.category_id = sc.id
        LEFT JOIN student_exams se ON se.exam_schedule_id = es.id
        WHERE es.exam_id = $1 AND es.status != 'cancelled'
@@ -214,11 +216,11 @@ router.get(
 
           return {
             id: row.id,
-            studentId: row.student_id,
-            studentName: row.full_name || `${row.first_name || ''} ${row.last_name || ''}`.trim() || 'Unknown',
+            studentId: row.student_id || row.external_student_id,
+            studentName: row.full_name || row.ext_full_name || `${row.first_name || ''} ${row.last_name || ''}`.trim() || 'Unknown',
             firstName: row.first_name,
             lastName: row.last_name,
-            email: row.email,
+            email: row.email || row.ext_email,
             registrationNumber: row.student_id,
             categoryName: row.category_name,
             scheduledDate: row.scheduled_date,
@@ -259,7 +261,7 @@ router.post(
   async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
-      const { examId, studentIds, scheduledDate, startTime, endTime } = req.body;
+      const { examId, studentIds, externalStudentIds, scheduledDate, startTime, endTime } = req.body;
       const user = req.user!;
 
       // Verify exam belongs to user's school
@@ -283,7 +285,7 @@ router.post(
       const scheduledStudents: any[] = [];
       const failedStudents: any[] = [];
 
-      for (const studentId of studentIds) {
+      for (const studentId of (studentIds || [])) {
         try {
           // Check if already scheduled (not cancelled/expired)
           const existingCheck = await client.query(
@@ -321,6 +323,43 @@ router.post(
           scheduledStudents.push(result.rows[0]);
         } catch (err) {
           failedStudents.push({ studentId, reason: "Database error" });
+        }
+      }
+
+      // Handle External Students
+      for (const externalId of (externalStudentIds || [])) {
+        try {
+          const existingCheck = await client.query(
+            `SELECT id FROM exam_schedules
+           WHERE exam_id = $1 AND external_student_id = $2 AND status NOT IN ('cancelled', 'expired')`,
+            [examId, externalId],
+          );
+
+          if (existingCheck.rows.length > 0) {
+            failedStudents.push({ studentId: externalId, reason: "Already scheduled" });
+            continue;
+          }
+
+          const accessCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+          const extRes = await client.query("SELECT username FROM external_students WHERE id = $1", [externalId]);
+          const baseUser = extRes.rows[0]?.username || 'ext';
+          const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+          const username = `${baseUser}_${randomSuffix}`.replace(/[^a-zA-Z0-9_]/g, '');
+          const password = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+          const result = await client.query(
+            `INSERT INTO exam_schedules (
+              exam_id, external_student_id, scheduled_date, start_time, end_time,
+              access_code, exam_username, exam_password, status, created_by
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'scheduled', $9)
+            RETURNING *`,
+            [examId, externalId, scheduledDate, startTime, endTime, accessCode, username, password, user.id],
+          );
+
+          scheduledStudents.push(result.rows[0]);
+        } catch (err) {
+           failedStudents.push({ studentId: externalId, reason: "Database error" });
         }
       }
 

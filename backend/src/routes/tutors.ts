@@ -75,6 +75,42 @@ router.get(
   },
 );
 
+// Toggle tutor active status (Pause/Unpause)
+router.put(
+  "/:id/toggle-status",
+  authorize("school"),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const { is_active } = req.body;
+      const { schoolId } = req.user!;
+
+      if (typeof is_active !== 'boolean') {
+        res.status(400).json({ success: false, message: "is_active must be a boolean" });
+        return;
+      }
+
+      const result = await db.query(
+        "UPDATE tutors SET is_active = $1 WHERE id = $2 AND school_id = $3 RETURNING id, is_active",
+        [is_active, id, schoolId]
+      );
+
+      if (result.rows.length === 0) {
+        res.status(404).json({ success: false, message: "Tutor not found" });
+        return;
+      }
+
+      res.json({
+        success: true,
+        message: `Tutor ${is_active ? 'unpaused' : 'paused'} successfully`,
+        data: result.rows[0],
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 // Get students assigned to tutor
 router.get(
   "/:id/students",
