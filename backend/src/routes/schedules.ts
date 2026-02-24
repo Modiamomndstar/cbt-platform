@@ -321,8 +321,9 @@ router.post(
           );
 
           scheduledStudents.push(result.rows[0]);
-        } catch (err) {
-          failedStudents.push({ studentId, reason: "Database error" });
+        } catch (err: any) {
+          console.error("Internal Student Schedule Insert Error:", err.message);
+          failedStudents.push({ studentId, reason: "Database error", detail: err.message });
         }
       }
 
@@ -358,8 +359,9 @@ router.post(
           );
 
           scheduledStudents.push(result.rows[0]);
-        } catch (err) {
-           failedStudents.push({ studentId: externalId, reason: "Database error" });
+        } catch (err: any) {
+           console.error("External Student Schedule Insert Error:", err.message);
+           failedStudents.push({ studentId: externalId, reason: "Database error", detail: err.message });
         }
       }
 

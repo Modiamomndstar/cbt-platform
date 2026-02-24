@@ -330,6 +330,16 @@ export const externalStudentAPI = {
   create: (data: any) => api.post("/tutor/external-students", data),
   update: (id: string, data: any) => api.put(`/tutor/external-students/${id}`, data),
   delete: (id: string) => api.delete(`/tutor/external-students/${id}`),
+  upload: (file: File, categoryId?: string) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (categoryId && categoryId !== 'none') {
+        formData.append("categoryId", categoryId);
+    }
+    return api.post("/uploads/external-students", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
 };
 
 // ── School Settings API ─────────────────────────────────────

@@ -192,7 +192,7 @@ export default function ExternalStudents() {
     }
     try {
       toast.loading('Uploading students...');
-      await uploadAPI.uploadStudents(bulkFile, bulkCategoryId === 'none' ? undefined : bulkCategoryId);
+      await externalStudentAPI.upload(bulkFile, bulkCategoryId === 'none' ? undefined : bulkCategoryId);
       // Wait a sec for triggers/data then reload
       setTimeout(fetchStudents, 500);
       toast.dismiss();

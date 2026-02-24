@@ -290,7 +290,7 @@ export default function ScheduleExam() {
     }
   };
 
-  const handleAddStudent = async () => {
+    const handleAddStudent = async () => {
     if (newStudentForm.isBulk) {
        if (!newStudentForm.file) {
           toast.error('Please select a CSV file');
@@ -298,13 +298,12 @@ export default function ScheduleExam() {
        }
        try {
           toast.loading('Uploading students...');
-          await uploadAPI.uploadStudents(
+          await externalStudentAPI.upload(
               newStudentForm.file,
               newStudentForm.categoryId === 'none' ? undefined : newStudentForm.categoryId
           );
-          // Backend now handles auto-assign for tutors
           toast.dismiss();
-          toast.success('Students uploaded successfully');
+          toast.success('External Students uploaded successfully');
           setIsAddStudentOpen(false);
           setNewStudentForm({ studentId: '', fullName: '', email: '', categoryId: '', isBulk: false, file: null });
           await loadAvailableStudents();
@@ -322,27 +321,23 @@ export default function ScheduleExam() {
     }
 
     try {
-        const studentId = newStudentForm.studentId || `EXT${Date.now().toString().slice(-6)}`;
+        const username = `ext${Date.now().toString().slice(-4)}`;
 
-        const createRes = await studentAPI.create({
-            studentId,
+        const createRes = await externalStudentAPI.create({
+            username,
+            password: 'temp-password', // DB generates random if not used directly
             fullName: newStudentForm.fullName,
             email: newStudentForm.email,
             categoryId: newStudentForm.categoryId === 'none' ? undefined : newStudentForm.categoryId,
         });
 
-        if (createRes.data.success && user?.id) {
-           const newStudent = createRes.data.data;
-           await studentAPI.assignTutor(newStudent.id, user.id);
-        }
-
-        toast.success('Student created successfully');
+        toast.success('External Student created successfully');
         setIsAddStudentOpen(false);
         setNewStudentForm({ studentId: '', fullName: '', email: '', categoryId: '', isBulk: false, file: null });
 
         await loadAvailableStudents();
     } catch (err: any) {
-        const msg = err.response?.data?.message || 'Failed to create student';
+        const msg = err.response?.data?.message || 'Failed to create external student';
         toast.error(msg);
     }
   };

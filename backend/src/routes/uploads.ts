@@ -548,6 +548,105 @@ router.post('/questions', authenticate, requireRole(['school', 'tutor']), async 
   }
 });
 
+// Upload external students CSV
+router.post('/external-students', authenticate, requireRole(['tutor', 'school']), async (req: Request, res: Response) => {
+  const client = await pool.connect();
+  try {
+    if (!req.files || !req.files.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    const file = req.files.file as any;
+    const { categoryId } = req.body;
+    const user = req.user!;
+
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      return res.status(400).json({ success: false, message: 'Only CSV files are allowed' });
+    }
+
+    const records = await parseCSV(file.data);
+
+    const results = {
+      success: [] as any[],
+      failed: [] as any[],
+      totalProcessed: 0
+    };
+
+    const batchUsernames = new Set<string>();
+
+    await client.query('BEGIN');
+
+    for (const record of records) {
+      try {
+        results.totalProcessed++;
+
+        const fullNameRaw = record.full_name || record.fullName;
+        const email = record.email;
+        const phone = record.phone;
+
+        if (!fullNameRaw) {
+            results.failed.push({
+                record,
+                reason: 'Missing required field: full_name'
+            });
+            continue;
+        }
+
+        // Generate dummy login credentials since they take exams natively with access codes
+        const username = await generateUniqueUsername(client, fullNameRaw, user.schoolId as string, batchUsernames);
+        batchUsernames.add(username);
+        const password = generatePassword();
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Map school and tutor strictly safely
+        let schoolId = user.schoolId;
+        let tutorId = user.tutorId || user.id;
+
+        const result = await client.query(
+          `INSERT INTO external_students (tutor_id, school_id, category_id, full_name, email, phone, username, password_hash, is_active)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+           RETURNING *`,
+          [
+            tutorId,
+            schoolId,
+            categoryId && categoryId !== 'none' ? categoryId : null,
+            fullNameRaw,
+            email || null,
+            phone || null,
+            username,
+            hashedPassword
+          ]
+        );
+
+        results.success.push({
+          ...result.rows[0],
+          generatedPassword: password
+        });
+
+      } catch (err: any) {
+        results.failed.push({
+          record,
+          reason: err.message
+        });
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: `Processed ${results.totalProcessed} records. ${results.success.length} successful, ${results.failed.length} failed.`,
+      data: results
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Upload external students error:', error);
+    res.status(500).json({ success: false, message: 'Failed to process CSV file' });
+  } finally {
+    client.release();
+  }
+});
+
 // Download template CSV files
 router.get('/template/:type', async (req: Request, res: Response) => {
   const { type } = req.params;
