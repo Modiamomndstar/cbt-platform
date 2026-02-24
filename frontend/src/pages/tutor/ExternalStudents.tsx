@@ -121,6 +121,7 @@ export default function ExternalStudents() {
         setStudents([res.data.data, ...students]);
         toast.success("External student added successfully.");
         setIsCreating(false);
+      } else if (editingId) {
         const updatePayload: any = {
           fullName: formData.fullName,
           email: formData.email,
