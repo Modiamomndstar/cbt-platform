@@ -207,16 +207,19 @@ router.post(
     try {
       const { username, password } = req.body;
 
-      // Find exam schedule by credentials
+      // Find exam schedule by credentials — support both internal and external students
       const result = await db.query(
-        `SELECT es.id, es.exam_id, es.student_id, es.scheduled_date, es.start_time, es.end_time,
-              es.status, es.attempt_count, es.max_attempts,
-              s.full_name as student_name, s.school_id,
-              e.title as exam_title, e.duration
-       FROM exam_schedules es
-       JOIN students s ON es.student_id = s.id
-       JOIN exams e ON es.exam_id = e.id
-       WHERE es.exam_username = $1 AND es.exam_password = $2`,
+        `SELECT es.id, es.exam_id, es.student_id, es.external_student_id,
+                es.scheduled_date, es.start_time, es.end_time,
+                es.status, es.attempt_count, es.max_attempts,
+                COALESCE(s.full_name, ext.full_name) as student_name,
+                COALESCE(s.school_id, ext.school_id) as school_id,
+                e.title as exam_title, e.duration
+         FROM exam_schedules es
+         LEFT JOIN students s ON es.student_id = s.id
+         LEFT JOIN external_students ext ON es.external_student_id = ext.id
+         JOIN exams e ON es.exam_id = e.id
+         WHERE es.login_username = $1 AND es.login_password = $2`,
         [username, password],
       );
 
@@ -258,12 +261,15 @@ router.post(
         });
       }
 
+      // Use student_id or external_student_id as the identity
+      const effectiveStudentId = schedule.student_id || schedule.external_student_id;
+
       // Generate token
       const token = generateToken({
-        id: schedule.student_id,
+        id: effectiveStudentId,
         role: "student",
         schoolId: schedule.school_id,
-        studentId: schedule.student_id,
+        studentId: effectiveStudentId,
       });
 
       res.json({
@@ -272,7 +278,7 @@ router.post(
         data: {
           token,
           user: {
-            id: schedule.student_id,
+            id: effectiveStudentId,
             fullName: schedule.student_name,
             schoolId: schedule.school_id,
             role: "student",
