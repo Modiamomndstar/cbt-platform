@@ -9,7 +9,7 @@ import {
   CreditCard, Users, GraduationCap, BookOpen, Brain,
   TrendingUp, CheckCircle2, XCircle, Clock, Coins, ArrowUpRight,
   Tag, RefreshCw, Wallet, ShoppingCart, Info, AlertTriangle,
-  History, Download, Zap, ShoppingBag, AlertCircle
+  History, Download, Zap, ShoppingBag, AlertCircle, ShieldCheck
 } from 'lucide-react';
 
 interface PlanStatus {
@@ -89,7 +89,7 @@ function UsageBar({ label, used, max, icon: Icon, purchased = 0, isFrozen = fals
   const effectiveMax = max;
   const pct = effectiveMax ? Math.min(100, (used / effectiveMax) * 100) : 0;
   const isAtLimit = effectiveMax !== null && used >= effectiveMax;
-  
+
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-center">
@@ -198,8 +198,8 @@ export default function BillingPage() {
           <Button variant="outline" size="sm" onClick={loadData} className="gap-2 bg-white">
             <RefreshCw className="h-4 w-4" /> Refresh
           </Button>
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             className="bg-gradient-to-r from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800 text-white border-0 gap-2 shadow-sm"
             onClick={() => setActiveTab('marketplace')}
           >
@@ -218,7 +218,7 @@ export default function BillingPage() {
             <div className="flex-1">
               <p className="text-sm font-bold text-red-900">Purchase Capacity is Frozen</p>
               <p className="text-sm text-red-700 mt-1 leading-relaxed">
-                You have <strong>{limits.purchasedTutors}</strong> extra tutor slots and <strong>{limits.purchasedStudents}</strong> student capacity currently locked. 
+                You have <strong>{limits.purchasedTutors}</strong> extra tutor slots and <strong>{limits.purchasedStudents}</strong> student capacity currently locked.
                 Purchased marketplace capacity is only available while you have an active <strong>Basic Premium</strong> or <strong>Advanced</strong> subscription.
               </p>
               <div className="mt-4 flex gap-3">
@@ -275,33 +275,33 @@ export default function BillingPage() {
               <CardContent className="p-0">
                 <div className="p-6 space-y-6">
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                     <UsageBar 
-                        label="Tutors" 
-                        used={limits.tutorsUsed} 
-                        max={limits.tutorsMax} 
-                        icon={Users} 
+                     <UsageBar
+                        label="Tutors"
+                        used={limits.tutorsUsed}
+                        max={limits.tutorsMax}
+                        icon={Users}
                         purchased={limits.purchasedTutors}
                         isFrozen={isFrozen}
                      />
-                     <UsageBar 
-                        label="Students" 
-                        used={limits.studentsUsed} 
-                        max={limits.studentsMax} 
-                        icon={GraduationCap} 
+                     <UsageBar
+                        label="Students"
+                        used={limits.studentsUsed}
+                        max={limits.studentsMax}
+                        icon={GraduationCap}
                         purchased={limits.purchasedStudents}
                         isFrozen={isFrozen}
                      />
-                     <UsageBar 
-                        label="Active Exams" 
-                        used={limits.examsUsed} 
-                        max={limits.examsMax} 
-                        icon={BookOpen} 
+                     <UsageBar
+                        label="Active Exams"
+                        used={limits.examsUsed}
+                        max={limits.examsMax}
+                        icon={BookOpen}
                      />
-                     <UsageBar 
-                        label="AI Query Credit" 
-                        used={limits.aiUsed} 
-                        max={limits.aiMax} 
-                        icon={Zap} 
+                     <UsageBar
+                        label="AI Query Credit"
+                        used={limits.aiUsed}
+                        max={limits.aiMax}
+                        icon={Zap}
                         purchased={limits.purchasedAiQueries}
                      />
                    </div>
@@ -336,7 +336,7 @@ export default function BillingPage() {
                       <span className="text-indigo-100 text-sm font-medium">credits</span>
                    </div>
                    <p className="text-indigo-100 text-[10px] mt-1 italic opacity-80">Universal platform credits for micro-features</p>
-                   
+
                    <div className="mt-6 space-y-2">
                      <Button className="w-full bg-white text-indigo-700 hover:bg-indigo-50 border-0 font-bold shadow-md" onClick={() => toast.info('PAYG top-up functionality is being localized for your region.')}>
                        <ArrowUpRight className="h-4 w-4 mr-2" /> Fund Wallet
@@ -394,17 +394,17 @@ export default function BillingPage() {
                 </CardHeader>
                 <CardContent className="flex-1">
                   <p className="text-xs text-gray-500 leading-relaxed min-h-[40px]">
-                    {item.item_type === 'capacity' 
+                    {item.item_type === 'capacity'
                       ? `Add permanent capacity to your portal. Active with paid subscription.`
                       : `Consumable item. Use immediately for ${item.batch_size} actions.`}
                   </p>
-                  
+
                   <div className="mt-4 pt-4 border-t flex flex-col gap-3">
                      <div className="flex justify-between items-center text-[10px] font-bold text-indigo-500 uppercase tracking-widest">
                         <span>Benefit:</span>
                         <span>+{item.batch_size} Slots</span>
                      </div>
-                     <Button 
+                     <Button
                        disabled={purchasing === item.feature_key}
                        onClick={() => handlePurchase(item)}
                        className={`w-full font-bold ${item.item_type === 'capacity' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
@@ -449,7 +449,7 @@ export default function BillingPage() {
                            </td>
                            <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                tx.type === 'topup' ? 'bg-green-100 text-green-700' : 
+                                tx.type === 'topup' ? 'bg-green-100 text-green-700' :
                                 tx.type === 'deduction' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
                               }`}>
                                 {tx.type}
