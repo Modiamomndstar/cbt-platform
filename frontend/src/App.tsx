@@ -52,6 +52,8 @@ import MonetizationPage from '@/pages/super-admin/Monetization';
 import SchoolOverridesPage from '@/pages/super-admin/SchoolOverrides';
 import StaffManagement from '@/pages/super-admin/StaffManagement';
 import SchoolDetails from '@/pages/super-admin/SchoolDetails';
+import MarketplaceManagement from '@/pages/super-admin/MarketplaceManagement';
+import FinancialAnalytics from '@/pages/super-admin/FinancialAnalytics';
 
 function AppRoutes() {
   const { isLoading } = useAuth();
@@ -152,6 +154,8 @@ function AppRoutes() {
         <Route path="staff" element={<StaffManagement />} />
         <Route path="monetization" element={<MonetizationPage />} />
         <Route path="school-overrides" element={<SchoolOverridesPage />} />
+        <Route path="marketplace" element={<MarketplaceManagement />} />
+        <Route path="finance" element={<FinancialAnalytics />} />
       </Route>
 
       {/* Common Protected Routes (not nested under a specific layout) */}

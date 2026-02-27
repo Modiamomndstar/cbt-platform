@@ -4,6 +4,8 @@ import { authenticate, authorize } from '../middleware/auth';
 import { db } from '../config/database';
 import { ApiResponseHandler } from '../utils/apiResponse';
 import { sendWelcomeEmail, sendTrialStartEmail } from '../services/email';
+import { financeService } from '../services/financeService';
+import { paygService } from '../services/paygService';
 
 const router = Router();
 const validate = (req: any, res: any, next: any) => {
@@ -37,7 +39,7 @@ router.get('/schools/:id/details', [
     const { id } = req.params;
 
     const schoolResult = await db.query(`
-      SELECT s.*, sub.plan_type, sub.status as sub_status, sub.billing_cycle, 
+      SELECT s.*, sub.plan_type, sub.status as sub_status, sub.billing_cycle,
              sub.override_plan, sub.override_expires_at, sub.override_features,
              w.balance_credits as payg_balance
       FROM schools s
@@ -51,9 +53,9 @@ router.get('/schools/:id/details', [
     const tutorCount = await db.query('SELECT COUNT(*) FROM tutors WHERE school_id = $1', [id]);
     const studentCount = await db.query('SELECT COUNT(*) FROM students WHERE school_id = $1', [id]);
     const externalStudentCount = await db.query('SELECT COUNT(*) FROM external_students WHERE school_id = $1', [id]);
-    
+
     const tutorsWithExternal = await db.query(`
-      SELECT t.id, t.username, t.first_name, t.last_name, 
+      SELECT t.id, t.username, t.first_name, t.last_name,
              (SELECT COUNT(*) FROM external_students WHERE tutor_id = t.id) as external_count
       FROM tutors t
       WHERE t.school_id = $1
@@ -63,11 +65,11 @@ router.get('/schools/:id/details', [
     // Unified Audit Logs (Last 50)
     const auditLogs = await db.query(`
       (SELECT id, action, details, created_at, 'school' as log_type, user_type as actor_type, user_id as actor_id, '' as actor_name
-       FROM activity_logs 
+       FROM activity_logs
        WHERE school_id = $1)
       UNION ALL
       (SELECT id, action, details, created_at, 'staff' as log_type, actor_type, actor_id, actor_name
-       FROM staff_audit_log 
+       FROM staff_audit_log
        WHERE target_type = 'school' AND target_id = $1)
       ORDER BY created_at DESC
       LIMIT 50
@@ -109,8 +111,8 @@ router.patch('/schools/:id/subscription', [
     if (updates.length > 0) {
       values.push(id);
       await db.query(`
-        UPDATE school_subscriptions 
-        SET ${updates.join(', ')}, updated_at = NOW() 
+        UPDATE school_subscriptions
+        SET ${updates.join(', ')}, updated_at = NOW()
         WHERE school_id = $${p}
       `, values);
     }
@@ -133,8 +135,8 @@ router.post('/schools/:id/feature-overrides', [
     const { overrides } = req.body;
 
     await db.query(`
-      UPDATE school_subscriptions 
-      SET override_features = $1, updated_at = NOW() 
+      UPDATE school_subscriptions
+      SET override_features = $1, updated_at = NOW()
       WHERE school_id = $2
     `, [JSON.stringify(overrides), id]);
 
@@ -555,14 +557,14 @@ router.get('/export/:type', [
     let params: any[] = [];
 
     if (type === 'tutors') {
-      query = `SELECT t.first_name, t.last_name, t.email, t.username, s.name as school_name, t.created_at 
+      query = `SELECT t.first_name, t.last_name, t.email, t.username, s.name as school_name, t.created_at
                FROM tutors t JOIN schools s ON t.school_id = s.id`;
     } else if (type === 'students') {
-      query = `SELECT s.first_name, s.last_name, s.email, s.username, sch.name as school_name, s.reg_number, s.level_class, s.created_at 
+      query = `SELECT s.first_name, s.last_name, s.email, s.username, sch.name as school_name, s.reg_number, s.level_class, s.created_at
                FROM students s JOIN schools sch ON s.school_id = sch.id`;
     } else if (type === 'external_students') {
-      query = `SELECT e.first_name, e.last_name, e.email, e.username, sch.name as school_name, t.username as tutor_username, e.level_class, e.created_at 
-               FROM external_students e 
+      query = `SELECT e.first_name, e.last_name, e.email, e.username, sch.name as school_name, t.username as tutor_username, e.level_class, e.created_at
+               FROM external_students e
                JOIN schools sch ON e.school_id = sch.id
                JOIN tutors t ON e.tutor_id = t.id`;
     }
@@ -637,6 +639,59 @@ router.put('/marketplace/:featureKey', [
 
     await logAudit(req, 'marketplace_updated', 'marketplace_item', undefined, featureKey, req.body);
     ApiResponseHandler.success(res, result.rows[0], 'Marketplace item updated');
+  } catch (error) { next(error); }
+});
+
+// POST /api/super-admin/marketplace/gift
+router.post('/marketplace/gift', [
+  body('schoolId').isUUID(),
+  body('featureKey').notEmpty(),
+  body('quantity').optional().isInt({ min: 1 }),
+  validate
+], async (req: any, res: any, next: any) => {
+  try {
+    const { schoolId, featureKey, quantity = 1 } = req.body;
+    const success = await paygService.giftItem(schoolId, featureKey, quantity, req.user.id);
+
+    if (!success) return ApiResponseHandler.serverError(res, 'Failed to gift item');
+
+    const school = await db.query('SELECT name FROM schools WHERE id = $1', [schoolId]);
+    await logAudit(req, 'marketplace_item_gifted', 'school', schoolId, school.rows[0]?.name, { featureKey, quantity });
+
+    ApiResponseHandler.success(res, null, 'Marketplace item gifted successfully');
+  } catch (error) { next(error); }
+});
+
+// GET /api/super-admin/finance/overview
+router.get('/finance/overview', async (req, res, next) => {
+  try {
+    const overview = await financeService.getGlobalOverview();
+    ApiResponseHandler.success(res, overview, 'Financial overview retrieved');
+  } catch (error) { next(error); }
+});
+
+// GET /api/super-admin/finance/revenue
+router.get('/finance/revenue', async (req, res, next) => {
+  try {
+    const { period = 'month' } = req.query;
+    const history = await financeService.getRevenueHistory(period as any);
+    ApiResponseHandler.success(res, history, 'Revenue history retrieved');
+  } catch (error) { next(error); }
+});
+
+// GET /api/super-admin/finance/logs
+router.get('/finance/logs', async (req, res, next) => {
+  try {
+    const { schoolId, currency, startDate, endDate, limit, offset } = req.query;
+    const logs = await financeService.getAuditLogs({
+      schoolId: schoolId as string,
+      currency: currency as string,
+      startDate: startDate as string,
+      endDate: endDate as string,
+      limit: limit ? parseInt(limit as string) : undefined,
+      offset: offset ? parseInt(offset as string) : undefined
+    });
+    ApiResponseHandler.success(res, logs, 'Financial audit logs retrieved');
   } catch (error) { next(error); }
 });
 

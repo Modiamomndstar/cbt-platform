@@ -84,14 +84,16 @@ export const paygService = {
 
       // 5. Log to ledger
       await client.query(
-        `INSERT INTO payg_ledger (school_id, type, credits, balance_after, description, feature_key)
-         VALUES ($1, 'deduction', $2, $3, $4, $5)`,
+        `INSERT INTO payg_ledger (school_id, type, credits, balance_after, description, feature_key, amount_paid, currency)
+         VALUES ($1, 'deduction', $2, $3, $4, $5, $6, $7)`,
         [
           schoolId,
           totalRequired,
           newBalance,
           `Consumed for ${itemCount} ${display_name}(s)`,
-          featureKey
+          featureKey,
+          totalRequired * 50, // Assuming 1 credit = 50 NGN for now (unearned to earned)
+          'NGN'
         ]
       );
 
@@ -101,6 +103,55 @@ export const paygService = {
       await client.query('ROLLBACK');
       console.error('PAYG Consumption Error:', err);
       return { success: false, reason: 'Internal error', creditsDeducted: 0 };
+    } finally {
+      client.release();
+    }
+  },
+
+  /**
+   * Gift a marketplace item to a school (Free of charge).
+   */
+  giftItem: async (schoolId: string, featureKey: string, quantity: number = 1, adminId: string): Promise<boolean> => {
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+
+      const pricingRes = await client.query(
+        'SELECT display_name, batch_size, item_type FROM payg_feature_pricing WHERE feature_key = $1',
+        [featureKey]
+      );
+      if (pricingRes.rows.length === 0) throw new Error('Feature not found');
+      const p = pricingRes.rows[0];
+
+      // 1. Log as gift in ledger (no credit deduction)
+      await client.query(
+        `INSERT INTO payg_ledger (school_id, type, credits, balance_after, description, feature_key, created_by_staff_id)
+         SELECT school_id, 'gift', 0, balance_credits, $2, $3, $4
+         FROM payg_wallets WHERE school_id = $1`,
+        [schoolId, `Gifted ${quantity} ${p.display_name}(s) by Admin`, featureKey, adminId]
+      );
+
+      // 2. Apply persistent capacity if applicable
+      if (p.item_type === 'capacity') {
+        if (featureKey === 'extra_tutor_slot') {
+          await client.query(
+            'UPDATE school_subscriptions SET purchased_tutor_slots = purchased_tutor_slots + $1 WHERE school_id = $2',
+            [quantity, schoolId]
+          );
+        } else if (featureKey === 'extra_student_slot') {
+          await client.query(
+            'UPDATE school_subscriptions SET purchased_student_slots = purchased_student_slots + ($1 * $2) WHERE school_id = $3',
+            [quantity, p.batch_size, schoolId]
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+      return true;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('PAYG Gifting Error:', err);
+      return false;
     } finally {
       client.release();
     }
