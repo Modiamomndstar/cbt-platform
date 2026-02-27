@@ -101,7 +101,7 @@ export const getSchoolPlan = async (schoolId: string): Promise<PlanLimits> => {
 function mapPlanDefinition(pd: any, status: string, pTutor: number = 0, pStudent: number = 0, pAi: number = 0, isFrozen: boolean = false): PlanLimits {
   // RULE: Marketplace capacity is only active if the school is on a PAID plan or GIFTED/TRIALING.
   // If isFrozen is true, we zero out the purchased capacities.
-  
+
   return {
     planType: pd.plan_type,
     displayName: pd.display_name,
@@ -150,7 +150,7 @@ export const isFeatureAllowed = async (schoolId: string, featureKey: string): Pr
   // If feature record exists in flags table
   if (flagResult.rows.length > 0) {
     const flag = flagResult.rows[0];
-    
+
     // 1. If feature is globally disabled, deny everyone
     if (!flag.is_enabled) return false;
 
@@ -158,7 +158,7 @@ export const isFeatureAllowed = async (schoolId: string, featureKey: string): Pr
     if (flag.min_plan) {
       const schoolRank = PLAN_HIERARCHY[plan.planType] ?? 0;
       const minRank = PLAN_HIERARCHY[flag.min_plan] ?? 0;
-      
+
       if (schoolRank < minRank) return false;
     }
   }
@@ -217,13 +217,13 @@ export const getSchoolUsage = async (schoolId: string): Promise<PlanUsage> => {
 export const canAddTutor = async (schoolId: string): Promise<{ allowed: boolean; reason?: string }> => {
   const [plan, usage] = await Promise.all([getSchoolPlan(schoolId), getSchoolUsage(schoolId)]);
   if (plan.maxTutors === null) return { allowed: true };
-  
+
   const effectiveLimit = (plan.maxTutors ?? 0) + plan.purchasedTutors;
   if (usage.tutorCount >= effectiveLimit) {
     const isFree = plan.planType === 'freemium';
-    return { 
-      allowed: false, 
-      reason: isFree 
+    return {
+      allowed: false,
+      reason: isFree
         ? "Free plan limit reached (2). Upgrade to a paid plan to use more slots."
         : `Limit reached (${effectiveLimit}). Purchase more tutor slots in the Marketplace.`
     };
@@ -271,14 +271,14 @@ export const canAddExternalStudent = async (schoolId: string, tutorId: string): 
 
   const sub = subRes.rows[0];
   if (!sub) return { allowed: false, reason: "School subscription not found." };
-  
+
   const isFrozen = sub.is_capacity_frozen;
   const planBase = sub.max_external_per_tutor ?? 5;
   const purchasedExtra = !isFrozen ? (sub.purchased_student_slots || 0) : 0;
-  
+
   const planCap = planBase + purchasedExtra;
   const adminLimit = settingsRes.rows[0]?.max_external_per_tutor ?? planCap;
-  
+
   const effectiveMax = Math.min(adminLimit, planCap);
   const currentCount = parseInt(usageRes.rows[0].count);
 
@@ -336,24 +336,29 @@ export const getSchoolBillingStatus = async (schoolId: string) => {
       trialEnd: subscription?.trial_end,
       currentPeriodEnd: subscription?.current_period_end,
       overrideExpires: subscription?.override_expires_at,
+      isPaid: subscription?.billing_cycle !== 'free' && (subscription?.status === 'active' || subscription?.status === 'gifted'),
+      isFreemium: plan.planType === 'freemium',
     },
     paygBalance,
     limits: {
       tutorsUsed: usage.tutorCount,
       tutorsMax: (plan.maxTutors ?? 0) + plan.purchasedTutors,
       tutorsFrozen: isFrozen ? (subscription?.purchased_tutor_slots ?? 0) : 0,
-      
+      purchasedTutors: plan.purchasedTutors,
+
       studentsUsed: usage.studentCount,
       studentsMax: plan.maxInternalStudents !== null
         ? (plan.maxInternalStudents + plan.purchasedStudents)
         : null,
       studentsFrozen: isFrozen ? (subscription?.purchased_student_slots ?? 0) : 0,
-      
+      purchasedStudents: plan.purchasedStudents,
+
       examsUsed: usage.examCount,
       examsMax: plan.maxActiveExams,
-      
+
       aiUsed: usage.aiQueriesThisMonth,
       aiMax: plan.aiQueriesPerMonth,
+      purchasedAiQueries: plan.purchasedAiQueries,
     }
   };
 };
