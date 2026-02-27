@@ -2,12 +2,13 @@ import { Router, Request, Response, NextFunction } from "express";
 import { body, validationResult } from "express-validator";
 import { db } from "../config/database";
 import { authenticate, authorize } from "../middleware/auth";
+import { ApiResponseHandler } from "../utils/apiResponse";
 
 const router = Router();
 const validate = (req: any, res: any, next: any) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    res.status(400).json({ success: false, message: "Validation failed", errors: errors.array() });
+    ApiResponseHandler.badRequest(res, "Validation failed", { errors: errors.array() });
     return;
   }
   next();
@@ -25,7 +26,7 @@ router.get("/", authorize("school", "tutor"), async (req: Request, res: Response
       `SELECT id, name, description, created_at FROM exam_categories WHERE school_id = $1 ORDER BY name ASC`,
       [schoolId]
     );
-    res.json({ success: true, data: result.rows });
+    ApiResponseHandler.success(res, result.rows, "Exam categories retrieved");
   } catch (error) { next(error); }
 });
 
@@ -48,7 +49,7 @@ router.post(
       // Check if exists
       const exists = await db.query("SELECT id FROM exam_categories WHERE school_id = $1 AND name = $2", [schoolId, name]);
       if (exists.rows.length > 0) {
-        res.status(400).json({ success: false, message: "Exam category already exists" });
+        ApiResponseHandler.badRequest(res, "Exam category already exists");
         return;
       }
 
@@ -58,7 +59,7 @@ router.post(
         [schoolId, name, description]
       );
 
-      res.status(201).json({ success: true, message: "Exam category created", data: result.rows[0] });
+      ApiResponseHandler.created(res, result.rows[0], "Exam category created");
     } catch (error) { next(error); }
   }
 );
@@ -80,7 +81,7 @@ router.put(
 
       const exists = await db.query("SELECT id FROM exam_categories WHERE school_id = $1 AND name = $2 AND id != $3", [schoolId, name, id]);
       if (exists.rows.length > 0) {
-        res.status(400).json({ success: false, message: "Exam category with this name already exists" });
+        ApiResponseHandler.badRequest(res, "Exam category with this name already exists");
         return;
       }
 
@@ -91,11 +92,11 @@ router.put(
       );
 
       if (result.rows.length === 0) {
-        res.status(404).json({ success: false, message: "Category not found" });
+        ApiResponseHandler.notFound(res, "Category not found");
         return;
       }
 
-      res.json({ success: true, message: "Exam category updated", data: result.rows[0] });
+      ApiResponseHandler.success(res, result.rows[0], "Exam category updated");
     } catch (error) { next(error); }
   }
 );
@@ -109,17 +110,17 @@ router.delete("/:id", authorize("school", "tutor"), async (req: Request, res: Re
     // Ensure it's not being used by exams
     const inUse = await db.query("SELECT id FROM exams WHERE category_id = $1 LIMIT 1", [id]);
     if (inUse.rows.length > 0) {
-      res.status(400).json({ success: false, message: "Cannot delete category because it is assigned to one or more exams." });
+      ApiResponseHandler.badRequest(res, "Cannot delete category because it is assigned to one or more exams.");
       return;
     }
 
     const result = await db.query("DELETE FROM exam_categories WHERE id = $1 AND school_id = $2 RETURNING id", [id, schoolId]);
     if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: "Category not found" });
+      ApiResponseHandler.notFound(res, "Category not found");
       return;
     }
 
-    res.json({ success: true, message: "Exam category deleted" });
+    ApiResponseHandler.success(res, null, "Exam category deleted");
   } catch (error) { next(error); }
 });
 

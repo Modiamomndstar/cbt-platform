@@ -1,12 +1,26 @@
 import cron from 'node-cron';
 import { db } from '../config/database';
 import { sendTrialStartEmail, sendTrialExpiredEmail } from './email';
+import { ScheduleService } from './scheduleService';
 
 export const initCronJobs = () => {
   // Run daily at midnight (00:00) server time
   cron.schedule('0 0 * * *', async () => {
     console.log('[CRON] Starting daily trial expiry check...');
     await processTrialExpiries();
+  });
+
+  // Run hourly (at the top of every hour)
+  cron.schedule('0 * * * *', async () => {
+    console.log('[CRON] Starting hourly schedule expiry check...');
+    try {
+      const expiredCount = await ScheduleService.processExpiredSchedules();
+      if (expiredCount > 0) {
+        console.log(`[CRON] Expired ${expiredCount} overdue schedules.`);
+      }
+    } catch (error) {
+      console.error('[CRON] Error in hourly schedule expiry check:', error);
+    }
   });
 
   console.log('[CRON] Jobs initialized.');

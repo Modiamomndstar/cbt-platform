@@ -2,17 +2,14 @@ import { Router } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { db } from '../config/database';
 import { authenticate, authorize } from '../middleware/auth';
+import { ApiResponseHandler } from '../utils/apiResponse';
 
 const router = Router();
 
 const validate = (req: any, res: any, next: any) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: 'Validation failed',
-      errors: errors.array()
-    });
+    return ApiResponseHandler.badRequest(res, 'Validation failed', { errors: errors.array() });
   }
   next();
 };
@@ -41,25 +38,29 @@ router.get('/', async (req, res, next) => {
     }
 
     if (!querySchoolId) {
-      return res.status(400).json({
-        success: false,
-        message: 'School ID is required'
-      });
+      return ApiResponseHandler.badRequest(res, 'School ID is required');
     }
 
-    const result = await db.query(
-      `SELECT id, name, description, color, sort_order, is_active,
-              (SELECT COUNT(*) FROM students WHERE category_id = sc.id) as student_count
-       FROM student_categories sc
-       WHERE school_id = $1 AND is_active = true
-       ORDER BY sort_order, name`,
-      [querySchoolId]
-    );
+    let query = `
+      SELECT id, name, description, color, sort_order, is_active, tutor_id,
+             (SELECT COUNT(*) FROM students WHERE category_id = sc.id) as student_count
+      FROM student_categories sc
+      WHERE school_id = $1 AND is_active = true
+    `;
+    const params: any[] = [querySchoolId];
 
-    res.json({
-      success: true,
-      data: result.rows
-    });
+    if (role === 'tutor' && req.user!.tutorId) {
+      query += ` AND (tutor_id IS NULL OR tutor_id = $2)`;
+      params.push(req.user!.tutorId);
+    } else {
+      query += ` AND tutor_id IS NULL`; // Default school categories
+    }
+
+    query += ` ORDER BY sort_order, name`;
+
+    const result = await db.query(query, params);
+
+    ApiResponseHandler.success(res, result.rows, 'Categories retrieved');
   } catch (error) {
     next(error);
   }
@@ -97,10 +98,7 @@ router.get('/:id', [
     );
 
     if (categoryResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Category not found'
-      });
+      return ApiResponseHandler.notFound(res, 'Category not found');
     }
 
     // Get students in this category
@@ -112,13 +110,10 @@ router.get('/:id', [
       [id]
     );
 
-    res.json({
-      success: true,
-      data: {
-        ...categoryResult.rows[0],
-        students: studentsResult.rows
-      }
-    });
+    ApiResponseHandler.success(res, {
+      ...categoryResult.rows[0],
+      students: studentsResult.rows
+    }, 'Category retrieved');
   } catch (error) {
     next(error);
   }
@@ -150,34 +145,41 @@ router.post('/', authorize('school', 'tutor'), [
     }
 
     if (!querySchoolId) {
-      return res.status(400).json({ success: false, message: 'School ID is required' });
+      return ApiResponseHandler.badRequest(res, 'School ID is required');
     }
 
-    // Check if category name already exists for this school
-    const existingResult = await db.query(
-      'SELECT id FROM student_categories WHERE school_id = $1 AND name = $2',
-      [querySchoolId, name]
-    );
+    // Check if category name already exists for this school/tutor context
+    let existingCheck = 'SELECT id FROM student_categories WHERE school_id = $1 AND name = $2';
+    const checkParams = [querySchoolId, name];
+
+    if (role === 'tutor' && req.user!.tutorId) {
+      existingCheck += ' AND tutor_id = $3';
+      checkParams.push(req.user!.tutorId);
+    } else {
+      existingCheck += ' AND tutor_id IS NULL';
+    }
+
+    const existingResult = await db.query(existingCheck, checkParams);
 
     if (existingResult.rows.length > 0) {
-      return res.status(409).json({
-        success: false,
-        message: 'A category with this name already exists'
-      });
+      return ApiResponseHandler.conflict(res, 'A category with this name already exists');
     }
 
     const result = await db.query(
-      `INSERT INTO student_categories (school_id, name, description, color, sort_order)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, name, description, color, sort_order, is_active, created_at`,
-      [querySchoolId, name, description, color || '#4F46E5', sortOrder || 0]
+      `INSERT INTO student_categories (school_id, name, description, color, sort_order, tutor_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, name, description, color, sort_order, is_active, tutor_id, created_at`,
+      [
+        querySchoolId, 
+        name, 
+        description, 
+        color || '#4F46E5', 
+        sortOrder || 0,
+        role === 'tutor' ? req.user!.tutorId : null
+      ]
     );
 
-    res.status(201).json({
-      success: true,
-      message: 'Category created successfully',
-      data: result.rows[0]
-    });
+    ApiResponseHandler.created(res, result.rows[0], 'Category created successfully');
   } catch (error) {
     next(error);
   }
@@ -206,7 +208,7 @@ router.post('/find-or-create', authorize('school', 'tutor'), [
     }
 
     if (!querySchoolId) {
-      return res.status(400).json({ success: false, message: 'School ID is required' });
+      return ApiResponseHandler.badRequest(res, 'School ID is required');
     }
 
     // Check if category already exists
@@ -216,11 +218,7 @@ router.post('/find-or-create', authorize('school', 'tutor'), [
     );
 
     if (existing.rows.length > 0) {
-      return res.json({
-        success: true,
-        data: existing.rows[0],
-        created: false
-      });
+      return ApiResponseHandler.success(res, existing.rows[0], 'Category found', false);
     }
 
     // Create new category
@@ -231,11 +229,7 @@ router.post('/find-or-create', authorize('school', 'tutor'), [
       [querySchoolId, name, '#4F46E5', 0]
     );
 
-    res.status(201).json({
-      success: true,
-      data: result.rows[0],
-      created: true
-    });
+    ApiResponseHandler.created(res, result.rows[0], 'Category created', true);
   } catch (error) {
     next(error);
   }
@@ -270,17 +264,21 @@ router.put('/:id', authorize('school', 'tutor'), [
        }
     }
 
-    // Check if category exists and belongs to this school
-    const checkResult = await db.query(
-      'SELECT id FROM student_categories WHERE id = $1 AND school_id = $2',
-      [id, querySchoolId]
-    );
+    // Check if category exists and belongs to this school/tutor
+    let checkQuery = 'SELECT id FROM student_categories WHERE id = $1 AND school_id = $2';
+    const checkParams = [id, querySchoolId];
+
+    if (role === 'tutor' && tutorId) {
+      checkQuery += ' AND tutor_id = $3';
+      checkParams.push(tutorId);
+    } else if (role !== 'school') {
+      return ApiResponseHandler.forbidden(res, 'Unauthorized');
+    }
+
+    const checkResult = await db.query(checkQuery, checkParams);
 
     if (checkResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Category not found'
-      });
+      return ApiResponseHandler.notFound(res, 'Category not found');
     }
 
     // Check name uniqueness if name is being updated
@@ -290,10 +288,7 @@ router.put('/:id', authorize('school', 'tutor'), [
         [querySchoolId, name, id]
       );
       if (nameCheck.rows.length > 0) {
-        return res.status(409).json({
-          success: false,
-          message: 'A category with this name already exists'
-        });
+        return ApiResponseHandler.conflict(res, 'A category with this name already exists');
       }
     }
 
@@ -324,29 +319,26 @@ router.put('/:id', authorize('school', 'tutor'), [
     }
 
     if (updates.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'No fields to update'
-      });
+      return ApiResponseHandler.badRequest(res, 'No fields to update');
     }
 
     updates.push(`updated_at = NOW()`);
     values.push(id);
     values.push(querySchoolId);
 
+    let updateQuery = `UPDATE student_categories SET ${updates.join(', ')} WHERE id = $${paramIndex} AND school_id = $${paramIndex + 1}`;
+    
+    if (role === 'tutor' && tutorId) {
+      updateQuery += ` AND tutor_id = $${paramIndex + 2}`;
+      values.push(tutorId);
+    }
+
     const result = await db.query(
-      `UPDATE student_categories
-       SET ${updates.join(', ')}
-       WHERE id = $${paramIndex} AND school_id = $${paramIndex + 1}
-       RETURNING id, name, description, color, sort_order, is_active, updated_at`,
+      updateQuery + ' RETURNING id, name, description, color, sort_order, is_active, updated_at',
       values
     );
 
-    res.json({
-      success: true,
-      message: 'Category updated successfully',
-      data: result.rows[0]
-    });
+    ApiResponseHandler.success(res, result.rows[0], 'Category updated successfully');
   } catch (error) {
     next(error);
   }
@@ -374,17 +366,19 @@ router.delete('/:id', authorize('school', 'tutor'), [
        }
     }
 
-    // Check if category exists and belongs to this school
-    const checkResult = await db.query(
-      'SELECT id FROM student_categories WHERE id = $1 AND school_id = $2',
-      [id, querySchoolId]
-    );
+    // Check if category exists and belongs to this school/tutor
+    let checkQuery = 'SELECT id FROM student_categories WHERE id = $1 AND school_id = $2';
+    const checkParams = [id, querySchoolId];
+
+    if (role === 'tutor' && tutorId) {
+      checkQuery += ' AND tutor_id = $3';
+      checkParams.push(tutorId);
+    }
+
+    const checkResult = await db.query(checkQuery, checkParams);
 
     if (checkResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Category not found'
-      });
+      return ApiResponseHandler.notFound(res, 'Category not found');
     }
 
     // Check if category has students
@@ -394,10 +388,7 @@ router.delete('/:id', authorize('school', 'tutor'), [
     );
 
     if (parseInt(studentsResult.rows[0].count) > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot delete category with students. Please reassign students first.'
-      });
+      return ApiResponseHandler.badRequest(res, 'Cannot delete category with students. Please reassign students first.');
     }
 
     // Soft delete
@@ -406,10 +397,7 @@ router.delete('/:id', authorize('school', 'tutor'), [
       [id]
     );
 
-    res.json({
-      success: true,
-      message: 'Category deleted successfully'
-    });
+    ApiResponseHandler.success(res, null, 'Category deleted successfully');
   } catch (error) {
     next(error);
   }
@@ -448,10 +436,7 @@ router.post('/:id/students', [
     );
 
     if (categoryResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Category not found'
-      });
+      return ApiResponseHandler.notFound(res, 'Category not found');
     }
 
     // Update students
@@ -463,11 +448,7 @@ router.post('/:id/students', [
       [id, studentIds, querySchoolId]
     );
 
-    res.json({
-      success: true,
-      message: `${result.rowCount} students added to category`,
-      data: result.rows
-    });
+    ApiResponseHandler.success(res, result.rows, `${result.rowCount} students added to category`);
   } catch (error) {
     next(error);
   }
@@ -504,10 +485,7 @@ router.delete('/:id/students/:studentId', [
       [studentId, id, querySchoolId]
     );
 
-    res.json({
-      success: true,
-      message: 'Student removed from category'
-    });
+    ApiResponseHandler.success(res, null, 'Student removed from category');
   } catch (error) {
     next(error);
   }

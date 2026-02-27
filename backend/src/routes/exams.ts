@@ -1,16 +1,15 @@
 import { Router } from 'express';
 import { body, param, validationResult } from 'express-validator';
-import { db } from '../config/database';
-import { authenticate, authorize } from '../middleware/auth';
+import { db } from "../config/database";
+import { authenticate, authorize } from "../middleware/auth";
+import { requireTutorSlot } from "../middleware/planGuard";
+import { ApiResponseHandler } from "../utils/apiResponse";
+import { validate } from "../middleware/validation";
+import { getPaginationOptions, formatPaginationResponse } from "../utils/pagination";
+import { logUserActivity } from "../utils/auditLogger";
 
 const router = Router();
-const validate = (req: any, res: any, next: any) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
-  }
-  next();
-};
+
 
 router.use(authenticate);
 
@@ -18,6 +17,7 @@ router.use(authenticate);
 router.get('/', authorize('tutor'), async (req, res, next) => {
   try {
     const tutorId = req.user!.tutorId;
+    const pagination = getPaginationOptions(req);
 
     const result = await db.query(
       `SELECT e.id, e.title, e.description, e.category_id, e.duration, e.total_questions,
@@ -27,11 +27,22 @@ router.get('/', authorize('tutor'), async (req, res, next) => {
               (SELECT COUNT(*) FROM exam_schedules WHERE exam_id = e.id) as schedule_count
        FROM exams e
        WHERE e.tutor_id = $1
-       ORDER BY e.created_at DESC`,
+       ORDER BY e.created_at DESC
+       LIMIT $2 OFFSET $3`,
+      [tutorId, pagination.limit, pagination.offset]
+    );
+
+    const countResult = await db.query(
+      "SELECT COUNT(*) FROM exams WHERE tutor_id = $1",
       [tutorId]
     );
 
-    res.json({ success: true, data: result.rows });
+    ApiResponseHandler.success(
+      res,
+      result.rows,
+      "Exams retrieved",
+      formatPaginationResponse(parseInt(countResult.rows[0].count), pagination)
+    );
   } catch (error) {
     next(error);
   }
@@ -64,10 +75,10 @@ router.get('/:id', [
     const result = await db.query(query, params);
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Exam not found' });
+      return ApiResponseHandler.notFound(res, "Exam not found");
     }
 
-    res.json({ success: true, data: result.rows[0] });
+    ApiResponseHandler.success(res, result.rows[0], "Exam retrieved");
   } catch (error) {
     next(error);
   }
@@ -98,7 +109,17 @@ router.post('/', authorize('tutor'), [
        passingScore || 50, shuffleQuestions ?? true, shuffleOptions ?? true, showResultImmediately ?? true]
     );
 
-    res.status(201).json({ success: true, message: 'Exam created', data: result.rows[0] });
+    const exam = result.rows[0];
+
+    // Log exam creation
+    await logUserActivity(req, 'exam_creation', {
+      targetType: 'exam',
+      targetId: exam.id,
+      targetName: exam.title,
+      details: { category_id: categoryId, duration, total_questions: totalQuestions }
+    });
+
+    ApiResponseHandler.created(res, exam, "Exam created");
   } catch (error) {
     next(error);
   }
@@ -132,7 +153,7 @@ router.put('/:id', [
     }
 
     if (setClauses.length === 0) {
-      return res.status(400).json({ success: false, message: 'No fields to update' });
+      return ApiResponseHandler.badRequest(res, 'No fields to update');
     }
 
     values.push(id);
@@ -148,10 +169,20 @@ router.put('/:id', [
     const result = await db.query(query, values);
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Exam not found' });
+      return ApiResponseHandler.notFound(res, 'Exam not found');
     }
 
-    res.json({ success: true, message: 'Exam updated', data: result.rows[0] });
+    const exam = result.rows[0];
+
+    // Log exam update
+    await logUserActivity(req, 'exam_update', {
+      targetType: 'exam',
+      targetId: id,
+      targetName: exam.title,
+      details: { updates: Object.keys(updates) }
+    });
+
+    ApiResponseHandler.success(res, exam, "Exam updated");
   } catch (error) {
     next(error);
   }
@@ -163,9 +194,18 @@ router.delete('/:id', authorize('tutor'), async (req, res, next) => {
     const { id } = req.params;
     const tutorId = req.user!.tutorId;
 
-    await db.query('DELETE FROM exams WHERE id = $1 AND tutor_id = $2', [id, tutorId]);
+    const result = await db.query('DELETE FROM exams WHERE id = $1 AND tutor_id = $2 RETURNING title', [id, tutorId]);
 
-    res.json({ success: true, message: 'Exam deleted' });
+    if (result.rows.length > 0) {
+      // Log exam deletion
+      await logUserActivity(req, 'exam_deletion', {
+        targetType: 'exam',
+        targetId: id,
+        targetName: result.rows[0].title
+      });
+    }
+
+    ApiResponseHandler.success(res, null, "Exam deleted");
   } catch (error) {
     next(error);
   }
@@ -184,10 +224,19 @@ router.patch('/:id/publish', authorize('tutor'), async (req, res, next) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Exam not found' });
+      return ApiResponseHandler.notFound(res, 'Exam not found');
     }
 
-    res.json({ success: true, message: `Exam ${isPublished ? 'published' : 'unpublished'}`, data: result.rows[0] });
+    const exam = result.rows[0];
+
+    // Log exam publish/unpublish
+    await logUserActivity(req, isPublished ? 'exam_publish' : 'exam_unpublish', {
+      targetType: 'exam',
+      targetId: id,
+      targetName: exam.title
+    });
+
+    ApiResponseHandler.success(res, exam, `Exam ${isPublished ? 'published' : 'unpublished'}`);
   } catch (error) {
     next(error);
   }

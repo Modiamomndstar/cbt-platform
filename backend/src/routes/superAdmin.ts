@@ -2,16 +2,148 @@ import { Router } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { authenticate, authorize } from '../middleware/auth';
 import { db } from '../config/database';
+import { ApiResponseHandler } from '../utils/apiResponse';
 import { sendWelcomeEmail, sendTrialStartEmail } from '../services/email';
 
 const router = Router();
 const validate = (req: any, res: any, next: any) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
+  if (!errors.isEmpty()) return ApiResponseHandler.badRequest(res, 'Validation failed', { errors: errors.array() });
   next();
 };
 
 router.use(authenticate, authorize('super_admin'));
+
+// GET /api/super-admin/schools
+router.get('/schools', async (req, res, next) => {
+  try {
+    const result = await db.query(`
+      SELECT s.id, s.name, s.email, s.country, s.created_at, s.is_active, s.plan_type, s.plan_status,
+             sub.override_plan, sub.override_expires_at
+      FROM schools s
+      LEFT JOIN school_subscriptions sub ON s.id = sub.school_id
+      ORDER BY s.name ASC
+    `);
+    ApiResponseHandler.success(res, result.rows, 'Schools retrieved');
+  } catch (error) { next(error); }
+});
+
+// GET /api/super-admin/schools/:id/details
+router.get('/schools/:id/details', [
+  param('id').isUUID(),
+  validate
+], async (req: any, res: any, next: any) => {
+  try {
+    const { id } = req.params;
+
+    const schoolResult = await db.query(`
+      SELECT s.*, sub.plan_type, sub.status as sub_status, sub.billing_cycle, 
+             sub.override_plan, sub.override_expires_at, sub.override_features,
+             w.balance_credits as payg_balance
+      FROM schools s
+      LEFT JOIN school_subscriptions sub ON s.id = sub.school_id
+      LEFT JOIN payg_wallets w ON s.id = w.school_id
+      WHERE s.id = $1
+    `, [id]);
+
+    if (!schoolResult.rows[0]) return ApiResponseHandler.notFound(res, 'School not found');
+
+    const tutorCount = await db.query('SELECT COUNT(*) FROM tutors WHERE school_id = $1', [id]);
+    const studentCount = await db.query('SELECT COUNT(*) FROM students WHERE school_id = $1', [id]);
+    const externalStudentCount = await db.query('SELECT COUNT(*) FROM external_students WHERE school_id = $1', [id]);
+    
+    const tutorsWithExternal = await db.query(`
+      SELECT t.id, t.username, t.first_name, t.last_name, 
+             (SELECT COUNT(*) FROM external_students WHERE tutor_id = t.id) as external_count
+      FROM tutors t
+      WHERE t.school_id = $1
+      ORDER BY external_count DESC
+    `, [id]);
+
+    // Unified Audit Logs (Last 50)
+    const auditLogs = await db.query(`
+      (SELECT id, action, details, created_at, 'school' as log_type, user_type as actor_type, user_id as actor_id, '' as actor_name
+       FROM activity_logs 
+       WHERE school_id = $1)
+      UNION ALL
+      (SELECT id, action, details, created_at, 'staff' as log_type, actor_type, actor_id, actor_name
+       FROM staff_audit_log 
+       WHERE target_type = 'school' AND target_id = $1)
+      ORDER BY created_at DESC
+      LIMIT 50
+    `, [id]);
+
+    ApiResponseHandler.success(res, {
+      school: schoolResult.rows[0],
+      stats: {
+        tutors: parseInt(tutorCount.rows[0].count),
+        internal_students: parseInt(studentCount.rows[0].count),
+        external_students: parseInt(externalStudentCount.rows[0].count)
+      },
+      tutorBreakdown: tutorsWithExternal.rows,
+      logs: auditLogs.rows
+    });
+  } catch (error) { next(error); }
+});
+
+// PATCH /api/super-admin/schools/:id/subscription
+router.patch('/schools/:id/subscription', [
+  param('id').isUUID(),
+  body('plan_type').optional().isIn(['freemium', 'basic', 'advanced', 'enterprise']),
+  body('billing_cycle').optional().isIn(['monthly', 'annual', 'payg', 'free']),
+  body('status').optional().isIn(['trialing', 'active', 'past_due', 'cancelled', 'expired', 'gifted', 'suspended']),
+  validate
+], async (req: any, res: any, next: any) => {
+  try {
+    const { id } = req.params;
+    const { plan_type, billing_cycle, status } = req.body;
+
+    const updates: string[] = [];
+    const values: any[] = [];
+    let p = 1;
+
+    if (plan_type) { updates.push(`plan_type = $${p++}`); values.push(plan_type); }
+    if (billing_cycle) { updates.push(`billing_cycle = $${p++}`); values.push(billing_cycle); }
+    if (status) { updates.push(`status = $${p++}`); values.push(status); }
+
+    if (updates.length > 0) {
+      values.push(id);
+      await db.query(`
+        UPDATE school_subscriptions 
+        SET ${updates.join(', ')}, updated_at = NOW() 
+        WHERE school_id = $${p}
+      `, values);
+    }
+
+    const school = await db.query('SELECT name FROM schools WHERE id = $1', [id]);
+    await logAudit(req, 'subscription_updated', 'school', id, school.rows[0]?.name, req.body);
+
+    ApiResponseHandler.success(res, null, 'Subscription updated successfully');
+  } catch (error) { next(error); }
+});
+
+// POST /api/super-admin/schools/:id/feature-overrides
+router.post('/schools/:id/feature-overrides', [
+  param('id').isUUID(),
+  body('overrides').isObject(),
+  validate
+], async (req: any, res: any, next: any) => {
+  try {
+    const { id } = req.params;
+    const { overrides } = req.body;
+
+    await db.query(`
+      UPDATE school_subscriptions 
+      SET override_features = $1, updated_at = NOW() 
+      WHERE school_id = $2
+    `, [JSON.stringify(overrides), id]);
+
+    const school = await db.query('SELECT name FROM schools WHERE id = $1', [id]);
+    await logAudit(req, 'feature_overrides_updated', 'school', id, school.rows[0]?.name, overrides);
+
+    ApiResponseHandler.success(res, null, 'Feature overrides updated');
+  } catch (error) { next(error); }
+});
 
 // Helper: write to audit log
 async function logAudit(req: any, action: string, targetType: string, targetId?: string, targetName?: string, details?: any) {
@@ -32,7 +164,7 @@ async function logAudit(req: any, action: string, targetType: string, targetId?:
 router.get('/plans', async (req, res, next) => {
   try {
     const result = await db.query('SELECT * FROM plan_definitions ORDER BY price_usd ASC');
-    res.json({ success: true, data: result.rows });
+    ApiResponseHandler.success(res, result.rows, 'Plan definitions retrieved');
   } catch (error) { next(error); }
 });
 
@@ -62,7 +194,7 @@ router.put('/plans/:planType', [
       }
     }
 
-    if (updates.length === 0) return res.status(400).json({ success: false, message: 'No valid fields provided' });
+    if (updates.length === 0) return ApiResponseHandler.badRequest(res, 'No valid fields provided');
 
     updates.push('updated_at = NOW()');
     values.push(planType);
@@ -73,7 +205,7 @@ router.put('/plans/:planType', [
     );
 
     await logAudit(req, 'plan_updated', 'plan_definition', undefined, planType, req.body);
-    res.json({ success: true, data: result.rows[0] });
+    ApiResponseHandler.success(res, result.rows[0], 'Plan updated');
   } catch (error) { next(error); }
 });
 
@@ -85,7 +217,7 @@ router.put('/plans/:planType', [
 router.get('/feature-flags', async (req, res, next) => {
   try {
     const result = await db.query('SELECT * FROM feature_flags ORDER BY feature_name ASC');
-    res.json({ success: true, data: result.rows });
+    ApiResponseHandler.success(res, result.rows, 'Feature flags retrieved');
   } catch (error) { next(error); }
 });
 
@@ -106,7 +238,7 @@ router.put('/feature-flags/:featureKey', [
 
     if (minPlan !== undefined) { updates.push(`min_plan = $${p++}`); values.push(minPlan); }
     if (isEnabled !== undefined) { updates.push(`is_enabled = $${p++}`); values.push(isEnabled); }
-    if (updates.length === 0) return res.status(400).json({ success: false, message: 'Nothing to update' });
+    if (updates.length === 0) return ApiResponseHandler.badRequest(res, 'Nothing to update');
 
     updates.push('updated_at = NOW()');
     values.push(featureKey);
@@ -117,7 +249,7 @@ router.put('/feature-flags/:featureKey', [
     );
 
     await logAudit(req, 'feature_flag_updated', 'feature_flag', undefined, featureKey, req.body);
-    res.json({ success: true, data: result.rows[0] });
+    ApiResponseHandler.success(res, result.rows[0], 'Feature flag updated');
   } catch (error) { next(error); }
 });
 
@@ -152,7 +284,7 @@ router.post('/schools/:id/gift-plan', [
     const school = await db.query('SELECT name, email FROM schools WHERE id = $1', [id]);
     await logAudit(req, 'plan_gifted', 'school', id, school.rows[0]?.name, { planType, days, expiresAt });
 
-    res.json({ success: true, message: `${planType} plan gifted for ${days} days`, expiresAt });
+    ApiResponseHandler.success(res, { expiresAt }, `${planType} plan gifted for ${days} days`);
   } catch (error) { next(error); }
 });
 
@@ -178,7 +310,7 @@ router.post('/schools/:id/revoke-plan', [
     const school = await db.query('SELECT name FROM schools WHERE id = $1', [id]);
     await logAudit(req, 'plan_revoked', 'school', id, school.rows[0]?.name, { reason });
 
-    res.json({ success: true, message: 'Plan revoked — school downgraded to Freemium' });
+    ApiResponseHandler.success(res, null, 'Plan revoked — school downgraded to Freemium');
   } catch (error) { next(error); }
 });
 
@@ -206,7 +338,7 @@ router.post('/schools/:id/suspend', [
     const school = await db.query('SELECT name FROM schools WHERE id = $1', [id]);
     await logAudit(req, suspended ? 'school_suspended' : 'school_unsuspended', 'school', id, school.rows[0]?.name, { reason });
 
-    res.json({ success: true, message: `School ${suspended ? 'suspended' : 'unsuspended'}` });
+    ApiResponseHandler.success(res, null, `School ${suspended ? 'suspended' : 'unsuspended'}`);
   } catch (error) { next(error); }
 });
 
@@ -242,7 +374,43 @@ router.post('/schools/:id/add-credits', [
     const school = await db.query('SELECT name FROM schools WHERE id = $1', [id]);
     await logAudit(req, 'credits_added', 'school', id, school.rows[0]?.name, { credits, reason, newBalance });
 
-    res.json({ success: true, message: `${credits} credits added`, newBalance });
+    ApiResponseHandler.success(res, { newBalance }, `${credits} credits added`);
+  } catch (error) { next(error); }
+});
+
+// POST /api/super-admin/schools/:id/deduct-credits
+router.post('/schools/:id/deduct-credits', [
+  param('id').isUUID(),
+  body('credits').isInt({ min: 1 }).withMessage('Credits must be a positive number'),
+  body('reason').trim().notEmpty().withMessage('Reason required'),
+  validate
+], async (req: any, res: any, next: any) => {
+  try {
+    const { id } = req.params;
+    const { credits, reason } = req.body;
+
+    const wallet = await db.query('SELECT balance_credits FROM payg_wallets WHERE school_id = $1', [id]);
+    if (!wallet.rows[0] || wallet.rows[0].balance_credits < credits) {
+      return ApiResponseHandler.badRequest(res, 'Insufficient credit balance');
+    }
+
+    const newBalance = wallet.rows[0].balance_credits - credits;
+
+    await db.query(
+      `UPDATE payg_wallets SET balance_credits = $1, updated_at = NOW() WHERE school_id = $2`,
+      [newBalance, id]
+    );
+
+    await db.query(
+      `INSERT INTO payg_ledger (school_id, type, credits, balance_after, description, created_by_staff_id)
+       VALUES ($1, 'deduction', $2, $3, $4, $5)`,
+      [id, -credits, newBalance, reason, req.user.id]
+    );
+
+    const school = await db.query('SELECT name FROM schools WHERE id = $1', [id]);
+    await logAudit(req, 'credits_deducted', 'school', id, school.rows[0]?.name, { credits, reason, newBalance });
+
+    ApiResponseHandler.success(res, { newBalance }, `${credits} credits deducted`);
   } catch (error) { next(error); }
 });
 
@@ -265,7 +433,7 @@ router.post('/schools/:id/extend-trial', [
       [days, id]
     );
 
-    res.json({ success: true, message: `Trial extended by ${days} days`, newTrialEnd: result.rows[0]?.trial_end });
+    ApiResponseHandler.success(res, { newTrialEnd: result.rows[0]?.trial_end }, `Trial extended by ${days} days`);
   } catch (error) { next(error); }
 });
 
@@ -280,7 +448,7 @@ router.get('/coupons', async (req, res, next) => {
       `SELECT c.*, (SELECT COUNT(*) FROM coupon_redemptions WHERE coupon_id = c.id) as redemption_count
        FROM coupons c ORDER BY c.created_at DESC`
     );
-    res.json({ success: true, data: result.rows });
+    ApiResponseHandler.success(res, result.rows, 'Coupons retrieved');
   } catch (error) { next(error); }
 });
 
@@ -302,7 +470,7 @@ router.post('/coupons', [
 
     // Check code unique
     const exists = await db.query('SELECT id FROM coupons WHERE UPPER(code) = UPPER($1)', [code]);
-    if (exists.rows.length > 0) return res.status(409).json({ success: false, message: 'Coupon code already exists' });
+    if (exists.rows.length > 0) return ApiResponseHandler.conflict(res, 'Coupon code already exists');
 
     const result = await db.query(
       `INSERT INTO coupons (code, name, description, type, value, applicable_plans, max_uses, uses_per_school, valid_until, requires_annual, created_by_staff_id)
@@ -312,7 +480,7 @@ router.post('/coupons', [
     );
 
     await logAudit(req, 'coupon_created', 'coupon', result.rows[0].id, code);
-    res.status(201).json({ success: true, data: result.rows[0] });
+    ApiResponseHandler.created(res, result.rows[0], 'Coupon created');
   } catch (error) { next(error); }
 });
 
@@ -336,7 +504,7 @@ router.patch('/coupons/:id', [
     if (validUntil !== undefined) { updates.push(`valid_until = $${p++}`); values.push(validUntil); }
     if (maxUses !== undefined) { updates.push(`max_uses = $${p++}`); values.push(maxUses); }
 
-    if (updates.length === 0) return res.status(400).json({ success: false, message: 'Nothing to update' });
+    if (updates.length === 0) return ApiResponseHandler.badRequest(res, 'Nothing to update');
     updates.push('updated_at = NOW()');
     values.push(id);
 
@@ -346,7 +514,7 @@ router.patch('/coupons/:id', [
     );
 
     await logAudit(req, 'coupon_updated', 'coupon', id, result.rows[0]?.code, req.body);
-    res.json({ success: true, data: result.rows[0] });
+    ApiResponseHandler.success(res, result.rows[0], 'Coupon updated');
   } catch (error) { next(error); }
 });
 
@@ -371,7 +539,104 @@ router.get('/overview', async (req, res, next) => {
         (SELECT COALESCE(SUM(credits), 0) FROM payg_ledger WHERE type = 'topup') as total_payg_credits_sold
     `);
 
-    res.json({ success: true, data: stats.rows[0] });
+    ApiResponseHandler.success(res, stats.rows[0], 'Super admin overview retrieved');
+  } catch (error) { next(error); }
+});
+
+// GET /api/super-admin/export/:type
+router.get('/export/:type', [
+  param('type').isIn(['tutors', 'students', 'external_students'])
+], async (req: any, res: any, next: any) => {
+  try {
+    const { type } = req.params;
+    const { school_id } = req.query;
+
+    let query = '';
+    let params: any[] = [];
+
+    if (type === 'tutors') {
+      query = `SELECT t.first_name, t.last_name, t.email, t.username, s.name as school_name, t.created_at 
+               FROM tutors t JOIN schools s ON t.school_id = s.id`;
+    } else if (type === 'students') {
+      query = `SELECT s.first_name, s.last_name, s.email, s.username, sch.name as school_name, s.reg_number, s.level_class, s.created_at 
+               FROM students s JOIN schools sch ON s.school_id = sch.id`;
+    } else if (type === 'external_students') {
+      query = `SELECT e.first_name, e.last_name, e.email, e.username, sch.name as school_name, t.username as tutor_username, e.level_class, e.created_at 
+               FROM external_students e 
+               JOIN schools sch ON e.school_id = sch.id
+               JOIN tutors t ON e.tutor_id = t.id`;
+    }
+
+    if (school_id) {
+      query += ` WHERE ${type === 'tutors' ? 't' : type === 'students' ? 's' : 'e'}.school_id = $1`;
+      params.push(school_id);
+    }
+
+    const result = await db.query(query, params);
+    const rows = result.rows;
+
+    if (rows.length === 0) return ApiResponseHandler.badRequest(res, 'No data to export');
+
+    const headers = Object.keys(rows[0]);
+    const csv = [
+      headers.join(','),
+      ...rows.map(row => headers.map(h => `"${String(row[h] || '').replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=export_${type}_${new Date().toISOString().split('T')[0]}.csv`);
+    res.status(200).send(csv);
+
+    await logAudit(req, 'platform_export', 'data', undefined, type, { school_id });
+  } catch (error) { next(error); }
+});
+
+// ================================================================
+//  MARKETPLACE & PAYG PRICING
+// ================================================================
+
+// GET /api/super-admin/marketplace
+router.get('/marketplace', async (req, res, next) => {
+  try {
+    const result = await db.query('SELECT * FROM payg_feature_pricing ORDER BY item_type DESC, display_name ASC');
+    ApiResponseHandler.success(res, result.rows, 'Marketplace items retrieved');
+  } catch (error) { next(error); }
+});
+
+// PUT /api/super-admin/marketplace/:featureKey
+router.put('/marketplace/:featureKey', [
+  param('featureKey').notEmpty(),
+  body('credit_cost').optional().isInt({ min: 0 }),
+  body('is_active').optional().isBoolean(),
+  body('display_name').optional().trim().notEmpty(),
+  body('category').optional().trim().notEmpty(),
+  validate
+], async (req: any, res: any, next: any) => {
+  try {
+    const { featureKey } = req.params;
+    const { credit_cost, is_active, display_name, category } = req.body;
+
+    const updates: string[] = [];
+    const values: any[] = [];
+    let p = 1;
+
+    if (credit_cost !== undefined) { updates.push(`credit_cost = $${p++}`); values.push(credit_cost); }
+    if (is_active !== undefined) { updates.push(`is_active = $${p++}`); values.push(is_active); }
+    if (display_name !== undefined) { updates.push(`display_name = $${p++}`); values.push(display_name); }
+    if (category !== undefined) { updates.push(`category = $${p++}`); values.push(category); }
+
+    if (updates.length === 0) return ApiResponseHandler.badRequest(res, 'Nothing to update');
+
+    updates.push('updated_at = NOW()');
+    values.push(featureKey);
+
+    const result = await db.query(
+      `UPDATE payg_feature_pricing SET ${updates.join(', ')} WHERE feature_key = $${p} RETURNING *`,
+      values
+    );
+
+    await logAudit(req, 'marketplace_updated', 'marketplace_item', undefined, featureKey, req.body);
+    ApiResponseHandler.success(res, result.rows[0], 'Marketplace item updated');
   } catch (error) { next(error); }
 });
 

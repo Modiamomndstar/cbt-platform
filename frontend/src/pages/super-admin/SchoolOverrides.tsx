@@ -10,12 +10,9 @@ import {
 
 interface SchoolData {
   id: string; name: string; username: string; email: string;
-  is_active: boolean;
-  subscription?: {
-    plan_type: string; status: string; trial_end_at: string | null;
-    override_plan: string | null; override_expires_at: string | null;
-    is_suspended: boolean;
-  };
+  is_active: boolean; plan_type: string; plan_status: string;
+  override_plan: string | null; override_expires_at: string | null;
+  trial_end_at?: string | null;
   payg_balance?: number;
 }
 
@@ -177,10 +174,9 @@ function SchoolRow({ school, onRefresh }: { school: SchoolData; onRefresh: () =>
   const [expanded, setExpanded] = useState(false);
   const [modal, setModal] = useState<'gift' | 'revoke' | 'suspend' | 'unsuspend' | 'credits' | 'trial' | null>(null);
 
-  const sub = school.subscription;
-  const isSuspended = sub?.is_suspended;
-  const planLabel = sub?.override_plan || sub?.plan_type || 'freemium';
-  const statusLabel = isSuspended ? 'suspended' : sub?.status || 'freemium';
+  const isSuspended = school.plan_status === 'suspended';
+  const planLabel = school.override_plan || school.plan_type || 'freemium';
+  const statusLabel = school.plan_status || 'freemium';
 
   return (
     <>
@@ -214,11 +210,11 @@ function SchoolRow({ school, onRefresh }: { school: SchoolData; onRefresh: () =>
             <div className="grid grid-cols-2 gap-3 text-xs text-gray-600">
               <div><span className="font-medium text-gray-700">Username:</span> @{school.username}</div>
               <div><span className="font-medium text-gray-700">PAYG Balance:</span> {school.payg_balance ?? 0} credits</div>
-              {sub?.trial_end_at && (
-                <div><span className="font-medium text-gray-700">Trial ends:</span> {new Date(sub.trial_end_at).toLocaleDateString()}</div>
+              {school.trial_end_at && (
+                <div><span className="font-medium text-gray-700">Trial ends:</span> {new Date(school.trial_end_at).toLocaleDateString()}</div>
               )}
-              {sub?.override_expires_at && (
-                <div><span className="font-medium text-gray-700">Override expires:</span> {new Date(sub.override_expires_at).toLocaleDateString()}</div>
+              {school.override_expires_at && (
+                <div><span className="font-medium text-gray-700">Override expires:</span> {new Date(school.override_expires_at).toLocaleDateString()}</div>
               )}
             </div>
             <div className="flex flex-wrap gap-2">
@@ -234,7 +230,7 @@ function SchoolRow({ school, onRefresh }: { school: SchoolData; onRefresh: () =>
               <button onClick={() => setModal('credits')} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-colors">
                 <Coins className="h-3.5 w-3.5" /> Add Credits
               </button>
-              {sub?.status === 'trialing' && (
+              {school.plan_status === 'trialing' && (
                 <button onClick={() => setModal('trial')} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 transition-colors">
                   <Clock className="h-3.5 w-3.5" /> Extend Trial
                 </button>
@@ -267,8 +263,8 @@ export default function SchoolOverridesPage() {
   const loadSchools = async () => {
     setLoading(true);
     try {
-      const res = await superAdminAPI.getOverview();
-      if (res.data.success) setSchools(res.data.data.schools || []);
+      const res = await superAdminAPI.getSchools();
+      if (res.data.success) setSchools(res.data.data || []);
     } catch {
       toast.error('Failed to load schools');
     } finally {

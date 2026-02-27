@@ -5,6 +5,10 @@ import { authenticate, authorize } from "../middleware/auth";
 import { requireStudentSlot } from "../middleware/planGuard";
 import crypto from "crypto";
 import { sendStudentPortalCredentialsEmail } from "../services/email";
+import { ApiResponseHandler } from "../utils/apiResponse";
+import { validate } from "../middleware/validation";
+import { getPaginationOptions, formatPaginationResponse } from "../utils/pagination";
+import { logUserActivity } from "../utils/auditLogger";
 
 const router = Router();
 
@@ -41,19 +45,7 @@ const generateUniqueUsername = async (client: any, fullName: string, schoolId: s
   return username;
 };
 
-const validate = (req: any, res: any, next: any) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res
-      .status(400)
-      .json({
-        success: false,
-        message: "Validation failed",
-        errors: errors.array(),
-      });
-  }
-  next();
-};
+
 
 router.use(authenticate);
 
@@ -61,7 +53,8 @@ router.use(authenticate);
 router.get("/", async (req, res, next) => {
   try {
     const { role, schoolId, tutorId } = req.user!;
-    const { categoryId, search, page = 1, limit = 50 } = req.query;
+    const { categoryId, search } = req.query;
+    const pagination = getPaginationOptions(req);
 
     let querySchoolId = schoolId;
 
@@ -102,9 +95,8 @@ router.get("/", async (req, res, next) => {
     sql += ` ORDER BY sc.sort_order, sc.name, s.full_name`;
 
     // Add pagination
-    const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
     sql += ` LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
-    params.push(limit, offset);
+    params.push(pagination.limit, pagination.offset);
 
     const result = await db.query(sql, params);
 
@@ -114,18 +106,12 @@ router.get("/", async (req, res, next) => {
       [querySchoolId],
     );
 
-    res.json({
-      success: true,
-      data: result.rows,
-      pagination: {
-        page: parseInt(page as string),
-        limit: parseInt(limit as string),
-        total: parseInt(countResult.rows[0].count),
-        totalPages: Math.ceil(
-          parseInt(countResult.rows[0].count) / parseInt(limit as string),
-        ),
-      },
-    });
+    ApiResponseHandler.success(
+      res,
+      result.rows,
+      "Students retrieved",
+      formatPaginationResponse(parseInt(countResult.rows[0].count), pagination)
+    );
   } catch (error) {
     next(error);
   }
@@ -165,7 +151,7 @@ router.get("/by-category", async (req, res, next) => {
 
     const result = await db.query(sql, params);
 
-    res.json({ success: true, data: result.rows });
+    ApiResponseHandler.success(res, result.rows, "Students retrieved");
   } catch (error) {
     next(error);
   }
@@ -198,14 +184,12 @@ router.get("/:id", [param("id").isUUID(), validate], async (req, res, next) => {
     );
 
     if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Student not found" });
+      return ApiResponseHandler.notFound(res, "Student not found");
     }
 
     // Get exam history
     const examsResult = await db.query(
-      `SELECT se.id, se.score, se.total_marks, se.percentage, se.status, se.started_at, se.submitted_at,
+      `SELECT se.id, se.score, se.total_marks, se.percentage, se.status, se.started_at, se.completed_at,
               e.title as exam_title, ec.name as exam_category
        FROM student_exams se
        JOIN exams e ON se.exam_id = e.id
@@ -215,12 +199,9 @@ router.get("/:id", [param("id").isUUID(), validate], async (req, res, next) => {
       [id],
     );
 
-    res.json({
-      success: true,
-      data: {
-        ...result.rows[0],
-        examHistory: examsResult.rows,
-      },
+    ApiResponseHandler.success(res, {
+      ...result.rows[0],
+      examHistory: examsResult.rows,
     });
   } catch (error) {
     next(error);
@@ -274,26 +255,31 @@ router.post(
         [querySchoolId, studentId],
       );
       if (check.rows.length > 0) {
-        return res
-          .status(409)
-          .json({ success: false, message: "Student ID already exists" });
+        return ApiResponseHandler.conflict(res, "Student ID already exists");
       }
 
       // Generate unique username
       const username = await generateUniqueUsername(db, fullName, querySchoolId);
+
+      // Parse name parts
+      const nameParts = fullName.trim().split(' ');
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ') || '.';
 
       const bcrypt = require("bcryptjs");
       const plainTextPassword = crypto.randomBytes(4).toString("hex"); // 8 chars
       const passwordHash = await bcrypt.hash(plainTextPassword, 10);
 
       const result = await db.query(
-        `INSERT INTO students (school_id, category_id, student_id, full_name, email, phone, date_of_birth, gender, address, parent_name, parent_phone, parent_email, username, password_hash)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        `INSERT INTO students (school_id, category_id, student_id, first_name, last_name, full_name, email, phone, date_of_birth, gender, address, parent_name, parent_phone, parent_email, username, password_hash)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        RETURNING *`,
         [
           querySchoolId,
           categoryId || null,
           studentId,
+          firstName,
+          lastName,
           fullName,
           email,
           phone,
@@ -315,19 +301,21 @@ router.post(
         // Find school name for the email
         const schoolRes = await db.query("SELECT name FROM schools WHERE id = $1", [querySchoolId]);
         const schoolName = schoolRes.rows[0]?.name || "CBT Platform";
-        sendStudentPortalCredentialsEmail(email, fullName, schoolName, {
+        sendStudentPortalCredentialsEmail(querySchoolId, email, fullName, schoolName, {
           username,
           password: plainTextPassword
         }).catch(err => console.error("Failed to send student creation email:", err));
       }
 
-      res
-        .status(201)
-        .json({
-          success: true,
-          message: "Student created",
-          data: studentData,
-        });
+      // Log student creation
+      await logUserActivity(req, 'student_creation', {
+        targetType: 'student',
+        targetId: studentData.id,
+        targetName: fullName,
+        details: { email, student_id: studentId }
+      });
+
+      ApiResponseHandler.created(res, studentData, "Student created");
     } catch (error) {
       next(error);
     }
@@ -388,17 +376,24 @@ router.post(
             const username = await generateUniqueUsername(client, student.fullName, querySchoolId, batchUsernames);
             batchUsernames.add(username);
 
+            // Parse name parts
+            const nameParts = student.fullName.trim().split(' ');
+            const firstName = nameParts[0];
+            const lastName = nameParts.slice(1).join(' ') || '.';
+
             const plainTextPassword = crypto.randomBytes(4).toString("hex");
             const passwordHash = await bcrypt.hash(plainTextPassword, 10);
 
             const result = await client.query(
-              `INSERT INTO students (school_id, category_id, student_id, full_name, email, phone, level, username, password_hash)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-             RETURNING id, student_id, full_name, username, email`,
+              `INSERT INTO students (school_id, category_id, student_id, first_name, last_name, full_name, email, phone, level, username, password_hash)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+             RETURNING id, student_id, first_name, last_name, full_name, username, email`,
               [
                 querySchoolId,
                 (categoryId && categoryId !== "") ? categoryId : (student.categoryId && student.categoryId !== "") ? student.categoryId : null,
                 student.studentId,
+                firstName,
+                lastName,
                 student.fullName,
                 student.email,
                 student.phone,
@@ -421,7 +416,7 @@ router.post(
 
             // Send email if applicable
             if (student.email && shouldSendEmail !== false) {
-              sendStudentPortalCredentialsEmail(student.email, student.fullName, schoolName, {
+              sendStudentPortalCredentialsEmail(querySchoolId, student.email, student.fullName, schoolName, {
                 username,
                 password: plainTextPassword
               }).catch(err => console.error("Failed to send bulk student creation email:", err));
@@ -436,10 +431,18 @@ router.post(
         }
       });
 
-      res.json({
-        success: true,
-        data: { created, errors, count: created.length },
-      });
+      // Log bulk creation
+      if (created.length > 0) {
+        await logUserActivity(req, "student_bulk_creation", {
+          details: { count: created.length, error_count: errors.length },
+        });
+      }
+
+      ApiResponseHandler.success(
+        res,
+        { created, errors, count: created.length },
+        "Bulk creation processed",
+      );
     } catch (error) {
       next(error);
     }
@@ -489,6 +492,17 @@ router.put("/:id", [param("id").isUUID(), validate], async (req, res, next) => {
         if (key === "categoryId" && val === "") val = null;
         if (typeof val === "string" && val.trim() === "") val = null; // General cleanup for empty strings
 
+        if (key === "fullName" && val && typeof val === "string") {
+          const nameParts = val.trim().split(' ');
+          const firstName = nameParts[0];
+          const lastName = nameParts.slice(1).join(' ') || '.';
+
+          setClauses.push(`first_name = $${paramIndex++}`);
+          values.push(firstName);
+          setClauses.push(`last_name = $${paramIndex++}`);
+          values.push(lastName);
+        }
+
         setClauses.push(
           `${key === "categoryId" ? "category_id" : key.replace(/[A-Z]/g, (l) => `_${l.toLowerCase()}`)} = $${paramIndex++}`,
         );
@@ -497,9 +511,7 @@ router.put("/:id", [param("id").isUUID(), validate], async (req, res, next) => {
     }
 
     if (setClauses.length === 0) {
-      return res
-        .status(400)
-        .json({ success: false, message: "No fields to update" });
+      return ApiResponseHandler.badRequest(res, "No fields to update");
     }
 
     values.push(id, querySchoolId);
@@ -510,16 +522,20 @@ router.put("/:id", [param("id").isUUID(), validate], async (req, res, next) => {
     );
 
     if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Student not found" });
+      return ApiResponseHandler.notFound(res, "Student not found");
     }
 
-    res.json({
-      success: true,
-      message: "Student updated",
-      data: result.rows[0],
+    const updatedStudent = result.rows[0];
+
+    // Log student update
+    await logUserActivity(req, 'student_update', {
+      targetType: 'student',
+      targetId: id,
+      targetName: updatedStudent.full_name,
+      details: { updates: Object.keys(updates) }
     });
+
+    ApiResponseHandler.success(res, updatedStudent, "Student updated");
   } catch (error) {
     next(error);
   }
@@ -543,12 +559,21 @@ router.delete("/:id", async (req, res, next) => {
       }
     }
 
-    await db.query(
-      "UPDATE students SET is_active = false, updated_at = NOW() WHERE id = $1 AND school_id = $2",
+    const result = await db.query(
+      "UPDATE students SET is_active = false, updated_at = NOW() WHERE id = $1 AND school_id = $2 RETURNING full_name",
       [id, querySchoolId],
     );
 
-    res.json({ success: true, message: "Student deleted" });
+    if (result.rows.length > 0) {
+      // Log student deletion
+      await logUserActivity(req, 'student_deletion', {
+        targetType: 'student',
+        targetId: id,
+        targetName: result.rows[0].full_name
+      });
+    }
+
+    ApiResponseHandler.success(res, null, "Student deleted");
   } catch (error) {
     next(error);
   }
@@ -581,9 +606,7 @@ router.put(
       );
 
       if (studentResult.rows.length === 0) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Student not found" });
+        return ApiResponseHandler.notFound(res, "Student not found");
       }
 
       const student = studentResult.rows[0];
@@ -599,17 +622,20 @@ router.put(
       if (student.email) {
         const schoolRes = await db.query("SELECT name FROM schools WHERE id = $1", [querySchoolId]);
         const schoolName = schoolRes.rows[0]?.name || "CBT Platform";
-        sendStudentPortalCredentialsEmail(student.email, student.full_name, schoolName, {
+        sendStudentPortalCredentialsEmail(querySchoolId, student.email, student.full_name, schoolName, {
           username: student.username,
           password: plainTextPassword
         }).catch(err => console.error("Failed to send student password reset email:", err));
       }
 
-      res.json({
-        success: true,
-        message: "Password reset successfully",
-        data: { newPassword: plainTextPassword }
+      // Log password reset
+      await logUserActivity(req, 'student_password_reset', {
+        targetType: 'student',
+        targetId: id,
+        targetName: student.full_name
       });
+
+      ApiResponseHandler.success(res, student, "Password reset successfully", { newPassword: plainTextPassword });
     } catch (error) {
       next(error);
     }
@@ -656,7 +682,7 @@ router.post(
         [id, tutorId]
       );
 
-      res.json({ success: true, message: "Tutor assigned successfully" });
+      ApiResponseHandler.success(res, null, "Tutor assigned successfully");
     } catch (error) {
       next(error);
     }
@@ -705,7 +731,7 @@ router.post(
         queryParams
       );
 
-      res.json({ success: true, message: `Tutor assigned to ${validStudentIds.length} students` });
+      ApiResponseHandler.success(res, null, `Tutor assigned to ${validStudentIds.length} students`);
     } catch (error) {
       next(error);
     }
@@ -740,7 +766,7 @@ router.delete(
         return res.status(404).json({ success: false, message: "Assignment not found or unauthorized" });
       }
 
-      res.json({ success: true, message: "Tutor removed successfully" });
+      ApiResponseHandler.success(res, null, "Tutor removed successfully");
     } catch (error) {
       next(error);
     }

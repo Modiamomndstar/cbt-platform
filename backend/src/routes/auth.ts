@@ -4,22 +4,12 @@ import { body, validationResult } from "express-validator";
 import { db } from "../config/database";
 import { generateToken, authenticate } from "../middleware/auth";
 import { logger } from "../utils/logger";
+import { ApiResponseHandler } from "../utils/apiResponse";
+import { validate } from "../middleware/validation";
 
 const router = Router();
 
-// Validation middleware helper
-const validate = (req: any, res: any, next: any) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    res.status(400).json({
-      success: false,
-      message: "Validation failed",
-      errors: errors.array(),
-    });
-    return;
-  }
-  next();
-};
+
 
 // @route   POST /api/auth/school/login
 // @desc    School admin login
@@ -42,28 +32,19 @@ router.post(
       );
 
       if (result.rows.length === 0) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid credentials",
-        });
+        return ApiResponseHandler.unauthorized(res, "Invalid credentials");
       }
 
       const school = result.rows[0];
 
       if (!school.is_active) {
-        return res.status(401).json({
-          success: false,
-          message: "Account is inactive. Please contact support.",
-        });
+        return ApiResponseHandler.unauthorized(res, "Account is inactive. Please contact support.");
       }
 
       // Verify password
       const isMatch = await bcrypt.compare(password, school.password_hash);
       if (!isMatch) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid credentials",
-        });
+        return ApiResponseHandler.unauthorized(res, "Invalid credentials");
       }
 
       // Generate token
@@ -79,21 +60,17 @@ router.post(
         [school.id, "school", school.id, "login", { ip: req.ip }],
       );
 
-      res.json({
-        success: true,
-        message: "Login successful",
-        data: {
-          token,
-          user: {
-            id: school.id,
-            name: school.name,
-            username: school.username,
-            email: school.email,
-            planType: school.plan_type,
-            role: "school_admin",
-          },
+      ApiResponseHandler.success(res, {
+        token,
+        user: {
+          id: school.id,
+          name: school.name,
+          username: school.username,
+          email: school.email,
+          planType: school.plan_type,
+          role: "school_admin",
         },
-      });
+      }, "Login successful");
     } catch (error) {
       next(error);
     }
@@ -126,29 +103,19 @@ router.post(
       );
 
       if (result.rows.length === 0) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid credentials",
-        });
+        return ApiResponseHandler.unauthorized(res, "Invalid credentials");
       }
 
       const tutor = result.rows[0];
 
       if (!tutor.is_active) {
-        return res.status(401).json({
-          success: false,
-          message:
-            "Account is inactive. Please contact your school administrator.",
-        });
+        return ApiResponseHandler.unauthorized(res, "Account is inactive. Please contact your school administrator.");
       }
 
       // Verify password
       const isMatch = await bcrypt.compare(password, tutor.password_hash);
       if (!isMatch) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid credentials",
-        });
+        return ApiResponseHandler.unauthorized(res, "Invalid credentials");
       }
 
       // Update last login
@@ -170,23 +137,19 @@ router.post(
         [tutor.id, "tutor", tutor.school_id, "login", { ip: req.ip }],
       );
 
-      res.json({
-        success: true,
-        message: "Login successful",
-        data: {
-          token,
-          user: {
-            id: tutor.id,
-            fullName: tutor.full_name,
-            username: tutor.username,
-            email: tutor.email,
-            subjects: tutor.subjects,
-            schoolId: tutor.school_id,
-            schoolName: tutor.school_name,
-            role: "tutor",
-          },
+      ApiResponseHandler.success(res, {
+        token,
+        user: {
+          id: tutor.id,
+          fullName: tutor.full_name,
+          username: tutor.username,
+          email: tutor.email,
+          subjects: tutor.subjects,
+          schoolId: tutor.school_id,
+          schoolName: tutor.school_name,
+          role: "tutor",
         },
-      });
+      }, "Login successful");
     } catch (error) {
       next(error);
     }
@@ -211,40 +174,72 @@ router.post(
       const result = await db.query(
         `SELECT es.id, es.exam_id, es.student_id, es.external_student_id,
                 es.scheduled_date, es.start_time, es.end_time,
-                es.status, es.attempt_count, es.max_attempts,
+                es.status, es.attempt_count, es.max_attempts, es.login_password,
                 COALESCE(s.full_name, ext.full_name) as student_name,
                 COALESCE(s.school_id, ext.school_id) as school_id,
-                e.title as exam_title, e.duration
+                e.title as exam_title, e.duration,
+                sch.timezone as school_timezone
          FROM exam_schedules es
          LEFT JOIN students s ON es.student_id = s.id
          LEFT JOIN external_students ext ON es.external_student_id = ext.id
          JOIN exams e ON es.exam_id = e.id
-         WHERE es.login_username = $1 AND es.login_password = $2`,
-        [username, password],
+         JOIN schools sch ON COALESCE(s.school_id, ext.school_id) = sch.id
+         WHERE es.login_username = $1`,
+        [username],
       );
 
       if (result.rows.length === 0) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid credentials or exam not scheduled",
-        });
+        return ApiResponseHandler.unauthorized(res, "Invalid credentials or exam not scheduled");
       }
 
       const schedule = result.rows[0];
 
-      // Check if exam is available
-      const now = new Date();
-      const examDate = new Date(schedule.scheduled_date);
-      const [startHour, startMinute] = schedule.start_time
-        .split(":")
-        .map(Number);
-      const [endHour, endMinute] = schedule.end_time.split(":").map(Number);
+      // Support fallback for plain text passwords (backwards compatibility for old reschedules)
+      let validPassword = false;
+      if (schedule.login_password.startsWith("$2")) {
+        // Looks like a hash
+        validPassword = await bcrypt.compare(password, schedule.login_password);
+      } else {
+        // Plain text fallback
+        validPassword = password === schedule.login_password;
+      }
 
-      const startTime = new Date(examDate);
-      startTime.setHours(startHour, startMinute, 0);
+      if (!validPassword) {
+        return ApiResponseHandler.unauthorized(res, "Invalid credentials or exam not scheduled");
+      }
 
-      const endTime = new Date(examDate);
-      endTime.setHours(endHour, endMinute, 0);
+      // Check if within access window (Timezone aware)
+      const tz = schedule.school_timezone || "Africa/Lagos";
+      const studentNowStr = new Date().toLocaleString("en-SE", { timeZone: tz, hour12: false });
+
+      const scheduleDateStr = typeof schedule.scheduled_date === 'string'
+        ? schedule.scheduled_date
+        : schedule.scheduled_date.toISOString().split('T')[0];
+
+      const scheduledStartStr = `${scheduleDateStr} ${schedule.start_time}:00`;
+      const scheduledEndStr = `${scheduleDateStr} ${schedule.end_time || '23:59'}:00`;
+
+      const parseFakeUtc = (str: string) => new Date(str.replace(' ', 'T') + 'Z');
+      const studentNowDate = parseFakeUtc(studentNowStr);
+      const scheduleStartDate = parseFakeUtc(scheduledStartStr);
+      const scheduleEndDate = parseFakeUtc(scheduledEndStr);
+
+      // 5 min grace before start
+      const fiveMinBefore = new Date(scheduleStartDate.getTime() - 5 * 60 * 1000);
+
+      if (studentNowDate < fiveMinBefore) {
+        return res.status(403).json({
+          success: false,
+          message: `Exam not yet available. Please check back at ${schedule.start_time}.`,
+        });
+      }
+
+      if (studentNowDate > scheduleEndDate) {
+        return res.status(403).json({
+          success: false,
+          message: "Exam schedule has expired.",
+        });
+      }
 
       // Check status
       if (schedule.status === "completed") {
@@ -272,30 +267,26 @@ router.post(
         studentId: effectiveStudentId,
       });
 
-      res.json({
-        success: true,
-        message: "Login successful",
-        data: {
-          token,
-          user: {
-            id: effectiveStudentId,
-            fullName: schedule.student_name,
-            schoolId: schedule.school_id,
-            role: "student",
-          },
-          exam: {
-            id: schedule.exam_id,
-            title: schedule.exam_title,
-            duration: schedule.duration,
-            scheduleId: schedule.id,
-            scheduledDate: schedule.scheduled_date,
-            startTime: schedule.start_time,
-            endTime: schedule.end_time,
-            status: schedule.status,
-            isAvailable: now >= startTime && now <= endTime,
-          },
+      ApiResponseHandler.success(res, {
+        token,
+        user: {
+          id: effectiveStudentId,
+          fullName: schedule.student_name,
+          schoolId: schedule.school_id,
+          role: "student",
         },
-      });
+        exam: {
+          id: schedule.exam_id,
+          title: schedule.exam_title,
+          duration: schedule.duration,
+          scheduleId: schedule.id,
+          scheduledDate: schedule.scheduled_date,
+          startTime: schedule.start_time,
+          endTime: schedule.end_time,
+          status: schedule.status,
+          isAvailable: studentNowDate >= scheduleStartDate && studentNowDate <= scheduleEndDate,
+        },
+      }, "Login successful");
     } catch (error) {
       next(error);
     }
@@ -327,19 +318,13 @@ router.post(
       );
 
       if (result.rows.length === 0) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid credentials",
-        });
+        return ApiResponseHandler.unauthorized(res, "Invalid credentials");
       }
 
       const student = result.rows[0];
 
       if (!student.is_active) {
-        return res.status(401).json({
-          success: false,
-          message: "Account is inactive. Please contact your school administrator.",
-        });
+        return ApiResponseHandler.unauthorized(res, "Account is inactive. Please contact your school administrator.");
       }
 
       // Verify password
@@ -347,18 +332,12 @@ router.post(
       // But we just added migration to ensure password_hash is set (via default in create).
       // If password_hash is null, they can't login (secure default).
       if (!student.password_hash) {
-          return res.status(401).json({
-            success: false,
-            message: "Account setup incomplete. Please contact admin.",
-          });
+          return ApiResponseHandler.unauthorized(res, "Account setup incomplete. Please contact admin.");
       }
 
       const isMatch = await bcrypt.compare(password, student.password_hash);
       if (!isMatch) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid credentials",
-        });
+        return ApiResponseHandler.unauthorized(res, "Invalid credentials");
       }
 
       // Generate token
@@ -376,22 +355,18 @@ router.post(
         [student.id, "student", student.school_id, "portal_login", { ip: req.ip }],
       );
 
-      res.json({
-        success: true,
-        message: "Login successful",
-        data: {
-          token,
-          user: {
-            id: student.id,
-            fullName: student.full_name,
-            username: student.username,
-            email: student.email,
-            schoolId: student.school_id,
-            schoolName: student.school_name,
-            role: "student",
-          },
+      ApiResponseHandler.success(res, {
+        token,
+        user: {
+          id: student.id,
+          fullName: student.full_name,
+          username: student.username,
+          email: student.email,
+          schoolId: student.school_id,
+          schoolName: student.school_name,
+          role: "student",
         },
-      });
+      }, "Login successful");
     } catch (error) {
       next(error);
     }
@@ -421,27 +396,20 @@ router.post(
       password === process.env.SUPER_ADMIN_PASSWORD
     ) {
       const token = generateToken({
-        id: "super_admin",
+        id: "00000000-0000-0000-0000-000000000000",
         role: "super_admin",
       });
 
-      res.json({
-        success: true,
-        message: "Login successful",
-        data: {
-          token,
-          user: {
-            id: "super_admin",
-            name: "Super Administrator",
-            role: "super_admin",
-          },
+      ApiResponseHandler.success(res, {
+        token,
+        user: {
+          id: "00000000-0000-0000-0000-000000000000",
+          name: "Super Administrator",
+          role: "super_admin",
         },
-      });
+      }, "Login successful");
     } else {
-      res.status(401).json({
-        success: false,
-        message: "Invalid credentials",
-      });
+      ApiResponseHandler.unauthorized(res, "Invalid credentials");
     }
   },
 );
@@ -457,7 +425,7 @@ router.get("/me", authenticate, async (req, res, next) => {
     switch (role) {
       case "super_admin":
         userData = {
-          id: "super_admin",
+          id: "00000000-0000-0000-0000-000000000000",
           name: "Super Administrator",
           username: process.env.SUPER_ADMIN_USERNAME || process.env.SUPER_ADMIN_EMAIL || "admin",
           email: process.env.SUPER_ADMIN_EMAIL,
@@ -502,13 +470,10 @@ router.get("/me", authenticate, async (req, res, next) => {
         break;
     }
 
-    res.json({
-      success: true,
-      data: {
+      ApiResponseHandler.success(res, {
         user: { ...userData, role },
         role,
-      },
-    });
+      }, "Profile retrieved");
   } catch (error) {
     next(error);
   }
@@ -535,28 +500,19 @@ router.post(
       );
 
       if (result.rows.length === 0) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid credentials",
-        });
+        return ApiResponseHandler.unauthorized(res, "Invalid credentials");
       }
 
       const staff = result.rows[0];
 
       if (!staff.is_active) {
-        return res.status(401).json({
-          success: false,
-          message: "Account is inactive. Please contact your supervisor.",
-        });
+        return ApiResponseHandler.unauthorized(res, "Account is inactive. Please contact your supervisor.");
       }
 
       // Verify password
       const isMatch = await bcrypt.compare(password, staff.password_hash);
       if (!isMatch) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid credentials",
-        });
+        return ApiResponseHandler.unauthorized(res, "Invalid credentials");
       }
 
       // Update last login
@@ -582,21 +538,17 @@ router.post(
         // Silently fail audit log on login if table missing or schema mismatch for some reason
       }
 
-      res.json({
-        success: true,
-        message: "Login successful",
-        data: {
-          token,
-          user: {
-            id: staff.id,
-            name: staff.name,
-            username: staff.username,
-            email: staff.email,
-            role: "super_admin",
-            staffRole: staff.role
-          },
+      ApiResponseHandler.success(res, {
+        token,
+        user: {
+          id: staff.id,
+          name: staff.name,
+          username: staff.username,
+          email: staff.email,
+          role: "super_admin",
+          staffRole: staff.role
         },
-      });
+      }, "Login successful");
     } catch (error) {
       next(error);
     }
@@ -635,10 +587,7 @@ router.post(
           tableName = "students";
           break;
         default:
-          return res.status(400).json({
-            success: false,
-            message: "Cannot change password for this user type",
-          });
+          return ApiResponseHandler.badRequest(res, "Cannot change password for this user type");
       }
 
       // Get current password hash
@@ -648,10 +597,7 @@ router.post(
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found",
-        });
+        return ApiResponseHandler.notFound(res, "User not found");
       }
 
       // Verify current password
@@ -660,10 +606,7 @@ router.post(
         result.rows[0].password_hash,
       );
       if (!isMatch) {
-        return res.status(401).json({
-          success: false,
-          message: "Current password is incorrect",
-        });
+        return ApiResponseHandler.unauthorized(res, "Current password is incorrect");
       }
 
       // Hash new password
@@ -675,10 +618,7 @@ router.post(
         [newHash, id],
       );
 
-      res.json({
-        success: true,
-        message: "Password changed successfully",
-      });
+      ApiResponseHandler.success(res, null, "Password changed successfully");
     } catch (error) {
       next(error);
     }

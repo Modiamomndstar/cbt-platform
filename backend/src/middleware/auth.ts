@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { db } from "../config/database";
+import { ApiResponseHandler } from "../utils/apiResponse";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -62,10 +63,7 @@ export const authenticate = async (
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      res.status(401).json({
-        success: false,
-        message: "Access denied. No token provided.",
-      });
+      ApiResponseHandler.unauthorized(res, "Access denied. No token provided.");
       return;
     }
 
@@ -78,7 +76,7 @@ export const authenticate = async (
     switch (decoded.role) {
       case "super_admin":
         // Super admin is always valid (hardcoded check)
-        userExists = decoded.id === "super_admin";
+        userExists = decoded.id === "super_admin" || decoded.id === "00000000-0000-0000-0000-000000000000";
         break;
       case "school":
         const schoolResult = await db.query(
@@ -103,30 +101,24 @@ export const authenticate = async (
     }
 
     if (!userExists) {
-      res.status(401).json({
-        success: false,
-        message: "User not found or inactive.",
-      });
+      ApiResponseHandler.unauthorized(res, "User not found or inactive.");
       return;
     }
 
-    req.user = decoded;
+    req.user = {
+      ...decoded,
+      id: decoded.role === "super_admin" ? "00000000-0000-0000-0000-000000000000" : decoded.id,
+    };
     next();
   } catch (error) {
     // Check for token expired first (it's a subclass of JsonWebTokenError)
     if (error instanceof (jwt as any).TokenExpiredError) {
-      res.status(401).json({
-        success: false,
-        message: "Token expired.",
-      });
+      ApiResponseHandler.unauthorized(res, "Token expired.");
       return;
     }
 
     if (error instanceof (jwt as any).JsonWebTokenError) {
-      res.status(401).json({
-        success: false,
-        message: "Invalid token.",
-      });
+      ApiResponseHandler.unauthorized(res, "Invalid token.");
       return;
     }
 
@@ -138,18 +130,12 @@ export const authenticate = async (
 export const authorize = (...roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      res.status(401).json({
-        success: false,
-        message: "Access denied. Not authenticated.",
-      });
+      ApiResponseHandler.unauthorized(res, "Access denied. Not authenticated.");
       return;
     }
 
     if (!roles.includes(req.user.role)) {
-      res.status(403).json({
-        success: false,
-        message: "Access denied. Insufficient permissions.",
-      });
+      ApiResponseHandler.forbidden(res, "Access denied. Insufficient permissions.");
       return;
     }
 
@@ -186,10 +172,7 @@ export const requireSuperAdmin = (
   next: NextFunction,
 ): void => {
   if (!req.user || req.user.role !== "super_admin") {
-    res.status(403).json({
-      success: false,
-      message: "Access denied. Super admin required.",
-    });
+    ApiResponseHandler.forbidden(res, "Access denied. Super admin required.");
     return;
   }
   next();

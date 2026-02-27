@@ -3,13 +3,13 @@ import { body, param, validationResult } from 'express-validator';
 import bcrypt from 'bcryptjs';
 import { authenticate, authorize } from '../middleware/auth';
 import { db } from '../config/database';
+import { ApiResponseHandler } from '../utils/apiResponse';
+import { validate } from '../middleware/validation';
+import { getPaginationOptions, formatPaginationResponse } from '../utils/pagination';
+import { logActivity, logUserActivity } from '../utils/auditLogger';
 
 const router = Router();
-const validate = (req: any, res: any, next: any) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
-  next();
-};
+
 
 // All routes require super_admin
 router.use(authenticate, authorize('super_admin'));
@@ -19,11 +19,22 @@ router.use(authenticate, authorize('super_admin'));
 // -----------------------------------------------------------
 router.get('/', async (req, res, next) => {
   try {
+    const pagination = getPaginationOptions(req);
     const result = await db.query(
       `SELECT id, name, email, username, role, is_active, created_at, last_login_at
-       FROM staff_accounts ORDER BY created_at DESC`
+       FROM staff_accounts ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
+      [pagination.limit, pagination.offset]
     );
-    res.json({ success: true, data: result.rows });
+
+    const countResult = await db.query("SELECT COUNT(*) FROM staff_accounts");
+    const totalCount = parseInt(countResult.rows[0].count);
+
+    ApiResponseHandler.success(
+      res,
+      result.rows,
+      'Staff accounts retrieved',
+      formatPaginationResponse(totalCount, pagination)
+    );
   } catch (error) {
     next(error);
   }
@@ -49,7 +60,7 @@ router.post('/', [
       [email, username]
     );
     if (exists.rows.length > 0) {
-      return res.status(409).json({ success: false, message: 'Email or username already taken' });
+      return ApiResponseHandler.conflict(res, 'Email or username already taken');
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
@@ -63,7 +74,7 @@ router.post('/', [
     // Audit log
     await logAudit(req, 'staff_created', 'staff', result.rows[0].id, name);
 
-    res.status(201).json({ success: true, data: result.rows[0] });
+    ApiResponseHandler.created(res, result.rows[0], 'Staff account created');
   } catch (error) {
     next(error);
   }
@@ -90,7 +101,7 @@ router.patch('/:id', [
     if (isActive !== undefined) { updates.push(`is_active = $${p++}`); values.push(isActive); }
 
     if (updates.length === 0) {
-      return res.status(400).json({ success: false, message: 'Nothing to update' });
+      return ApiResponseHandler.badRequest(res, 'Nothing to update');
     }
 
     updates.push('updated_at = NOW()');
@@ -102,7 +113,7 @@ router.patch('/:id', [
     );
 
     await logAudit(req, 'staff_updated', 'staff', id, result.rows[0]?.name);
-    res.json({ success: true, data: result.rows[0] });
+    ApiResponseHandler.success(res, result.rows[0], 'Staff account updated');
   } catch (error) {
     next(error);
   }
@@ -119,7 +130,7 @@ router.delete('/:id', param('id').isUUID(), validate, async (req: any, res: any,
       [id]
     );
     await logAudit(req, 'staff_deactivated', 'staff', id, result.rows[0]?.name);
-    res.json({ success: true, message: 'Staff account deactivated' });
+    ApiResponseHandler.success(res, null, 'Staff account deactivated');
   } catch (error) {
     next(error);
   }
@@ -130,12 +141,27 @@ router.delete('/:id', param('id').isUUID(), validate, async (req: any, res: any,
 // -----------------------------------------------------------
 router.get('/audit-log', async (req, res, next) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+    const pagination = getPaginationOptions(req);
     const result = await db.query(
-      `SELECT * FROM staff_audit_log ORDER BY created_at DESC LIMIT $1`,
-      [limit]
+      `SELECT id, created_at, action, user_type, ip_address, 
+              COALESCE(actor_name, 'System') as actor_name,
+              COALESCE(target_type, resource_type, 'unknown') as target_type,
+              COALESCE(target_name, 'unknown') as target_name
+       FROM activity_logs
+       WHERE user_type IN ('super_admin', 'staff')
+       ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
+      [pagination.limit, pagination.offset]
     );
-    res.json({ success: true, data: result.rows });
+
+    const countResult = await db.query("SELECT COUNT(*) FROM activity_logs WHERE user_type IN ('super_admin', 'staff')");
+    const totalCount = parseInt(countResult.rows[0].count);
+
+    ApiResponseHandler.success(
+      res,
+      result.rows,
+      'Audit log retrieved',
+      formatPaginationResponse(totalCount, pagination)
+    );
   } catch (error) {
     next(error);
   }
@@ -143,13 +169,11 @@ router.get('/audit-log', async (req, res, next) => {
 
 // Helper: write to audit log
 async function logAudit(req: any, action: string, targetType: string, targetId?: string, targetName?: string) {
-  try {
-    await db.query(
-      `INSERT INTO staff_audit_log (actor_type, actor_id, actor_name, action, target_type, target_id, target_name, ip_address)
-       VALUES ('super_admin', $1, $2, $3, $4, $5, $6, $7)`,
-      [req.user?.id, req.user?.username, action, targetType, targetId, targetName, req.ip]
-    );
-  } catch (_) { /* non-critical */ }
+  return logUserActivity(req, action, {
+    targetType,
+    targetId,
+    targetName
+  });
 }
 
 export default router;

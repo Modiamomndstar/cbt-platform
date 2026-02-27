@@ -51,6 +51,7 @@ import PlatformAnalytics from '@/pages/super-admin/PlatformAnalytics';
 import MonetizationPage from '@/pages/super-admin/Monetization';
 import SchoolOverridesPage from '@/pages/super-admin/SchoolOverrides';
 import StaffManagement from '@/pages/super-admin/StaffManagement';
+import SchoolDetails from '@/pages/super-admin/SchoolDetails';
 
 function AppRoutes() {
   const { isLoading } = useAuth();
@@ -146,6 +147,7 @@ function AppRoutes() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<SuperAdminDashboard />} />
         <Route path="schools" element={<SchoolsManagement />} />
+        <Route path="schools/:id" element={<SchoolDetails />} />
         <Route path="analytics" element={<PlatformAnalytics />} />
         <Route path="staff" element={<StaffManagement />} />
         <Route path="monetization" element={<MonetizationPage />} />

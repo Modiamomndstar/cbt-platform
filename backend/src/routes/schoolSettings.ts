@@ -2,11 +2,12 @@ import { Router } from 'express';
 import { body, validationResult } from 'express-validator';
 import { authenticate, authorize } from '../middleware/auth';
 import { db } from '../config/database';
+import { ApiResponseHandler } from '../utils/apiResponse';
 
 const router = Router();
 const validate = (req: any, res: any, next: any) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
+  if (!errors.isEmpty()) return ApiResponseHandler.badRequest(res, 'Validation failed', { errors: errors.array() });
   next();
 };
 
@@ -27,10 +28,10 @@ router.get('/', async (req, res, next) => {
         'INSERT INTO school_settings (school_id) VALUES ($1) RETURNING *',
         [schoolId]
       );
-      return res.json({ success: true, data: created.rows[0] });
+      return ApiResponseHandler.success(res, created.rows[0], 'School settings created');
     }
 
-    res.json({ success: true, data: result.rows[0] });
+    ApiResponseHandler.success(res, result.rows[0], 'School settings retrieved');
   } catch (error) {
     next(error);
   }
@@ -102,7 +103,7 @@ router.put('/', [
       }
     }
 
-    if (updates.length === 0) return res.status(400).json({ success: false, message: 'Nothing to update' });
+    if (updates.length === 0) return ApiResponseHandler.badRequest(res, 'Nothing to update');
 
     updates.push('updated_at = NOW()');
     values.push(schoolId);
@@ -112,7 +113,7 @@ router.put('/', [
     `, values);
 
     const result = await db.query('SELECT * FROM school_settings WHERE school_id = $1', [schoolId]);
-    res.json({ success: true, data: result.rows[0] });
+    ApiResponseHandler.success(res, result.rows[0], 'School settings updated');
   } catch (error) {
     next(error);
   }

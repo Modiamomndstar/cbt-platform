@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { tutorAPI } from '@/services/api';
+import { tutorAPI, categoryAPI, externalStudentAPI } from '@/services/api';
 import { Users, Search, Loader2, Mail, Phone, FileText } from 'lucide-react';
 import {
   Select,
@@ -22,19 +22,19 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { categoryAPI } from '@/services/api';
 import { toast } from 'sonner';
 
 export default function StudentManagement() {
   const { user } = useAuth();
-  const [students, setStudents] = useState<any[]>([]);
+  const [internalStudents, setInternalStudents] = useState<any[]>([]);
+  const [externalStudents, setExternalStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Categories
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedType, setSelectedType] = useState<'all' | 'school' | 'external'>('all');
+  const [selectedType, setSelectedType] = useState<'internal' | 'external'>('internal');
 
   // Bulk Actions
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
@@ -72,30 +72,43 @@ export default function StudentManagement() {
       if (selectedCategory && selectedCategory !== 'all') {
         params.categoryId = selectedCategory;
       }
-      // We can also pass search query to backend if supported
-      // The current backend implementation might filter by category only
 
-      const response = await tutorAPI.getStudents(user?.id || '', params);
-      if (response.data.success) {
-        let data = response.data.data || [];
+      const [internalRes, externalRes] = await Promise.all([
+        tutorAPI.getStudents(user?.id || '', params),
+        externalStudentAPI.getAll() // external students might not support category filtering in backend same way yet
+      ]);
 
-        // Client-side search filtering (since backend might not support search param yet on this specific endpoint)
+      if (internalRes.data.success) {
+        let iData = internalRes.data.data || [];
         if (searchQuery) {
           const lowerQ = searchQuery.toLowerCase();
-          data = data.filter((s: any) =>
-            (s.full_name || s.fullName || '').toLowerCase().includes(lowerQ) ||
-            (s.student_id || s.studentId || '').toLowerCase().includes(lowerQ)
+          iData = iData.filter((s: any) =>
+            (s.full_name || '').toLowerCase().includes(lowerQ) ||
+            (s.student_id || '').toLowerCase().includes(lowerQ)
           );
         }
+        setInternalStudents(iData);
+      }
 
-        // Filter by Type (School vs External)
-        if (selectedType === 'school') {
-            data = data.filter((s: any) => !s.student_id?.startsWith('EXT'));
-        } else if (selectedType === 'external') {
-            data = data.filter((s: any) => s.student_id?.startsWith('EXT'));
+      if (externalRes.data.success) {
+        let eData = externalRes.data.data || [];
+        if (searchQuery) {
+          const lowerQ = searchQuery.toLowerCase();
+          eData = eData.filter((s: any) =>
+            (s.full_name || '').toLowerCase().includes(lowerQ) ||
+            (s.username || '').toLowerCase().includes(lowerQ) ||
+            (s.email || '').toLowerCase().includes(lowerQ)
+          );
         }
-
-        setStudents(data);
+        // Filter by category if needed
+        if (selectedCategory && selectedCategory !== 'all') {
+            if (selectedCategory === 'uncategorized') {
+                eData = eData.filter((s: any) => !s.category_id);
+            } else {
+                eData = eData.filter((s: any) => s.category_id === selectedCategory);
+            }
+        }
+        setExternalStudents(eData);
       }
     } catch (err) {
       console.error('Failed to load students:', err);
@@ -119,11 +132,13 @@ export default function StudentManagement() {
     setSelectedCategory('all');
   };
 
+  const activeStudents = selectedType === 'internal' ? internalStudents : externalStudents;
+
   const toggleSelectAll = () => {
-    if (selectedStudents.size === students.length) {
+    if (selectedStudents.size === activeStudents.length) {
       setSelectedStudents(new Set());
     } else {
-      setSelectedStudents(new Set(students.map(s => s.id)));
+      setSelectedStudents(new Set(activeStudents.map(s => s.id)));
     }
   };
 
@@ -215,23 +230,16 @@ export default function StudentManagement() {
       <div className="flex space-x-2 border-b border-gray-200">
         <button
           className={`pb-2 px-4 text-sm font-medium transition-colors border-b-2 ${
-            selectedType === 'all'
+            selectedType === 'internal'
               ? 'border-indigo-600 text-indigo-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
-          onClick={() => setSelectedType('all')}
+          onClick={() => {
+            setSelectedType('internal');
+            setSelectedStudents(new Set());
+          }}
         >
-          All Students
-        </button>
-        <button
-          className={`pb-2 px-4 text-sm font-medium transition-colors border-b-2 ${
-            selectedType === 'school'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-          onClick={() => setSelectedType('school')}
-        >
-          School Assigned
+          Internal Students
         </button>
         <button
           className={`pb-2 px-4 text-sm font-medium transition-colors border-b-2 ${
@@ -239,9 +247,12 @@ export default function StudentManagement() {
               ? 'border-indigo-600 text-indigo-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
-          onClick={() => setSelectedType('external')}
+          onClick={() => {
+            setSelectedType('external');
+            setSelectedStudents(new Set());
+          }}
         >
-          My External
+          Independent / External
         </button>
       </div>
 
@@ -251,9 +262,9 @@ export default function StudentManagement() {
           <CardTitle className="text-lg flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              <span>Assigned Students</span>
+              <span>{selectedType === 'internal' ? 'Assigned Students' : 'Independent Students'}</span>
               <Badge variant="secondary" className="ml-2">
-                {students.length}
+                {activeStudents.length}
               </Badge>
             </div>
             {(searchQuery || selectedCategory !== 'all') && (
@@ -271,26 +282,28 @@ export default function StudentManagement() {
              <div className="flex items-center justify-center p-8">
               <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
             </div>
-          ) : students.length > 0 ? (
+          ) : activeStudents.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b">
-                  <tr>
+                   <tr>
                     <th className="px-4 py-3 w-12">
                       <Checkbox
-                        checked={students.length > 0 && selectedStudents.size === students.length}
+                        checked={activeStudents.length > 0 && selectedStudents.size === activeStudents.length}
                         onCheckedChange={toggleSelectAll}
                         aria-label="Select all"
                       />
                     </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Student Info</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Category/Level</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">
+                      {selectedType === 'internal' ? 'Student Info' : 'Personal Info'}
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Category / Cohort</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Contact</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Performance</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {students.map((student) => (
+                 <tbody className="divide-y divide-gray-200">
+                  {activeStudents.map((student) => (
                     <tr key={student.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">
                         <Checkbox
@@ -301,12 +314,18 @@ export default function StudentManagement() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold shrink-0">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold shrink-0 ${selectedType === 'internal' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}>
                             {student.full_name?.charAt(0) || student.username?.charAt(0) || '?'}
                           </div>
                           <div>
                             <div className="font-medium text-gray-900">{student.full_name}</div>
-                            <div className="text-sm text-gray-500">{student.student_id}</div>
+                            <div className="text-sm text-gray-500">
+                              {selectedType === 'internal' ? (
+                                <span>ID: {student.student_id}</span>
+                              ) : (
+                                <span className="text-emerald-600">@{student.username}</span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -325,13 +344,13 @@ export default function StudentManagement() {
                               {student.category_name}
                             </Badge>
                           ) : (
-                            <span className="text-xs text-gray-400">No Category</span>
+                            <span className="text-xs text-gray-400">Uncategorized</span>
                           )}
-                          {student.level && (
-                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-                              {student.level}
-                            </span>
-                          )}
+                           {selectedType === 'external' ? (
+                              <Badge variant="outline" className="text-[10px] h-4 text-emerald-600 bg-emerald-50 border-emerald-100">Independent</Badge>
+                           ) : (
+                              <Badge variant="outline" className="text-[10px] h-4 text-indigo-600 bg-indigo-50 border-indigo-100">School Assigned</Badge>
+                           )}
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -339,7 +358,7 @@ export default function StudentManagement() {
                           {student.email && (
                             <div className="flex items-center text-sm text-gray-600">
                               <Mail className="h-3 w-3 mr-2 opacity-70" />
-                              {student.email}
+                              <span className="truncate max-w-[150px]">{student.email}</span>
                             </div>
                           )}
                           {student.phone && (
@@ -353,14 +372,14 @@ export default function StudentManagement() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                         {/* Placeholder for performance stats or actions */}
-                         <div className="flex items-center gap-2">
+                      <td className="px-4 py-3 text-right">
+                         <div className="flex items-center justify-end gap-2">
                            <Button
                              variant="ghost"
                              size="sm"
                              onClick={() => window.open(`/report-card/${student.id}`, '_blank')}
                              title="View Report Card"
+                             className="text-gray-400 hover:text-indigo-600"
                            >
                              <FileText className="h-4 w-4" />
                            </Button>

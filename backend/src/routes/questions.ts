@@ -2,6 +2,8 @@ import { Router, Request, Response } from "express";
 import { pool } from "../config/database";
 import { authenticate, requireRole } from "../middleware/auth";
 import OpenAI from "openai";
+import { ApiResponseHandler } from "../utils/apiResponse";
+import { getPaginationOptions, formatPaginationResponse } from "../utils/pagination";
 
 const router = Router();
 
@@ -16,6 +18,7 @@ router.get(
     try {
       const { examId } = req.params;
       const user = req.user!;
+      const pagination = getPaginationOptions(req);
 
       // Check exam access
       const examCheck = await client.query(
@@ -26,31 +29,35 @@ router.get(
       );
 
       if (examCheck.rows.length === 0) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Exam not found" });
+        return ApiResponseHandler.notFound(res, "Exam not found");
       }
 
       const result = await client.query(
         `SELECT * FROM questions
        WHERE exam_id = $1
-       ORDER BY sort_order, created_at`,
-        [examId],
+       ORDER BY sort_order, created_at
+       LIMIT $2 OFFSET $3`,
+        [examId, pagination.limit, pagination.offset],
       );
 
-      res.json({
-        success: true,
-        data: result.rows.map((q) => ({
+      const countResult = await client.query(
+        "SELECT COUNT(*) FROM questions WHERE exam_id = $1",
+        [examId]
+      );
+
+      ApiResponseHandler.success(
+        res,
+        result.rows.map((q) => ({
           ...q,
           options: q.options,
           correctAnswer: user.role === "student" ? undefined : q.correct_answer,
         })),
-      });
+        "Questions retrieved",
+        formatPaginationResponse(parseInt(countResult.rows[0].count), pagination)
+      );
     } catch (error) {
       console.error("Get questions error:", error);
-      res
-        .status(500)
-        .json({ success: false, message: "Failed to fetch questions" });
+      ApiResponseHandler.serverError(res, "Failed to fetch questions");
     } finally {
       client.release();
     }
@@ -86,16 +93,12 @@ router.post(
       );
 
       if (examCheck.rows.length === 0) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Exam not found" });
+        return ApiResponseHandler.notFound(res, "Exam not found");
       }
 
       // Check if tutor owns the exam
       if (user.role === "tutor" && examCheck.rows[0].tutor_id !== user.id) {
-        return res
-          .status(403)
-          .json({ success: false, message: "Access denied" });
+        return ApiResponseHandler.forbidden(res, "Access denied");
       }
 
       const result = await client.query(
@@ -122,16 +125,10 @@ router.post(
         [examId],
       );
 
-      res.status(201).json({
-        success: true,
-        message: "Question created successfully",
-        data: result.rows[0],
-      });
+      ApiResponseHandler.created(res, result.rows[0], "Question created successfully");
     } catch (error) {
       console.error("Create question error:", error);
-      res
-        .status(500)
-        .json({ success: false, message: "Failed to create question" });
+      ApiResponseHandler.serverError(res, "Failed to create question");
     } finally {
       client.release();
     }
@@ -158,9 +155,7 @@ router.post(
       );
 
       if (examCheck.rows.length === 0) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Exam not found" });
+        return ApiResponseHandler.notFound(res, "Exam not found");
       }
 
       await client.query("BEGIN");
@@ -195,17 +190,11 @@ router.post(
 
       await client.query("COMMIT");
 
-      res.status(201).json({
-        success: true,
-        message: `${createdQuestions.length} questions created successfully`,
-        data: createdQuestions,
-      });
+      ApiResponseHandler.created(res, createdQuestions, `${createdQuestions.length} questions created successfully`);
     } catch (error) {
       await client.query("ROLLBACK");
       console.error("Bulk create questions error:", error);
-      res
-        .status(500)
-        .json({ success: false, message: error instanceof Error ? error.message : "Failed to create questions" });
+      ApiResponseHandler.serverError(res, error instanceof Error ? error.message : "Failed to create questions");
     } finally {
       client.release();
     }
@@ -242,16 +231,12 @@ router.put(
       );
 
       if (questionCheck.rows.length === 0) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Question not found" });
+        return ApiResponseHandler.notFound(res, "Question not found");
       }
 
       // Check if tutor owns the exam
       if (user.role === "tutor" && questionCheck.rows[0].tutor_id !== user.id) {
-        return res
-          .status(403)
-          .json({ success: false, message: "Access denied" });
+        return ApiResponseHandler.forbidden(res, "Access denied");
       }
 
       const result = await client.query(
@@ -285,16 +270,10 @@ router.put(
         [questionCheck.rows[0].exam_id],
       );
 
-      res.json({
-        success: true,
-        message: "Question updated successfully",
-        data: result.rows[0],
-      });
+      ApiResponseHandler.success(res, result.rows[0], "Question updated successfully");
     } catch (error) {
       console.error("Update question error:", error);
-      res
-        .status(500)
-        .json({ success: false, message: "Failed to update question" });
+      ApiResponseHandler.serverError(res, "Failed to update question");
     } finally {
       client.release();
     }
@@ -322,16 +301,12 @@ router.delete(
       );
 
       if (questionCheck.rows.length === 0) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Question not found" });
+        return ApiResponseHandler.notFound(res, "Question not found");
       }
 
       // Check if tutor owns the exam
       if (user.role === "tutor" && questionCheck.rows[0].tutor_id !== user.id) {
-        return res
-          .status(403)
-          .json({ success: false, message: "Access denied" });
+        return ApiResponseHandler.forbidden(res, "Access denied");
       }
 
       await client.query(
@@ -347,20 +322,18 @@ router.delete(
         [questionCheck.rows[0].exam_id],
       );
 
-      res.json({
-        success: true,
-        message: "Question deleted successfully",
-      });
+      ApiResponseHandler.success(res, null, "Question deleted successfully");
     } catch (error) {
       console.error("Delete question error:", error);
-      res
-        .status(500)
-        .json({ success: false, message: "Failed to delete question" });
+      ApiResponseHandler.serverError(res, "Failed to delete question");
     } finally {
       client.release();
     }
   },
 );
+
+import { getSchoolPlan, getSchoolUsage } from "../services/planService";
+import { logUserActivity } from "../utils/auditLogger";
 
 // AI Generate questions
 router.post(
@@ -371,11 +344,25 @@ router.post(
     try {
       const { topic, subject, numQuestions, difficulty, questionType } =
         req.body;
+      const user = req.user!;
+
+      // 1. Check AI Limits
+      const [plan, usage] = await Promise.all([
+        getSchoolPlan(user.schoolId),
+        getSchoolUsage(user.schoolId)
+      ]);
+
+      if (usage.aiQueriesThisMonth >= plan.aiQueriesPerMonth) {
+        return ApiResponseHandler.error(
+          res, 
+          "AI Limit Reached. Your current plan allows for " + plan.aiQueriesPerMonth + " queries per month. Please upgrade your subscription or purchase an AI Query Pack from the Marketplace.",
+          403,
+          "LIMIT_REACHED"
+        );
+      }
 
       if (!process.env.OPENAI_API_KEY) {
-        return res
-          .status(503)
-          .json({ success: false, message: "AI generation not configured. Please set OPENAI_API_KEY." });
+        return ApiResponseHandler.error(res, "AI generation not configured. Please set OPENAI_API_KEY.", 503, "SERVICE_UNAVAILABLE");
       }
 
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -441,15 +428,17 @@ router.post(
         }),
       );
 
-      res.json({
-        success: true,
-        data: formattedQuestions,
+      // Log activity to increment usage count
+      await logUserActivity(req, 'ai_question_generated', {
+        targetType: 'school',
+        targetId: user.schoolId,
+        details: { count: formattedQuestions.length, topic, subject }
       });
+
+      ApiResponseHandler.success(res, formattedQuestions, "AI generated questions successfully");
     } catch (error) {
       console.error("AI generate questions error:", error);
-      res
-        .status(500)
-        .json({ success: false, message: "Failed to generate questions" });
+      ApiResponseHandler.serverError(res, "Failed to generate questions");
     }
   },
 );
@@ -474,9 +463,7 @@ router.post(
       );
 
       if (examCheck.rows.length === 0) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Exam not found" });
+        return ApiResponseHandler.notFound(res, "Exam not found");
       }
 
       await client.query("BEGIN");
@@ -490,16 +477,11 @@ router.post(
 
       await client.query("COMMIT");
 
-      res.json({
-        success: true,
-        message: "Questions reordered successfully",
-      });
+      ApiResponseHandler.success(res, null, "Questions reordered successfully");
     } catch (error) {
       await client.query("ROLLBACK");
       console.error("Reorder questions error:", error);
-      res
-        .status(500)
-        .json({ success: false, message: "Failed to reorder questions" });
+      ApiResponseHandler.serverError(res, "Failed to reorder questions");
     } finally {
       client.release();
     }

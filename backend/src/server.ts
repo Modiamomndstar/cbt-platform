@@ -30,6 +30,7 @@ import schoolSettingsRoutes from "./routes/schoolSettings";
 import externalStudentRoutes from "./routes/externalStudents";
 import examCategoryRoutes from "./routes/examCategories";
 import { initCronJobs } from "./services/cronService";
+import { ApiResponseHandler } from "./utils/apiResponse";
 
 // Import services
 // import { EmailService } from "./services/email";
@@ -66,6 +67,7 @@ const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
   message: "Too many requests from this IP, please try again later.",
+  handler: (req, res) => ApiResponseHandler.badRequest(res, "Too many requests from this IP, please try again later.", { code: 'RATE_LIMIT_EXCEEDED' }),
 });
 app.use("/api/", limiter);
 
@@ -74,6 +76,7 @@ const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   message: "Too many login attempts, please try again later.",
+  handler: (req, res) => ApiResponseHandler.badRequest(res, "Too many login attempts, please try again later.", { code: 'AUTH_RATE_LIMIT_EXCEEDED' }),
 });
 app.use("/api/auth/login", authLimiter);
 
@@ -102,16 +105,14 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Health check endpoint (both /health and /api/health for Caddy passthrough)
 app.get(["/health", "/api/health"], (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+  ApiResponseHandler.success(res, { status: "ok", timestamp: new Date().toISOString() }, "Health check successful");
 });
 
 // Root endpoint for quick API info
 app.get("/", (req, res) => {
-  res.json({
-    success: true,
-    message: "CBT Platform API is running",
+  ApiResponseHandler.success(res, {
     timestamp: new Date().toISOString(),
-  });
+  }, "CBT Platform API is running");
 });
 
 // API Routes
@@ -144,20 +145,16 @@ app.use(
     next: express.NextFunction,
   ) => {
     logger.error("Unhandled error:", err);
-    res.status(err.status || 500).json({
-      success: false,
-      message: err.message || "Internal server error",
+    ApiResponseHandler.serverError(res, err.message || "Internal server error", {
       ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+      status: err.status || 500
     });
   },
 );
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: "Route not found",
-  });
+  ApiResponseHandler.notFound(res, "Route not found");
 });
 
 // Start server

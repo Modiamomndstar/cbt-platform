@@ -1,6 +1,8 @@
 import { Router, Request, Response } from "express";
+import { getPaginationOptions, formatPaginationResponse } from "../utils/pagination";
 import { pool } from "../config/database";
 import { authenticate, requireRole } from "../middleware/auth";
+import { ApiResponseHandler } from "../utils/apiResponse";
 import Stripe from "stripe";
 import axios from "axios";
 
@@ -27,13 +29,10 @@ router.get("/plans", async (req: Request, res: Response) => {
        ORDER BY price ASC`,
     );
 
-    res.json({
-      success: true,
-      data: result.rows,
-    });
+    ApiResponseHandler.success(res, result.rows, "Payment plans retrieved");
   } catch (error) {
     console.error("Get plans error:", error);
-    res.status(500).json({ success: false, message: "Failed to fetch plans" });
+    ApiResponseHandler.serverError(res, "Failed to fetch plans");
   } finally {
     client.release();
   }
@@ -47,9 +46,7 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       if (!stripe) {
-        return res
-          .status(500)
-          .json({ success: false, message: "Stripe not configured" });
+        return ApiResponseHandler.serverError(res, "Stripe not configured");
       }
 
       const { planId } = req.body;
@@ -65,9 +62,7 @@ router.post(
 
       if (planResult.rows.length === 0) {
         client.release();
-        return res
-          .status(404)
-          .json({ success: false, message: "Plan not found" });
+        return ApiResponseHandler.notFound(res, "Plan not found");
       }
 
       const plan = planResult.rows[0];
@@ -94,16 +89,13 @@ router.post(
         },
       });
 
-      res.json({
-        success: true,
+      ApiResponseHandler.success(res, {
         clientSecret: paymentIntent.client_secret,
         paymentIntentId: paymentIntent.id,
-      });
+      }, "Payment intent created");
     } catch (error) {
       console.error("Stripe create intent error:", error);
-      res
-        .status(500)
-        .json({ success: false, message: "Failed to create payment intent" });
+      ApiResponseHandler.serverError(res, "Failed to create payment intent");
     }
   },
 );
@@ -113,9 +105,7 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
   const sig = req.headers["stripe-signature"];
 
   if (!stripe || !sig || !process.env.STRIPE_WEBHOOK_SECRET) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Webhook not configured" });
+    return ApiResponseHandler.badRequest(res, "Webhook not configured");
   }
 
   let event;
@@ -188,10 +178,10 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
       }
     }
 
-    res.json({ received: true });
+    ApiResponseHandler.success(res, { received: true }, "Webhook received");
   } catch (error) {
     console.error("Stripe webhook error:", error);
-    res.status(500).json({ success: false });
+    ApiResponseHandler.serverError(res, "Failed to process webhook");
   } finally {
     client.release();
   }
@@ -205,9 +195,7 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       if (!PAYSTACK_SECRET_KEY) {
-        return res
-          .status(500)
-          .json({ success: false, message: "Paystack not configured" });
+        return ApiResponseHandler.serverError(res, "Paystack not configured");
       }
 
       const { planId } = req.body;
@@ -261,24 +249,19 @@ router.post(
       );
 
       if (response.data.status) {
-        res.json({
-          success: true,
+        ApiResponseHandler.success(res, {
           authorizationUrl: response.data.data.authorization_url,
           reference: response.data.data.reference,
-        });
+        }, "Payment initialized");
       } else {
-        res
-          .status(500)
-          .json({ success: false, message: "Failed to initialize payment" });
+        ApiResponseHandler.serverError(res, "Failed to initialize payment");
       }
     } catch (error: any) {
       console.error(
         "Paystack initialize error:",
         error.response?.data || error.message,
       );
-      res
-        .status(500)
-        .json({ success: false, message: "Failed to initialize payment" });
+      ApiResponseHandler.serverError(res, "Failed to initialize payment");
     }
   },
 );
@@ -292,9 +275,7 @@ router.post(
     const client = await pool.connect();
     try {
       if (!PAYSTACK_SECRET_KEY) {
-        return res
-          .status(500)
-          .json({ success: false, message: "Paystack not configured" });
+        return ApiResponseHandler.serverError(res, "Paystack not configured");
       }
 
       const { reference } = req.body;
@@ -364,31 +345,23 @@ router.post(
             ],
           );
 
-          res.json({
-            success: true,
-            message: "Payment verified successfully",
-            data: {
-              status: "completed",
-              subscriptionStart: startDate,
-              subscriptionEnd: endDate,
-            },
-          });
+          ApiResponseHandler.success(res, {
+            status: "completed",
+            subscriptionStart: startDate,
+            subscriptionEnd: endDate,
+          }, "Payment verified successfully");
         } else {
-          res.status(404).json({ success: false, message: "Plan not found" });
+          ApiResponseHandler.notFound(res, "Plan not found");
         }
       } else {
-        res
-          .status(400)
-          .json({ success: false, message: "Payment verification failed" });
+          ApiResponseHandler.badRequest(res, "Payment verification failed");
       }
     } catch (error: any) {
       console.error(
         "Paystack verify error:",
         error.response?.data || error.message,
       );
-      res
-        .status(500)
-        .json({ success: false, message: "Failed to verify payment" });
+      ApiResponseHandler.serverError(res, "Failed to verify payment");
     } finally {
       client.release();
     }
@@ -404,9 +377,7 @@ router.get(
     const client = await pool.connect();
     try {
       const user = req.user!;
-      const { page = 1, limit = 10 } = req.query;
-
-      const offset = (Number(page) - 1) * Number(limit);
+      const pagination = getPaginationOptions(req, 10);
 
       const result = await client.query(
         `SELECT p.*, pl.name as plan_name
@@ -415,7 +386,7 @@ router.get(
        WHERE p.school_id = $1
        ORDER BY p.created_at DESC
        LIMIT $2 OFFSET $3`,
-        [user.schoolId, limit, offset],
+        [user.schoolId, pagination.limit, pagination.offset],
       );
 
       const countResult = await client.query(
@@ -425,9 +396,9 @@ router.get(
 
       const totalCount = parseInt(countResult.rows[0].count);
 
-      res.json({
-        success: true,
-        data: result.rows.map((row) => ({
+      ApiResponseHandler.success(
+        res,
+        result.rows.map((row) => ({
           id: row.id,
           planName: row.plan_name,
           amount: row.amount,
@@ -439,18 +410,12 @@ router.get(
           subscriptionEnd: row.subscription_end,
           createdAt: row.created_at,
         })),
-        pagination: {
-          page: Number(page),
-          limit: Number(limit),
-          totalCount,
-          totalPages: Math.ceil(totalCount / Number(limit)),
-        },
-      });
+        "Payment history retrieved",
+        formatPaginationResponse(totalCount, pagination)
+      );
     } catch (error) {
       console.error("Get payment history error:", error);
-      res
-        .status(500)
-        .json({ success: false, message: "Failed to fetch payment history" });
+      ApiResponseHandler.serverError(res, "Failed to fetch payment history");
     } finally {
       client.release();
     }
@@ -475,9 +440,7 @@ router.get(
       );
 
       if (result.rows.length === 0) {
-        return res
-          .status(404)
-          .json({ success: false, message: "School not found" });
+        return ApiResponseHandler.notFound(res, "School not found");
       }
 
       const school = result.rows[0];
@@ -493,30 +456,22 @@ router.get(
         [user.schoolId],
       );
 
-      res.json({
-        success: true,
-        data: {
-          status: school.subscription_status,
-          plan: school.subscription_plan,
-          startDate: school.subscription_start,
-          endDate: school.subscription_end,
-          maxTutors: school.max_tutors,
-          maxStudents: school.max_students,
-          currentTutors: parseInt(tutorCount.rows[0].count),
-          currentStudents: parseInt(studentCount.rows[0].count),
-          isExpired:
-            school.subscription_end &&
-            new Date(school.subscription_end) < new Date(),
-        },
-      });
+      ApiResponseHandler.success(res, {
+        status: school.subscription_status,
+        plan: school.subscription_plan,
+        startDate: school.subscription_start,
+        endDate: school.subscription_end,
+        maxTutors: school.max_tutors,
+        maxStudents: school.max_students,
+        currentTutors: parseInt(tutorCount.rows[0].count),
+        currentStudents: parseInt(studentCount.rows[0].count),
+        isExpired:
+          school.subscription_end &&
+          new Date(school.subscription_end) < new Date(),
+      }, "Subscription status retrieved");
     } catch (error) {
       console.error("Get subscription error:", error);
-      res
-        .status(500)
-        .json({
-          success: false,
-          message: "Failed to fetch subscription status",
-        });
+      ApiResponseHandler.serverError(res, "Failed to fetch subscription status");
     } finally {
       client.release();
     }

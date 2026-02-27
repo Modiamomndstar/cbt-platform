@@ -87,6 +87,8 @@ CREATE TABLE students (
     school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
     category_id UUID REFERENCES student_categories(id) ON DELETE SET NULL,
     student_id VARCHAR(100) NOT NULL, -- School's student ID (e.g., "STU001")
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
     full_name VARCHAR(255) NOT NULL,
     email VARCHAR(255),
     phone VARCHAR(50),
@@ -102,6 +104,36 @@ CREATE TABLE students (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     UNIQUE(school_id, student_id)
+);
+
+-- ============================================
+-- EXTERNAL STUDENTS TABLE (Tutor-created students)
+-- ============================================
+CREATE TABLE external_students (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tutor_id UUID NOT NULL REFERENCES tutors(id) ON DELETE CASCADE,
+    school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+    category_id UUID REFERENCES student_categories(id) ON DELETE SET NULL,
+
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    full_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255),
+    phone VARCHAR(50),
+    bio TEXT,
+    avatar_url TEXT,
+
+    -- Credentials for exam access
+    username VARCHAR(100) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+
+    is_active BOOLEAN DEFAULT true,
+    last_login_at TIMESTAMP,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(tutor_id, username)
 );
 
 -- ============================================
@@ -209,6 +241,7 @@ CREATE TABLE student_exams (
 
     -- Questions and answers
     questions JSONB NOT NULL, -- Array of question IDs in order shown
+    assigned_questions JSONB,
     answers JSONB DEFAULT '{}', -- Object: {questionId: answer}
 
     -- Results
@@ -294,6 +327,7 @@ CREATE TABLE activity_logs (
     user_id UUID, -- Can be school, tutor, or student
     user_type VARCHAR(50) NOT NULL, -- school, tutor, student
     school_id UUID REFERENCES schools(id),
+    external_student_id UUID,
     action VARCHAR(100) NOT NULL, -- login, logout, create_exam, etc.
     resource_type VARCHAR(50), -- exam, student, etc.
     resource_id UUID,
@@ -361,6 +395,10 @@ CREATE INDEX idx_tutors_username ON tutors(school_id, username);
 CREATE INDEX idx_students_school ON students(school_id);
 CREATE INDEX idx_students_category ON students(category_id);
 CREATE INDEX idx_students_student_id ON students(school_id, student_id);
+
+CREATE INDEX idx_external_students_tutor ON external_students(tutor_id);
+CREATE INDEX idx_external_students_school ON external_students(school_id);
+CREATE INDEX idx_external_students_username ON external_students(username);
 
 CREATE INDEX idx_student_categories_school ON student_categories(school_id);
 

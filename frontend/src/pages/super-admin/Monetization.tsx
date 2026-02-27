@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import {
   DollarSign, Zap, Tag,
   RefreshCw, Save, Plus, ToggleLeft, ToggleRight,
-  Pencil, Check, X
+  Pencil, Check, X, ShoppingBag
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -32,6 +32,15 @@ interface Coupon {
   discount_type: string; discount_value: number;
   max_uses: number | null; uses_count: number;
   expires_at: string | null; is_active: boolean;
+}
+
+interface MarketplaceItem {
+  feature_key: string;
+  display_name: string;
+  description: string;
+  item_type: string;
+  credit_cost: number;
+  is_active: boolean;
 }
 
 const PLAN_ORDER = ['freemium', 'basic', 'advanced', 'enterprise'];
@@ -241,13 +250,13 @@ function CouponManager({ coupons, onRefresh }: { coupons: Coupon[]; onRefresh: (
         code: form.code.toUpperCase(),
         name: form.name,
         description: form.description,
-        discountType: form.discountType,
-        discountValue: parseFloat(form.discountValue),
+        type: form.discountType,
+        value: parseFloat(form.discountValue),
         maxUses: form.maxUses ? parseInt(form.maxUses) : null,
-        expiresAt: form.expiresAt || null,
+        validUntil: form.expiresAt || null,
       });
       toast.success(`Coupon ${form.code.toUpperCase()} created`);
-      setForm({ code: '', name: '', description: '', discountType: 'percent', discountValue: '', maxUses: '', expiresAt: '' });
+      setForm({ code: '', name: '', description: '', discountType: 'percent_off', discountValue: '', maxUses: '', expiresAt: '' });
       setShowForm(false);
       onRefresh();
     } catch (err: any) {
@@ -306,15 +315,15 @@ function CouponManager({ coupons, onRefresh }: { coupons: Coupon[]; onRefresh: (
                   onChange={(e) => setForm(p => ({ ...p, discountType: e.target.value }))}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300 outline-none"
                 >
-                  <option value="percent">Percentage (%)</option>
-                  <option value="fixed_ngn">Fixed (₦)</option>
+                  <option value="percent_off">Percentage (%)</option>
+                  <option value="amount_off">Fixed (₦)</option>
                   <option value="free_months">Free Months</option>
                   <option value="bonus_credits">Bonus Credits</option>
                 </select>
               </div>
               <div>
                 <label className="text-xs text-gray-500 block mb-1">
-                  Value * {form.discountType === 'percent' ? '(%)' : form.discountType === 'fixed_ngn' ? '(₦)' : ''}
+                  Value * {form.discountType === 'percent_off' ? '(%)' : form.discountType === 'amount_off' ? '(₦)' : ''}
                 </label>
                 <Input type="number" placeholder="20" value={form.discountValue} onChange={(e) => setForm(p => ({ ...p, discountValue: e.target.value }))} className="text-sm" />
               </div>
@@ -352,12 +361,12 @@ function CouponManager({ coupons, onRefresh }: { coupons: Coupon[]; onRefresh: (
                   {!c.is_active && <span className="text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full">Inactive</span>}
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {c.discount_type === 'percent' ? `${c.discount_value}% off` :
-                   c.discount_type === 'fixed_ngn' ? `₦${c.discount_value} off` :
-                   c.discount_type === 'free_months' ? `${c.discount_value} free month(s)` :
-                   `${c.discount_value} bonus credits`}
-                  {' · '}{c.uses_count}/{c.max_uses ?? '∞'} used
-                  {c.expires_at && ` · Expires ${new Date(c.expires_at).toLocaleDateString()}`}
+                  {c.discount_type === 'percent_off' || c.type === 'percent_off' ? `${c.discount_value || c.value}% off` :
+                   c.discount_type === 'amount_off' || c.type === 'amount_off' ? `₦${c.discount_value || c.value} off` :
+                   c.discount_type === 'free_months' || c.type === 'free_months' ? `${c.discount_value || c.value} free month(s)` :
+                   `${c.discount_value || c.value} bonus credits`}
+                  {' · '}{c.uses_count || c.redemption_count || 0}/{c.max_uses ?? '∞'} used
+                  {(c.expires_at || c.valid_until) && ` · Expires ${new Date(c.expires_at || c.valid_until!).toLocaleDateString()}`}
                 </p>
               </div>
               {c.is_active && (
@@ -376,29 +385,131 @@ function CouponManager({ coupons, onRefresh }: { coupons: Coupon[]; onRefresh: (
   );
 }
 
+// ─── Marketplace Pricing Panel ──────────────────────────────────
+function MarketplacePricingPanel({ items, onUpdate }: { items: MarketplaceItem[]; onUpdate: () => void }) {
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Partial<MarketplaceItem>>({});
+
+  const startEdit = (item: MarketplaceItem) => {
+    setEditingKey(item.feature_key);
+    setDraft(item);
+  };
+
+  const handleSave = async () => {
+    if (!editingKey) return;
+    try {
+      await superAdminAPI.updateMarketplace(editingKey, draft);
+      toast.success('Marketplace item updated');
+      setEditingKey(null);
+      onUpdate();
+    } catch {
+      toast.error('Failed to update marketplace item');
+    }
+  };
+
+  const toggleActive = async (item: MarketplaceItem) => {
+    try {
+      await superAdminAPI.updateMarketplace(item.feature_key, { is_active: !item.is_active });
+      toast.success(`${item.display_name} ${!item.is_active ? 'activated' : 'deactivated'}`);
+      onUpdate();
+    } catch {
+      toast.error('Failed to toggle item status');
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <ShoppingBag className="h-4 w-4 text-purple-500" />
+          Marketplace Pricing
+        </CardTitle>
+        <p className="text-xs text-gray-500">Configure costs for extra tutor slots, student packs, and AI query credits.</p>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {items.map((item) => (
+            <div key={item.feature_key} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50/50 px-2 rounded-lg transition-colors">
+              <div className="flex-1 pr-4">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-gray-800">{item.display_name}</p>
+                  <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{item.item_type}</span>
+                </div>
+                <p className="text-xs text-gray-500">{item.description}</p>
+                <div className="flex items-center gap-3 mt-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Zap className="h-3 w-3 text-indigo-500" />
+                    <span className="text-sm font-bold text-indigo-700">{item.credit_cost} credits</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {editingKey === item.feature_key ? (
+                  <div className="flex items-center gap-2 bg-white shadow-sm border border-gray-100 p-1 rounded-lg">
+                    <Input
+                      type="number"
+                      className="w-20 h-8 text-sm"
+                      value={draft.credit_cost || ''}
+                      onChange={(e) => setDraft({ ...draft, credit_cost: parseInt(e.target.value) || 0 })}
+                    />
+                    <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700" onClick={handleSave}>
+                      <Check className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8" onClick={() => setEditingKey(null)}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => toggleActive(item)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors ${
+                        item.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'
+                      }`}
+                    >
+                      {item.is_active ? 'ACTIVE' : 'INACTIVE'}
+                    </button>
+                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => startEdit(item)}>
+                      <Pencil className="h-3.5 w-3.5 text-gray-400" />
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────
 export default function MonetizationPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [flags, setFlags] = useState<FeatureFlag[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [marketplace, setMarketplace] = useState<MarketplaceItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'plans' | 'features' | 'coupons'>('plans');
+  const [activeTab, setActiveTab] = useState<'plans' | 'features' | 'coupons' | 'marketplace'>('plans');
 
   useEffect(() => { loadAll(); }, []);
 
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [plansRes, flagsRes, couponsRes] = await Promise.all([
+      const [plansRes, flagsRes, couponsRes, marketplaceRes] = await Promise.all([
         superAdminAPI.getPlans(),
         superAdminAPI.getFeatureFlags(),
         superAdminAPI.getCoupons(),
+        superAdminAPI.getMarketplace(),
       ]);
       if (plansRes.data.success) {
         setPlans(PLAN_ORDER.map(pt => plansRes.data.data.find((p: Plan) => p.plan_type === pt)).filter(Boolean));
       }
       if (flagsRes.data.success) setFlags(flagsRes.data.data);
       if (couponsRes.data.success) setCoupons(couponsRes.data.data);
+      if (marketplaceRes.data.success) setMarketplace(marketplaceRes.data.data);
     } catch {
       toast.error('Failed to load monetization data');
     } finally {
@@ -417,6 +528,7 @@ export default function MonetizationPage() {
   const TABS = [
     { key: 'plans', label: 'Plan Pricing', icon: DollarSign },
     { key: 'features', label: 'Feature Flags', icon: Zap },
+    { key: 'marketplace', label: 'Marketplace', icon: ShoppingBag },
     { key: 'coupons', label: 'Coupons', icon: Tag },
   ] as const;
 
@@ -460,6 +572,10 @@ export default function MonetizationPage() {
 
       {activeTab === 'features' && (
         <FeatureFlagsPanel flags={flags} onUpdate={loadAll} />
+      )}
+
+      {activeTab === 'marketplace' && (
+        <MarketplacePricingPanel items={marketplace} onUpdate={loadAll} />
       )}
 
       {activeTab === 'coupons' && (

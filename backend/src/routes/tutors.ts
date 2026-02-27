@@ -3,23 +3,16 @@ import { body, param, validationResult } from "express-validator";
 import bcrypt from "bcryptjs";
 import { db } from "../config/database";
 import { authenticate, authorize } from "../middleware/auth";
+import { ApiResponseHandler } from "../utils/apiResponse";
 import { requireTutorSlot } from "../middleware/planGuard";
+import { validate } from "../middleware/validation";
+import {
+  getPaginationOptions,
+  formatPaginationResponse,
+} from "../utils/pagination";
+import { logUserActivity } from "../utils/auditLogger";
 
 const router = Router();
-const validate = (req: any, res: any, next: any) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    res
-      .status(400)
-      .json({
-        success: false,
-        message: "Validation failed",
-        errors: errors.array(),
-      });
-    return;
-  }
-  next();
-};
 
 router.use(authenticate);
 
@@ -29,12 +22,28 @@ router.get(
   authorize("school"),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      const pagination = getPaginationOptions(req);
+
       const result = await db.query(
         `SELECT id, username, full_name, email, phone, subjects, bio, avatar_url, is_active, last_login_at, created_at
-       FROM tutors WHERE school_id = $1 ORDER BY full_name`,
+       FROM tutors WHERE school_id = $1 ORDER BY full_name LIMIT $2 OFFSET $3`,
+        [req.user!.schoolId, pagination.limit, pagination.offset],
+      );
+
+      const countResult = await db.query(
+        "SELECT COUNT(*) FROM tutors WHERE school_id = $1",
         [req.user!.schoolId],
       );
-      res.json({ success: true, data: result.rows });
+
+      ApiResponseHandler.success(
+        res,
+        result.rows,
+        "Tutors retrieved",
+        formatPaginationResponse(
+          parseInt(countResult.rows[0].count),
+          pagination,
+        ),
+      );
     } catch (error) {
       next(error);
     }
@@ -68,7 +77,11 @@ router.get(
         return;
       }
 
-      res.json({ success: true, data: result.rows[0] });
+      ApiResponseHandler.success(
+        res,
+        result.rows[0],
+        "Tutor profile retrieved",
+      );
     } catch (error) {
       next(error);
     }
@@ -85,14 +98,16 @@ router.put(
       const { is_active } = req.body;
       const { schoolId } = req.user!;
 
-      if (typeof is_active !== 'boolean') {
-        res.status(400).json({ success: false, message: "is_active must be a boolean" });
+      if (typeof is_active !== "boolean") {
+        res
+          .status(400)
+          .json({ success: false, message: "is_active must be a boolean" });
         return;
       }
 
       const result = await db.query(
         "UPDATE tutors SET is_active = $1 WHERE id = $2 AND school_id = $3 RETURNING id, is_active",
-        [is_active, id, schoolId]
+        [is_active, id, schoolId],
       );
 
       if (result.rows.length === 0) {
@@ -100,15 +115,15 @@ router.put(
         return;
       }
 
-      res.json({
-        success: true,
-        message: `Tutor ${is_active ? 'unpaused' : 'paused'} successfully`,
-        data: result.rows[0],
-      });
+      ApiResponseHandler.success(
+        res,
+        result.rows[0],
+        `Tutor ${is_active ? "unpaused" : "paused"} successfully`,
+      );
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // Get students assigned to tutor
@@ -140,7 +155,7 @@ router.get(
       let paramIndex = 2;
 
       if (categoryId) {
-        if (categoryId === 'uncategorized') {
+        if (categoryId === "uncategorized") {
           query += ` AND s.category_id IS NULL`;
         } else {
           query += ` AND s.category_id = $${paramIndex++}`;
@@ -157,11 +172,11 @@ router.get(
 
       const result = await db.query(query, params);
 
-      res.json({ success: true, data: result.rows });
+      ApiResponseHandler.success(res, result.rows, "Students retrieved");
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // Get categories of students assigned to tutor
@@ -185,14 +200,14 @@ router.get(
          JOIN student_tutors st ON s.id = st.student_id
          WHERE st.tutor_id = $1 AND sc.is_active = true
          ORDER BY sc.name`,
-        [id]
+        [id],
       );
 
-      res.json({ success: true, data: result.rows });
+      ApiResponseHandler.success(res, result.rows, "Exams retrieved");
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // Create tutor (school only)
@@ -228,14 +243,21 @@ router.post(
 
       const passwordHash = await bcrypt.hash(password, 10);
 
+      // Parse name parts
+      const nameParts = fullName.trim().split(" ");
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(" ") || ".";
+
       const result = await db.query(
-        `INSERT INTO tutors (school_id, username, password_hash, full_name, email, phone, subjects, bio)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, username, full_name, email, phone, subjects, is_active, created_at`,
+        `INSERT INTO tutors (school_id, username, password_hash, first_name, last_name, full_name, email, phone, subjects, bio)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING id, username, first_name, last_name, full_name, email, phone, subjects, is_active, created_at`,
         [
           schoolId,
           username,
           passwordHash,
+          firstName,
+          lastName,
           fullName,
           email,
           phone,
@@ -244,13 +266,17 @@ router.post(
         ],
       );
 
-      res
-        .status(201)
-        .json({
-          success: true,
-          message: "Tutor created",
-          data: result.rows[0],
-        });
+      const tutor = result.rows[0];
+
+      // Log tutor creation
+      await logUserActivity(req, "tutor_creation", {
+        targetType: "tutor",
+        targetId: tutor.id,
+        targetName: tutor.full_name,
+        details: { email: tutor.email, username: tutor.username },
+      });
+
+      ApiResponseHandler.created(res, tutor, "Tutor created");
     } catch (error) {
       next(error);
     }
@@ -284,14 +310,21 @@ router.post(
 
           const passwordHash = await bcrypt.hash(tutor.password, 10);
 
+          // Parse name parts
+          const nameParts = tutor.fullName.trim().split(" ");
+          const firstName = nameParts[0];
+          const lastName = nameParts.slice(1).join(" ") || ".";
+
           const result = await db.query(
-            `INSERT INTO tutors (school_id, username, password_hash, full_name, email, phone, subjects)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
-           RETURNING id, username, full_name, email`,
+            `INSERT INTO tutors (school_id, username, password_hash, first_name, last_name, full_name, email, phone, subjects)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           RETURNING id, username, first_name, last_name, full_name, email`,
             [
               schoolId,
               tutor.username,
               passwordHash,
+              firstName,
+              lastName,
               tutor.fullName,
               tutor.email,
               tutor.phone,
@@ -304,10 +337,11 @@ router.post(
         }
       }
 
-      res.json({
-        success: true,
-        data: { created, errors, count: created.length },
-      });
+      ApiResponseHandler.success(
+        res,
+        { created, errors, count: created.length },
+        "Bulk creation processed",
+      );
     } catch (error) {
       next(error);
     }
@@ -330,68 +364,76 @@ router.put(
         return;
       }
 
-      const updates: string[] = [];
+      const allowedFields = [
+        "fullName",
+        "email",
+        "phone",
+        "subjects",
+        "bio",
+        "avatarUrl",
+        "isActive",
+      ];
+      const updates = req.body;
+      const setClauses: string[] = [];
       const values: any[] = [];
       let paramIndex = 1;
 
-      if (fullName) {
-        updates.push(`full_name = $${paramIndex++}`);
-        values.push(fullName);
-      }
-      if (email !== undefined) {
-        updates.push(`email = $${paramIndex++}`);
-        values.push(email);
-      }
-      if (phone !== undefined) {
-        updates.push(`phone = $${paramIndex++}`);
-        values.push(phone);
-      }
-      if (subjects) {
-        updates.push(`subjects = $${paramIndex++}`);
-        values.push(subjects);
-      }
-      if (bio !== undefined) {
-        updates.push(`bio = $${paramIndex++}`);
-        values.push(bio);
-      }
-      if (avatarUrl !== undefined) {
-        updates.push(`avatar_url = $${paramIndex++}`);
-        values.push(avatarUrl);
-      }
-      if (isActive !== undefined && role === "school") {
-        updates.push(`is_active = $${paramIndex++}`);
-        values.push(isActive);
+      for (const [key, value] of Object.entries(updates)) {
+        if (allowedFields.includes(key) && value !== undefined) {
+          if (key === "fullName" && typeof value === "string") {
+            const nameParts = value.trim().split(" ");
+            const firstName = nameParts[0];
+            const lastName = nameParts.slice(1).join(" ") || ".";
+
+            setClauses.push(`first_name = $${paramIndex++}`);
+            values.push(firstName);
+            setClauses.push(`last_name = $${paramIndex++}`);
+            values.push(lastName);
+          }
+
+          if (key === "isActive" && role !== "school") continue;
+
+          // Convert camelCase to snake_case for database columns
+          const dbColumnName = key.replace(
+            /[A-Z]/g,
+            (l) => `_${l.toLowerCase()}`,
+          );
+          setClauses.push(`${dbColumnName} = $${paramIndex++}`);
+          values.push(value);
+        }
       }
 
-      if (updates.length === 0) {
+      if (setClauses.length === 0) {
         res
           .status(400)
           .json({ success: false, message: "No fields to update" });
         return;
       }
 
-      updates.push("updated_at = NOW()");
-      values.push(id);
+      setClauses.push(`updated_at = NOW()`);
+      const idParamIndex = paramIndex++; // Get the next available index for 'id'
+      values.push(id); // Push 'id' to the values array
 
-      let query = `UPDATE tutors SET ${updates.join(", ")} WHERE id = $${paramIndex}`;
+      let query = `UPDATE tutors SET ${setClauses.join(", ")} WHERE id = $${idParamIndex}`;
       if (role === "school") {
-        query += ` AND school_id = $${paramIndex + 1}`;
+        query += ` AND school_id = $${paramIndex++}`;
         values.push(schoolId);
       }
       query += " RETURNING *";
 
       const result = await db.query(query, values);
 
-      if (result.rows.length === 0) {
-        res.status(404).json({ success: false, message: "Tutor not found" });
-        return;
-      }
+      const tutor = result.rows[0];
 
-      res.json({
-        success: true,
-        message: "Tutor updated",
-        data: result.rows[0],
+      // Log tutor update
+      await logUserActivity(req, "tutor_update", {
+        targetType: "tutor",
+        targetId: id,
+        targetName: tutor.full_name,
+        details: { fields: Object.keys(updates) },
       });
+
+      ApiResponseHandler.success(res, tutor, "Tutor updated");
     } catch (error) {
       next(error);
     }
@@ -407,12 +449,21 @@ router.delete(
       const { id } = req.params;
       const schoolId = req.user!.schoolId;
 
-      await db.query("DELETE FROM tutors WHERE id = $1 AND school_id = $2", [
-        id,
-        schoolId,
-      ]);
+      const result = await db.query(
+        "DELETE FROM tutors WHERE id = $1 AND school_id = $2 RETURNING full_name",
+        [id, schoolId],
+      );
 
-      res.json({ success: true, message: "Tutor deleted" });
+      if (result.rows.length > 0) {
+        // Log tutor deletion
+        await logUserActivity(req, "tutor_deletion", {
+          targetType: "tutor",
+          targetId: id,
+          targetName: result.rows[0].full_name,
+        });
+      }
+
+      ApiResponseHandler.success(res, null, "Tutor deleted");
     } catch (error) {
       next(error);
     }
@@ -427,18 +478,60 @@ router.get(
     try {
       const tutorId = req.user!.tutorId;
 
+      // Get aggregate stats
       const stats = await db.query(
         `SELECT
         (SELECT COUNT(*) FROM exams WHERE tutor_id = $1) as total_exams,
         (SELECT COUNT(*) FROM students WHERE school_id = (SELECT school_id FROM tutors WHERE id = $1)) as total_students,
         (SELECT COUNT(*) FROM questions WHERE exam_id IN (SELECT id FROM exams WHERE tutor_id = $1)) as total_questions,
         (SELECT COUNT(*) FROM student_exams WHERE exam_id IN (SELECT id FROM exams WHERE tutor_id = $1) AND status = 'completed') as completed_exams,
-        (SELECT COUNT(*) FROM exam_schedules WHERE exam_id IN (SELECT id FROM exams WHERE tutor_id = $1) AND status = 'scheduled') as upcoming_exams,
         (SELECT COALESCE(AVG(percentage), 0) FROM student_exams WHERE exam_id IN (SELECT id FROM exams WHERE tutor_id = $1) AND status = 'completed') as average_score`,
         [tutorId],
       );
 
-      res.json({ success: true, data: stats.rows[0] });
+      // Get detailed upcoming exams
+      const upcomingExams = await db.query(
+        `SELECT
+          es.id,
+          es.scheduled_date,
+          es.start_time,
+          es.end_time,
+          e.id as exam_id,
+          e.title as exam_title,
+          e.duration,
+          COUNT(DISTINCT se.student_id) as student_count
+        FROM exam_schedules es
+        JOIN exams e ON es.exam_id = e.id
+        LEFT JOIN student_exams se ON es.id = se.exam_schedule_id
+        WHERE e.tutor_id = $1
+          AND es.status = 'scheduled'
+          AND es.scheduled_date >= CURRENT_DATE
+        GROUP BY es.id, e.id, e.title, e.duration, es.scheduled_date, es.start_time, es.end_time
+        ORDER BY es.scheduled_date ASC
+        LIMIT 5`,
+        [tutorId],
+      );
+
+      const responseData = {
+        ...stats.rows[0],
+        upcomingExamsCount: upcomingExams.rows.length,
+        upcomingExams: upcomingExams.rows.map((e) => ({
+          id: e.id,
+          examId: e.exam_id,
+          examTitle: e.exam_title,
+          scheduledDate: e.scheduled_date,
+          startTime: e.start_time,
+          endTime: e.end_time,
+          duration: e.duration,
+          studentCount: parseInt(e.student_count) || 0,
+        })),
+      };
+
+      ApiResponseHandler.success(
+        res,
+        responseData,
+        "Dashboard stats retrieved",
+      );
     } catch (error) {
       next(error);
     }

@@ -39,9 +39,11 @@ api.interceptors.response.use(
       // Token expired or invalid
       localStorage.removeItem("token");
       localStorage.removeItem("user");
-      // Don't redirect if we're on the student login page already
+      // Don't redirect if we're on a login page already
       const path = window.location.pathname;
-      if (path.startsWith("/student/login")) {
+      const isLoginPage = path === "/login" || path === "/admin/login" || path === "/student/login";
+      
+      if (isLoginPage) {
         // Do nothing – let the login form handle the error
       } else if (path.startsWith("/student")) {
         window.location.href = "/student/login";
@@ -322,6 +324,9 @@ export const billingAPI = {
     api.post("/billing/coupon/validate", { code, planType }),
   getPaygBalance: () => api.get("/billing/payg/balance"),
   getPaygHistory: () => api.get("/billing/payg/history"),
+  getMarketplace: () => api.get("/billing/marketplace"),
+  purchaseMarketplaceItem: (featureKey: string) => api.post("/billing/marketplace/purchase", { featureKey }),
+  consumeCredits: (featureKey: string) => api.post("/billing/payg/consume", { featureKey }),
 };
 
 // ── External Students API ───────────────────────────────────
@@ -350,6 +355,10 @@ export const schoolSettingsAPI = {
 
 // ── Super Admin API ─────────────────────────────────────────
 export const superAdminAPI = {
+  // Schools
+  getSchools: () => api.get("/super-admin/schools"),
+  getSchoolDetails: (id: string) => api.get(`/super-admin/schools/${id}/details`),
+
   // Overview
   getOverview: () => api.get("/super-admin/overview"),
 
@@ -363,6 +372,11 @@ export const superAdminAPI = {
   updateFeatureFlag: (featureKey: string, data: Record<string, any>) =>
     api.put(`/super-admin/feature-flags/${featureKey}`, data),
 
+  // Marketplace
+  getMarketplace: () => api.get("/super-admin/marketplace"),
+  updateMarketplace: (featureKey: string, data: Record<string, any>) =>
+    api.put(`/super-admin/marketplace/${featureKey}`, data),
+
   // School overrides
   giftPlan: (schoolId: string, planType: string, days: number, reason?: string) =>
     api.post(`/super-admin/schools/${schoolId}/gift-plan`, { planType, days, reason }),
@@ -372,6 +386,12 @@ export const superAdminAPI = {
     api.post(`/super-admin/schools/${schoolId}/suspend`, { suspended, reason }),
   addCredits: (schoolId: string, credits: number, reason: string) =>
     api.post(`/super-admin/schools/${schoolId}/add-credits`, { credits, reason }),
+  deductCredits: (schoolId: string, credits: number, reason: string) =>
+    api.post(`/super-admin/schools/${schoolId}/deduct-credits`, { credits, reason }),
+  updateSchoolSubscription: (id: string, data: Record<string, any>) =>
+    api.patch(`/super-admin/schools/${id}/subscription`, data),
+  updateFeatureOverrides: (id: string, overrides: Record<string, any>) =>
+    api.post(`/super-admin/schools/${id}/feature-overrides`, { overrides }),
   extendTrial: (schoolId: string, days: number) =>
     api.post(`/super-admin/schools/${schoolId}/extend-trial`, { days }),
 
@@ -386,6 +406,25 @@ export const superAdminAPI = {
   createStaff: (data: Record<string, any>) => api.post("/staff", data),
   updateStaff: (id: string, data: Record<string, any>) => api.patch(`/staff/${id}`, data),
   getAuditLog: () => api.get("/staff/audit-log"),
+
+  // Export
+  exportData: (type: 'tutors' | 'students' | 'external_students', schoolId?: string) => {
+    const token = localStorage.getItem('token');
+    const url = `${API_BASE_URL}/super-admin/export/${type}${schoolId ? `?school_id=${schoolId}` : ''}`;
+    // We use a temporary link to handle the download with the token if possible, 
+    // but standard browser downloads work better with direct URLs for CSVs 
+    // provided the server allows it or we attach the token to the URL (less secure)
+    // or we fetch as blob. Blob is safest.
+    return api.get(url, { responseType: 'blob' }).then(res => {
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `export_${type}_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    });
+  }
 };
 
 export default api;

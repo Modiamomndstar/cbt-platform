@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Shield, Plus, KeyRound, Clock, UserPlus, FileSignature, LogOut, CheckCircle, XCircle } from 'lucide-react';
-import api from '@/services/api';
+import { superAdminAPI } from '@/services/api';
 
 interface StaffAccount {
   id: string;
@@ -63,8 +63,8 @@ export default function StaffManagement() {
     setIsLoading(true);
     try {
       const [staffRes, logsRes] = await Promise.all([
-        api.get('/staff'),
-        api.get('/staff/audit-log')
+        superAdminAPI.getStaff(),
+        superAdminAPI.getAuditLog()
       ]);
       setStaff(staffRes.data.data);
       setLogs(logsRes.data.data);
@@ -78,7 +78,7 @@ export default function StaffManagement() {
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await api.post('/staff', formData);
+      const res = await superAdminAPI.createStaff(formData);
       toast.success('Staff account created successfully');
       setStaff([res.data.data, ...staff]);
       setIsCreating(false);
@@ -93,7 +93,7 @@ export default function StaffManagement() {
     if (currentStatus) {
       if (!confirm('Are you sure you want to completely deactivate this staff account?')) return;
       try {
-        await api.delete(`/staff/${id}`);
+        await superAdminAPI.updateStaff(id, { isActive: false });
         toast.success('Staff account deactivated');
         fetchData();
       } catch (error) {
@@ -101,7 +101,7 @@ export default function StaffManagement() {
       }
     } else {
       try {
-        await api.patch(`/staff/${id}`, { isActive: true });
+        await superAdminAPI.updateStaff(id, { isActive: true });
         toast.success('Staff account reactivated');
         fetchData();
       } catch (error) {

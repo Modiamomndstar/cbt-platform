@@ -1,33 +1,72 @@
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { billingAPI } from '@/services/api';
 import { toast } from 'sonner';
 import {
   CreditCard, Users, GraduationCap, BookOpen, Brain,
   TrendingUp, CheckCircle2, XCircle, Clock, Coins, ArrowUpRight,
-  Tag, RefreshCw, Wallet
+  Tag, RefreshCw, Wallet, ShoppingCart, Info, AlertTriangle,
+  History, Download, Zap, ShoppingBag, AlertCircle
 } from 'lucide-react';
 
 interface PlanStatus {
   plan: {
-    planType: string; displayName: string; status: string;
-    maxTutors: number | null; maxInternalStudents: number | null;
-    maxActiveExams: number | null; aiQueriesPerMonth: number;
-    allowStudentPortal: boolean; allowExternalStudents: boolean;
-    allowBulkImport: boolean; allowEmailNotifications: boolean;
-    allowAdvancedAnalytics: boolean; allowCustomBranding: boolean;
+    planType: string;
+    displayName: string;
+    maxTutors: number | null;
+    maxInternalStudents: number | null;
+    maxActiveExams: number | null;
+    aiQueriesPerMonth: number;
+    allowStudentPortal: boolean;
+    allowExternalStudents: boolean;
+    allowBulkImport: boolean;
+    allowEmailNotifications: boolean;
+    allowAdvancedAnalytics: boolean;
+    allowCustomBranding: boolean;
     allowResultPdf: boolean;
   };
-  subscription: { status: string; trialEnd: string | null; billingCycle: string; overrideExpires: string | null };
+  subscription: {
+    status: string;
+    trialEnd: string | null;
+    billingCycle: string;
+    overrideExpires: string | null;
+    isPaid: boolean;
+    isFreemium: boolean;
+  };
   limits: {
-    tutorsUsed: number; tutorsMax: number | null;
-    studentsUsed: number; studentsMax: number | null;
-    examsUsed: number; examsMax: number | null;
-    aiUsed: number; aiMax: number;
+    tutorsUsed: number;
+    tutorsMax: number | null;
+    studentsUsed: number;
+    studentsMax: number | null;
+    examsUsed: number;
+    examsMax: number | null;
+    aiUsed: number;
+    aiMax: number;
+    purchasedTutors: number;
+    purchasedStudents: number;
+    purchasedAiQueries: number;
   };
   paygBalance: number;
+}
+
+interface MarketplaceItem {
+  feature_key: string;
+  display_name: string;
+  credit_cost: number;
+  batch_size: number;
+  item_type: 'capacity' | 'consumption';
+}
+
+interface PaygHistory {
+  id: string;
+  type: string;
+  credits: number;
+  balance_after: number;
+  description: string;
+  created_at: string;
 }
 
 const PLAN_COLORS: Record<string, string> = {
@@ -38,65 +77,72 @@ const PLAN_COLORS: Record<string, string> = {
 };
 
 const STATUS_BADGES: Record<string, { label: string; class: string }> = {
-  trialing: { label: '14-Day Trial', class: 'bg-amber-100 text-amber-700' },
+  trialing: { label: 'Trial', class: 'bg-amber-100 text-amber-700' },
   active: { label: 'Active', class: 'bg-green-100 text-green-700' },
   gifted: { label: 'Gifted', class: 'bg-purple-100 text-purple-700' },
   suspended: { label: 'Suspended', class: 'bg-red-100 text-red-700' },
   expired: { label: 'Expired', class: 'bg-gray-100 text-gray-500' },
-  cancelled: { label: 'Cancelled', class: 'bg-red-100 text-red-500' },
+  past_due: { label: 'Past Due', class: 'bg-red-100 text-red-700' },
 };
 
-function UsageBar({ label, used, max, icon: Icon }: { label: string; used: number; max: number | null; icon: any }) {
-  const pct = max ? Math.min(100, (used / max) * 100) : 0;
-  const isAtLimit = max !== null && used >= max;
-  const isWarning = max !== null && pct >= 80;
-
+function UsageBar({ label, used, max, icon: Icon, purchased = 0, isFrozen = false }: { label: string; used: number; max: number | null; icon: any; purchased?: number; isFrozen?: boolean }) {
+  const effectiveMax = max;
+  const pct = effectiveMax ? Math.min(100, (used / effectiveMax) * 100) : 0;
+  const isAtLimit = effectiveMax !== null && used >= effectiveMax;
+  
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <div className="flex justify-between items-center">
-        <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+        <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
           <Icon className="h-4 w-4 text-gray-400" />
           {label}
+          {purchased > 0 && !isFrozen && (
+            <span className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded border border-indigo-100">
+              +{purchased} Slots
+            </span>
+          )}
+          {isFrozen && purchased > 0 && (
+             <span className="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded border border-red-100 flex items-center gap-0.5">
+               <AlertTriangle className="h-2 w-2" /> Frozen Capacity
+             </span>
+          )}
         </div>
-        <span className={`text-sm font-semibold ${isAtLimit ? 'text-red-600' : isWarning ? 'text-amber-600' : 'text-gray-600'}`}>
-          {used} / {max === null ? '∞' : max}
+        <span className={`text-sm font-bold ${isAtLimit ? 'text-red-600' : 'text-gray-700'}`}>
+          {used} / {effectiveMax === null ? '∞' : effectiveMax}
         </span>
       </div>
-      {max !== null && (
-        <div className="w-full bg-gray-100 rounded-full h-2">
-          <div
-            className={`h-2 rounded-full transition-all ${isAtLimit ? 'bg-red-500' : isWarning ? 'bg-amber-400' : 'bg-indigo-500'}`}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function FeaturePill({ label, enabled }: { label: string; enabled: boolean }) {
-  return (
-    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${enabled ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-400 line-through'}`}>
-      {enabled ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
-      {label}
+      <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+        <div
+          className={`h-full transition-all duration-500 ${isAtLimit ? 'bg-red-500' : 'bg-gradient-to-r from-indigo-600 to-purple-600'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
     </div>
   );
 }
 
 export default function BillingPage() {
   const [status, setStatus] = useState<PlanStatus | null>(null);
+  const [marketplace, setMarketplace] = useState<MarketplaceItem[]>([]);
+  const [history, setHistory] = useState<PaygHistory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [couponCode, setCouponCode] = useState('');
-  const [validatingCoupon, setValidatingCoupon] = useState(false);
-  const [couponResult, setCouponResult] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [purchasing, setPurchasing] = useState<string | null>(null);
 
-  useEffect(() => { loadStatus(); }, []);
+  useEffect(() => { loadData(); }, []);
 
-  const loadStatus = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      const res = await billingAPI.getStatus();
-      if (res.data.success) setStatus(res.data.data);
+      const [statusRes, marketplaceRes, historyRes] = await Promise.all([
+        billingAPI.getStatus(),
+        billingAPI.getMarketplace(),
+        billingAPI.getPaygHistory()
+      ]);
+
+      if (statusRes.data.success) setStatus(statusRes.data.data);
+      if (marketplaceRes.data.success) setMarketplace(marketplaceRes.data.data);
+      if (historyRes.data.success) setHistory(historyRes.data.data);
     } catch {
       toast.error('Failed to load billing information');
     } finally {
@@ -104,33 +150,32 @@ export default function BillingPage() {
     }
   };
 
-  const handleValidateCoupon = async () => {
-    if (!couponCode.trim() || !status) return;
-    setValidatingCoupon(true);
-    setCouponResult(null);
+  const handlePurchase = async (item: MarketplaceItem) => {
+    if (!status) return;
+    if (status.paygBalance < item.credit_cost) {
+      toast.error('Insufficient PAYG credits. Please top up your wallet.');
+      return;
+    }
+
+    setPurchasing(item.feature_key);
     try {
-      const res = await billingAPI.validateCoupon(couponCode.trim(), status.plan.planType);
+      const res = await billingAPI.purchaseMarketplaceItem(item.feature_key);
       if (res.data.success) {
-        setCouponResult({ success: true, data: res.data.data });
-        toast.success(`Coupon valid! ${res.data.data.name}`);
+        toast.success(`Successfully purchased ${item.display_name}!`);
+        await loadData();
       }
     } catch (err: any) {
-      setCouponResult({ success: false, message: err.response?.data?.message || 'Invalid coupon' });
-      toast.error(err.response?.data?.message || 'Invalid coupon code');
+      toast.error(err.response?.data?.message || 'Purchase failed');
     } finally {
-      setValidatingCoupon(false);
+      setPurchasing(null);
     }
-  };
-
-  const getDaysLeft = (dateStr: string | null): number | null => {
-    if (!dateStr) return null;
-    return Math.max(0, Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000));
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600" />
+        <p className="text-gray-500 text-sm animate-pulse font-medium">Loading your portal billing...</p>
       </div>
     );
   }
@@ -138,222 +183,307 @@ export default function BillingPage() {
   if (!status) return null;
 
   const { plan, subscription, limits, paygBalance } = status;
-  const trialDaysLeft = getDaysLeft(subscription.trialEnd);
-  const statusBadge = STATUS_BADGES[subscription.status] ?? { label: subscription.status, class: 'bg-gray-100 text-gray-600' };
+  const isFrozen = subscription.isFreemium && !subscription.isPaid;
+  const totalFrozenSlots = limits.purchasedTutors + limits.purchasedStudents + limits.purchasedAiQueries;
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-6xl mx-auto pb-12">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Billing & Plan</h1>
-          <p className="text-gray-500 text-sm mt-1">Manage your subscription and usage</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Billing & Marketplace</h1>
+          <p className="text-gray-500 text-sm mt-0.5">Manage your recurring plan, capacity, and extra features</p>
         </div>
-        <button onClick={loadStatus} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-          <RefreshCw className="h-4 w-4 text-gray-500" />
-        </button>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={loadData} className="gap-2 bg-white">
+            <RefreshCw className="h-4 w-4" /> Refresh
+          </Button>
+          <Button 
+            size="sm" 
+            className="bg-gradient-to-r from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800 text-white border-0 gap-2 shadow-sm"
+            onClick={() => setActiveTab('marketplace')}
+          >
+            <ShoppingBag className="h-4 w-4" /> View Marketplace
+          </Button>
+        </div>
       </div>
 
-      {/* Trial Warning Banner */}
-      {subscription.status === 'trialing' && trialDaysLeft !== null && trialDaysLeft <= 4 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
-          <Clock className="h-5 w-5 text-red-500 flex-shrink-0" />
-          <div>
-            <p className="text-sm font-semibold text-red-700">
-              Trial ends in {trialDaysLeft} day{trialDaysLeft === 1 ? '' : 's'}!
-            </p>
-            <p className="text-xs text-red-500 mt-0.5">
-              After your trial, your account will revert to the Free plan. Upgrade now to keep all features.
+      {/* Alerts Section */}
+      <div className="space-y-4">
+        {isFrozen && totalFrozenSlots > 0 && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-5 flex items-start gap-4">
+            <div className="bg-red-100 p-2 rounded-lg">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-red-900">Purchase Capacity is Frozen</p>
+              <p className="text-sm text-red-700 mt-1 leading-relaxed">
+                You have <strong>{limits.purchasedTutors}</strong> extra tutor slots and <strong>{limits.purchasedStudents}</strong> student capacity currently locked. 
+                Purchased marketplace capacity is only available while you have an active <strong>Basic Premium</strong> or <strong>Advanced</strong> subscription.
+              </p>
+              <div className="mt-4 flex gap-3">
+                <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white border-0">Upgrade to Reactivate</Button>
+                <Button size="sm" variant="outline" className="bg-white border-red-200 text-red-700 hover:bg-red-50">Learn More</Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!subscription.isPaid && subscription.status === 'expired' && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-500" />
+            <p className="text-sm text-amber-800">
+              <span className="font-bold">Subscription Expired.</span> You are currently on the Freemium plan with limited default capacity.
             </p>
           </div>
-          <button
-            onClick={() => window.open('mailto:support@mycbtplatform.duckdns.org', '_blank')}
-            className="ml-auto bg-red-600 text-white text-xs font-semibold px-4 py-2 rounded-lg hover:bg-red-700 transition-colors whitespace-nowrap"
-          >
-            Upgrade Now
-          </button>
-        </div>
-      )}
+        )}
+      </div>
 
-      {subscription.status === 'trialing' && trialDaysLeft !== null && trialDaysLeft > 4 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
-          <Clock className="h-5 w-5 text-amber-500 flex-shrink-0" />
-          <p className="text-sm text-amber-700">
-            <span className="font-semibold">Free trial active</span> — {trialDaysLeft} days remaining.
-            After your trial, you'll be on the free plan unless you upgrade.
-          </p>
-        </div>
-      )}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="bg-gray-100/80 p-1 mb-6">
+          <TabsTrigger value="overview" className="gap-2 py-2">
+            <TrendingUp className="h-4 w-4" /> Overview & Usage
+          </TabsTrigger>
+          <TabsTrigger value="marketplace" className="gap-2 py-2">
+            <ShoppingCart className="h-4 w-4" /> Marketplace
+          </TabsTrigger>
+          <TabsTrigger value="credits" className="gap-2 py-2">
+            <History className="h-4 w-4" /> PAYG Ledgers
+          </TabsTrigger>
+        </TabsList>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Current Plan Card */}
-        <div className="lg:col-span-2">
-          <Card className="h-full">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-indigo-500" />
-                  Current Plan
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs font-semibold px-3 py-1 rounded-full ${PLAN_COLORS[plan.planType] ?? 'bg-gray-100 text-gray-600'}`}>
-                    {plan.displayName}
-                  </span>
-                  <span className={`text-xs font-semibold px-3 py-1 rounded-full ${statusBadge.class}`}>
-                    {statusBadge.label}
-                  </span>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {/* Usage Meters */}
-              <div className="space-y-4 p-4 bg-gray-50 rounded-xl">
-                <UsageBar label="Tutors" used={limits.tutorsUsed} max={limits.tutorsMax} icon={Users} />
-                <UsageBar label="Students" used={limits.studentsUsed} max={limits.studentsMax} icon={GraduationCap} />
-                <UsageBar label="Exams" used={limits.examsUsed} max={limits.examsMax} icon={BookOpen} />
-                {limits.aiMax > 0 && (
-                  <UsageBar label="AI Queries (this month)" used={limits.aiUsed} max={limits.aiMax} icon={Brain} />
-                )}
-              </div>
-
-              {/* Feature Summary */}
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Features</p>
-                <div className="flex flex-wrap gap-2">
-                  <FeaturePill label="Student Portal" enabled={plan.allowStudentPortal} />
-                  <FeaturePill label="External Students" enabled={plan.allowExternalStudents} />
-                  <FeaturePill label="Bulk Import" enabled={plan.allowBulkImport} />
-                  <FeaturePill label="Email Notifications" enabled={plan.allowEmailNotifications} />
-                  <FeaturePill label="Advanced Analytics" enabled={plan.allowAdvancedAnalytics} />
-                  <FeaturePill label="Custom Branding" enabled={plan.allowCustomBranding} />
-                  <FeaturePill label="Result PDF" enabled={plan.allowResultPdf} />
-                  {limits.aiMax > 0 && <FeaturePill label={`AI: ${limits.aiMax} queries/mo`} enabled={true} />}
-                </div>
-              </div>
-
-              {/* Upgrade CTA */}
-              {(plan.planType === 'freemium' || plan.planType === 'basic') && (
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-4 text-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold text-sm">
-                        {plan.planType === 'freemium' ? 'Upgrade to Basic Premium' : 'Upgrade to Advanced'}
-                      </p>
-                      <p className="text-indigo-200 text-xs mt-0.5">
-                        {plan.planType === 'freemium'
-                          ? '₦8,000/mo · 10 tutors · 300 students · Full portal'
-                          : '₦24,000/mo · 50 tutors · 2,000 students · AI + Analytics'}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => toast.info('Payment integration coming soon. Contact support to upgrade.')}
-                      className="bg-white text-indigo-700 text-xs font-bold px-4 py-2 rounded-lg hover:bg-indigo-50 transition-colors flex items-center gap-1 whitespace-nowrap"
-                    >
-                      Upgrade <ArrowUpRight className="h-3 w-3" />
-                    </button>
+        <TabsContent value="overview" className="mt-0 space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Main Usage Card */}
+            <Card className="lg:col-span-2 border-0 shadow-sm overflow-hidden bg-white">
+              <CardHeader className="border-b bg-gray-50/50 py-4 px-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base font-bold">Standard Capacity</CardTitle>
+                    <CardDescription text-xs>Your recurring plan limits</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${PLAN_COLORS[plan.planType]}`}>
+                      {plan.displayName}
+                    </span>
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${STATUS_BADGES[subscription.status]?.class || 'bg-gray-100 text-gray-500'}`}>
+                      {STATUS_BADGES[subscription.status]?.label || subscription.status}
+                    </span>
                   </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="p-6 space-y-6">
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                     <UsageBar 
+                        label="Tutors" 
+                        used={limits.tutorsUsed} 
+                        max={limits.tutorsMax} 
+                        icon={Users} 
+                        purchased={limits.purchasedTutors}
+                        isFrozen={isFrozen}
+                     />
+                     <UsageBar 
+                        label="Students" 
+                        used={limits.studentsUsed} 
+                        max={limits.studentsMax} 
+                        icon={GraduationCap} 
+                        purchased={limits.purchasedStudents}
+                        isFrozen={isFrozen}
+                     />
+                     <UsageBar 
+                        label="Active Exams" 
+                        used={limits.examsUsed} 
+                        max={limits.examsMax} 
+                        icon={BookOpen} 
+                     />
+                     <UsageBar 
+                        label="AI Query Credit" 
+                        used={limits.aiUsed} 
+                        max={limits.aiMax} 
+                        icon={Zap} 
+                        purchased={limits.purchasedAiQueries}
+                     />
+                   </div>
 
-        {/* PAYG Wallet Card */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-emerald-500" />
-                PAYG Credits
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-4">
-                <div className="text-4xl font-bold text-gray-900">{paygBalance}</div>
-                <div className="text-sm text-gray-500 mt-1">credits available</div>
-                <div className="text-xs text-gray-400 mt-0.5">≈ ₦{(paygBalance * 50).toLocaleString()}</div>
-              </div>
-              <button
-                onClick={() => toast.info('PAYG top-up via Paystack coming soon!')}
-                className="w-full bg-emerald-600 text-white text-sm font-semibold py-2.5 rounded-lg hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
-              >
-                <Coins className="h-4 w-4" />
-                Top Up Credits
-              </button>
-              <div className="mt-3 text-center">
-                <p className="text-xs text-gray-400">Min. 50 credits (₦2,500)</p>
-              </div>
-            </CardContent>
-          </Card>
+                   <div className="pt-6 border-t mt-6">
+                     <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Plan Features</p>
+                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        <FeatureItem label="Student Portal" active={plan.allowStudentPortal} />
+                        <FeatureItem label="Bulk Upload" active={plan.allowBulkImport} />
+                        <FeatureItem label="Email Alerts" active={plan.allowEmailNotifications} />
+                        <FeatureItem label="Analytics" active={plan.allowAdvancedAnalytics} />
+                        <FeatureItem label="Branding" active={plan.allowCustomBranding} />
+                        <FeatureItem label="Result Export" active={plan.allowResultPdf} />
+                     </div>
+                   </div>
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* Coupon Card */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                <Tag className="h-4 w-4 text-blue-500" />
-                Coupon Code
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Enter code..."
-                  value={couponCode}
-                  onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponResult(null); }}
-                  className="text-sm font-mono"
-                  onKeyDown={(e) => e.key === 'Enter' && handleValidateCoupon()}
-                />
-                <Button
-                  size="sm"
-                  onClick={handleValidateCoupon}
-                  disabled={validatingCoupon || !couponCode.trim()}
-                  className="bg-indigo-600 hover:bg-indigo-700"
-                >
-                  {validatingCoupon ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Apply'}
-                </Button>
-              </div>
-              {couponResult && (
-                <div className={`text-xs p-2.5 rounded-lg ${couponResult.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
-                  {couponResult.success ? (
-                    <div>
-                      <p className="font-semibold">✓ {couponResult.data.name}</p>
-                      <p className="mt-0.5">{couponResult.data.description}</p>
+            {/* Wallet & Quick Info */}
+            <div className="space-y-6">
+              <Card className="border-0 shadow-sm bg-gradient-to-br from-indigo-600 to-purple-700 text-white overflow-hidden relative">
+                <div className="absolute top-0 right-0 p-4 opacity-10">
+                   <Wallet className="h-24 w-24" />
+                </div>
+                <CardHeader className="pb-2 relative z-10">
+                   <CardTitle className="text-indigo-100 text-xs font-bold uppercase tracking-widest">PAYG Balance</CardTitle>
+                </CardHeader>
+                <CardContent className="relative z-10">
+                   <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-black">{paygBalance}</span>
+                      <span className="text-indigo-100 text-sm font-medium">credits</span>
+                   </div>
+                   <p className="text-indigo-100 text-[10px] mt-1 italic opacity-80">Universal platform credits for micro-features</p>
+                   
+                   <div className="mt-6 space-y-2">
+                     <Button className="w-full bg-white text-indigo-700 hover:bg-indigo-50 border-0 font-bold shadow-md" onClick={() => toast.info('PAYG top-up functionality is being localized for your region.')}>
+                       <ArrowUpRight className="h-4 w-4 mr-2" /> Fund Wallet
+                     </Button>
+                     <p className="text-[10px] text-center text-indigo-100 opacity-70 flex items-center justify-center gap-1">
+                       <ShieldCheck className="h-3 w-3" /> Secure Global Payment Methods
+                     </p>
+                   </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-sm bg-white">
+                <CardHeader className="pb-2">
+                   <CardTitle className="text-sm font-bold flex items-center gap-2">
+                     <Info className="h-4 w-4 text-blue-500" /> Platform Licensing
+                   </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs font-bold text-gray-700">Basic Premium</span>
+                      <span className="text-xs font-black text-indigo-600 italic">Global Pricing</span>
                     </div>
-                  ) : (
-                    <p>✗ {couponResult.message}</p>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    <p className="text-[10px] text-gray-500 leading-tight">Essential CBT portal & result management for scaling institutions.</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs font-bold text-gray-700">Advanced</span>
+                      <span className="text-xs font-black text-purple-600 italic">Enterprise Scale</span>
+                    </div>
+                    <p className="text-[10px] text-gray-500 leading-tight">Full AI automation, depth analytics and unrestricted capacity.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
 
-          {/* Plan Pricing Reference */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-purple-500" />
-                Plan Pricing
-              </CardTitle>
+        <TabsContent value="marketplace" className="mt-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {marketplace.map((item) => (
+              <Card key={item.feature_key} className="border-0 shadow-sm overflow-hidden flex flex-col hover:translate-y-[-2px] transition-all">
+                <div className={`h-1.5 ${item.item_type === 'capacity' ? 'bg-indigo-500' : 'bg-emerald-500'}`} />
+                <CardHeader className="pb-3">
+                  <div className="flex justify-between items-start">
+                    <div className={`p-2 rounded-lg ${item.item_type === 'capacity' ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                      {item.item_type === 'capacity' ? <Users className="h-5 w-5" /> : <Zap className="h-5 w-5" />}
+                    </div>
+                    <div className="text-right">
+                       <span className="text-lg font-black text-gray-900">{item.credit_cost}</span>
+                       <span className="text-[10px] text-gray-500 block uppercase font-bold tracking-tighter">Credits</span>
+                    </div>
+                  </div>
+                  <CardTitle className="text-base mt-3 leading-tight font-bold">{item.display_name}</CardTitle>
+                </CardHeader>
+                <CardContent className="flex-1">
+                  <p className="text-xs text-gray-500 leading-relaxed min-h-[40px]">
+                    {item.item_type === 'capacity' 
+                      ? `Add permanent capacity to your portal. Active with paid subscription.`
+                      : `Consumable item. Use immediately for ${item.batch_size} actions.`}
+                  </p>
+                  
+                  <div className="mt-4 pt-4 border-t flex flex-col gap-3">
+                     <div className="flex justify-between items-center text-[10px] font-bold text-indigo-500 uppercase tracking-widest">
+                        <span>Benefit:</span>
+                        <span>+{item.batch_size} Slots</span>
+                     </div>
+                     <Button 
+                       disabled={purchasing === item.feature_key}
+                       onClick={() => handlePurchase(item)}
+                       className={`w-full font-bold ${item.item_type === 'capacity' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                      >
+                       {purchasing === item.feature_key ? 'Processing...' : 'Buy Now'}
+                     </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="credits" className="mt-0">
+          <Card className="border-0 shadow-sm overflow-hidden">
+            <CardHeader className="border-b bg-gray-50/50">
+               <CardTitle className="text-base font-bold">Transaction History</CardTitle>
+               <CardDescription>Records of credit purchases and micro-transaction consumptions</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2">
-              {[
-                { name: 'Free', price: '₦0', color: 'text-gray-600', active: plan.planType === 'freemium' },
-                { name: 'Basic', price: '₦8,000/mo', color: 'text-blue-600', active: plan.planType === 'basic' },
-                { name: 'Advanced', price: '₦24,000/mo', color: 'text-purple-600', active: plan.planType === 'advanced' },
-                { name: 'Enterprise', price: 'Custom', color: 'text-amber-600', active: plan.planType === 'enterprise' },
-              ].map((p) => (
-                <div
-                  key={p.name}
-                  className={`flex justify-between items-center py-2 px-3 rounded-lg text-sm ${p.active ? 'bg-indigo-50 font-semibold' : 'hover:bg-gray-50'}`}
-                >
-                  <span className={p.active ? 'text-indigo-700' : 'text-gray-700'}>{p.name}</span>
-                  <span className={p.active ? 'text-indigo-700' : p.color}>{p.price}</span>
-                </div>
-              ))}
+            <CardContent className="p-0">
+               <div className="overflow-x-auto">
+                 <table className="w-full text-sm">
+                   <thead>
+                     <tr className="bg-gray-50/80 text-gray-500">
+                        <th className="px-6 py-3 text-left font-bold uppercase tracking-wider text-[10px]">Date</th>
+                        <th className="px-6 py-3 text-left font-bold uppercase tracking-wider text-[10px]">Type</th>
+                        <th className="px-6 py-3 text-left font-bold uppercase tracking-wider text-[10px]">Description</th>
+                        <th className="px-6 py-3 text-right font-bold uppercase tracking-wider text-[10px]">Credits</th>
+                        <th className="px-6 py-3 text-right font-bold uppercase tracking-wider text-[10px]">Balance</th>
+                     </tr>
+                   </thead>
+                   <tbody className="divide-y divide-gray-100">
+                     {history.length === 0 ? (
+                       <tr>
+                         <td colSpan={5} className="px-6 py-12 text-center text-gray-400">No transactions recorded yet.</td>
+                       </tr>
+                     ) : (
+                       history.map((tx) => (
+                         <tr key={tx.id} className="hover:bg-gray-50/50">
+                           <td className="px-6 py-4 whitespace-nowrap text-gray-500 tabular-nums">
+                              {new Date(tx.created_at).toLocaleDateString()}
+                           </td>
+                           <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                tx.type === 'topup' ? 'bg-green-100 text-green-700' : 
+                                tx.type === 'deduction' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                {tx.type}
+                              </span>
+                           </td>
+                           <td className="px-6 py-4 text-gray-700 max-w-xs truncate font-medium">
+                              {tx.description}
+                           </td>
+                           <td className={`px-6 py-4 text-right tabular-nums font-bold ${tx.type === 'deduction' ? 'text-red-500' : 'text-green-600'}`}>
+                              {tx.type === 'deduction' ? '-' : '+'}{Math.abs(tx.credits)}
+                           </td>
+                           <td className="px-6 py-4 text-right tabular-nums font-bold text-gray-900">
+                              {tx.balance_after}
+                           </td>
+                         </tr>
+                       ))
+                     )}
+                   </tbody>
+                 </table>
+               </div>
             </CardContent>
           </Card>
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
+
+function FeatureItem({ label, active }: { label: string; active: boolean }) {
+  return (
+    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-[11px] font-bold transition-all ${active ? 'bg-white border-indigo-100 text-indigo-700 shadow-sm' : 'bg-gray-50 border-gray-100 text-gray-300 pointer-events-none'}`}>
+      {active ? <CheckCircle2 className="h-3 w-3 text-indigo-500" /> : <XCircle className="h-3 w-3" />}
+      {label}
+    </div>
+  );
+}
+

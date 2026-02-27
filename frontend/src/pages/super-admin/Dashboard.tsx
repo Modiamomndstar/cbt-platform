@@ -6,7 +6,11 @@ import {
   Users,
   BookOpen,
   GraduationCap,
+  Download,
 } from 'lucide-react';
+import { superAdminAPI } from '@/services/api';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 export default function SuperAdminDashboard() {
   const [stats, setStats] = useState({
@@ -143,6 +147,53 @@ export default function SuperAdminDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Export Section */}
+      <div className="grid sm:grid-cols-2 gap-4">
+        <Card className="border-none shadow-sm overflow-hidden group">
+          <CardContent className="p-0">
+            <div className="flex items-center">
+              <div className="p-6 bg-indigo-600 text-white group-hover:bg-indigo-700 transition-colors">
+                <Download className="h-6 w-6" />
+              </div>
+              <div className="p-4 flex-1">
+                <h3 className="font-bold text-gray-900">Platform Tutors CSV</h3>
+                <p className="text-xs text-gray-500">Full directory of all registered tutors</p>
+                <Button 
+                  variant="link" 
+                  size="sm" 
+                  onClick={() => superAdminAPI.exportData('tutors')}
+                  className="p-0 h-auto text-indigo-600 font-bold mt-2 hover:no-underline"
+                >
+                  Download Report →
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-sm overflow-hidden group">
+          <CardContent className="p-0">
+            <div className="flex items-center">
+              <div className="p-6 bg-emerald-600 text-white group-hover:bg-emerald-700 transition-colors">
+                <Download className="h-6 w-6" />
+              </div>
+              <div className="p-4 flex-1">
+                <h3 className="font-bold text-gray-900">Platform Students CSV</h3>
+                <p className="text-xs text-gray-500">Complete internal student database</p>
+                <Button 
+                  variant="link" 
+                  size="sm" 
+                  onClick={() => superAdminAPI.exportData('students')}
+                  className="p-0 h-auto text-emerald-600 font-bold mt-2 hover:no-underline"
+                >
+                  Download Report →
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

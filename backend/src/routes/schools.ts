@@ -4,16 +4,14 @@ import bcrypt from 'bcryptjs';
 import { db } from '../config/database';
 import { authenticate, authorize } from '../middleware/auth';
 import { startTrial } from '../services/planService';
+import { ApiResponseHandler } from '../utils/apiResponse';
 import { sendWelcomeEmail } from '../services/email';
+import { validate } from '../middleware/validation';
+import { getPaginationOptions, formatPaginationResponse } from '../utils/pagination';
+import { logActivity, logUserActivity } from '../utils/auditLogger';
 
 const router = Router();
-const validate = (req: any, res: any, next: any) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
-  }
-  next();
-};
+
 
 // Public registration route
 router.post('/register', [
@@ -33,13 +31,13 @@ router.post('/register', [
     // Check if username exists
     const usernameCheck = await db.query('SELECT id FROM schools WHERE username = $1', [username]);
     if (usernameCheck.rows.length > 0) {
-      return res.status(409).json({ success: false, message: 'Username already taken' });
+      return ApiResponseHandler.conflict(res, 'Username already taken');
     }
 
     // Check if email exists
     const emailCheck = await db.query('SELECT id FROM schools WHERE email = $1', [email]);
     if (emailCheck.rows.length > 0) {
-      return res.status(409).json({ success: false, message: 'Email already registered' });
+      return ApiResponseHandler.conflict(res, 'Email already registered');
     }
 
     // Hash password
@@ -61,11 +59,21 @@ router.post('/register', [
     // Send welcome email (non-blocking)
     sendWelcomeEmail(email, name).catch(() => {});
 
-    res.status(201).json({
-      success: true,
-      message: 'School registered successfully. Your 14-day trial has started!',
-      data: school
+    // Log the registration
+    await logActivity({
+      schoolId: school.id,
+      userId: school.id,
+      userType: 'school',
+      actorName: name,
+      action: 'school_registration',
+      targetType: 'school',
+      targetId: school.id,
+      targetName: name,
+      request: req,
+      details: { email, plan_type: school.plan_type }
     });
+
+    ApiResponseHandler.created(res, school, 'School registered successfully. Your 14-day trial has started!');
   } catch (error) {
     next(error);
   }
@@ -85,10 +93,10 @@ router.get('/profile', authorize('school'), async (req, res, next) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'School not found' });
+      return ApiResponseHandler.notFound(res, 'School not found');
     }
 
-    res.json({ success: true, data: result.rows[0] });
+    ApiResponseHandler.success(res, result.rows[0], 'Profile retrieved');
   } catch (error) {
     next(error);
   }
@@ -114,7 +122,7 @@ router.put('/profile', authorize('school'), async (req, res, next) => {
     if (timezone) { updates.push(`timezone = $${paramIndex++}`); values.push(timezone); }
 
     if (updates.length === 0) {
-      return res.status(400).json({ success: false, message: 'No fields to update' });
+      return ApiResponseHandler.badRequest(res, 'No fields to update');
     }
 
     updates.push('updated_at = NOW()');
@@ -125,7 +133,7 @@ router.put('/profile', authorize('school'), async (req, res, next) => {
       values
     );
 
-    res.json({ success: true, message: 'Profile updated', data: result.rows[0] });
+    ApiResponseHandler.success(res, result.rows[0], 'Profile updated');
   } catch (error) {
     next(error);
   }
@@ -148,7 +156,7 @@ router.get('/dashboard', authorize('school'), async (req, res, next) => {
       [schoolId]
     );
 
-    res.json({ success: true, data: stats.rows[0] });
+    ApiResponseHandler.success(res, stats.rows[0], 'Dashboard stats retrieved');
   } catch (error) {
     next(error);
   }
@@ -157,6 +165,7 @@ router.get('/dashboard', authorize('school'), async (req, res, next) => {
 // Super admin routes
 router.get('/', authenticate, authorize('super_admin'), async (req, res, next) => {
   try {
+    const pagination = getPaginationOptions(req);
     const result = await db.query(
       `SELECT s.id, s.name, s.username, s.email, s.phone, s.logo_url, s.country, s.is_active,
               s.plan_type, s.plan_status, s.created_at,
@@ -164,10 +173,20 @@ router.get('/', authenticate, authorize('super_admin'), async (req, res, next) =
               (SELECT COUNT(*) FROM students WHERE school_id = s.id) as student_count,
               (SELECT COUNT(*) FROM exams WHERE school_id = s.id) as exam_count
        FROM schools s
-       ORDER BY s.created_at DESC`
+       ORDER BY s.created_at DESC
+       LIMIT $1 OFFSET $2`,
+      [pagination.limit, pagination.offset]
     );
 
-    res.json({ success: true, data: result.rows });
+    const countResult = await db.query("SELECT COUNT(*) FROM schools");
+    const totalCount = parseInt(countResult.rows[0].count);
+
+    ApiResponseHandler.success(
+      res,
+      result.rows,
+      'Schools retrieved',
+      formatPaginationResponse(totalCount, pagination)
+    );
   } catch (error) {
     next(error);
   }
@@ -182,9 +201,20 @@ router.patch('/:id/status', authenticate, authorize('super_admin'), [
     const { id } = req.params;
     const { isActive } = req.body;
 
+    const schoolResult = await db.query('SELECT name FROM schools WHERE id = $1', [id]);
+    const schoolName = schoolResult.rows[0]?.name;
+
     await db.query('UPDATE schools SET is_active = $1, updated_at = NOW() WHERE id = $2', [isActive, id]);
 
-    res.json({ success: true, message: `School ${isActive ? 'activated' : 'deactivated'}` });
+    // Log status change
+    await logUserActivity(req, 'school_status_change', {
+      targetType: 'school',
+      targetId: id,
+      targetName: schoolName,
+      details: { is_active: isActive }
+    });
+
+    ApiResponseHandler.success(res, null, `School ${isActive ? 'activated' : 'deactivated'}`);
   } catch (error) {
     next(error);
   }

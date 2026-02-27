@@ -141,8 +141,8 @@ async function initSchema() {
         duration INTEGER DEFAULT 60,
         duration_minutes INTEGER DEFAULT 60,
         total_questions INTEGER DEFAULT 0,
-        total_marks DECIMAL(10,2) DEFAULT 0,
-        passing_score INTEGER DEFAULT 50,
+        total_marks NUMERIC DEFAULT 0,
+        passing_score NUMERIC DEFAULT 40,
         pass_mark_percentage INTEGER DEFAULT 50,
         shuffle_questions BOOLEAN DEFAULT true,
         shuffle_options BOOLEAN DEFAULT true,
@@ -163,9 +163,9 @@ async function initSchema() {
         question_type VARCHAR(50) DEFAULT 'multiple_choice',
         options JSONB DEFAULT '[]',
         correct_answer TEXT,
-        marks INTEGER DEFAULT 5,
+        marks NUMERIC DEFAULT 5,
         difficulty VARCHAR(20) DEFAULT 'medium',
-        question_order INTEGER DEFAULT 0,
+        sort_order INTEGER DEFAULT 0,
         image_url TEXT,
         is_deleted BOOLEAN DEFAULT false,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -182,13 +182,14 @@ async function initSchema() {
         scheduled_date DATE NOT NULL,
         start_time VARCHAR(10) NOT NULL,
         end_time VARCHAR(10) NOT NULL,
-        access_code VARCHAR(20),
-        exam_username VARCHAR(50),
-        exam_password VARCHAR(50),
+        login_username VARCHAR(50),
+        login_password VARCHAR(255),
         status VARCHAR(50) DEFAULT 'scheduled',
         max_attempts INTEGER DEFAULT 1,
         attempt_count INTEGER DEFAULT 0,
         started_at TIMESTAMP,
+        completed_at TIMESTAMP,
+        auto_submitted BOOLEAN DEFAULT false,
         created_by UUID,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -199,11 +200,12 @@ async function initSchema() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS student_exams (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        student_id UUID REFERENCES students(id) ON DELETE CASCADE,
+        external_student_id UUID REFERENCES external_students(id) ON DELETE CASCADE,
         exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
-        schedule_id UUID REFERENCES exam_schedules(id) ON DELETE SET NULL,
-        start_time TIMESTAMP,
-        end_time TIMESTAMP,
+        exam_schedule_id UUID REFERENCES exam_schedules(id) ON DELETE SET NULL,
+        started_at TIMESTAMP,
+        completed_at TIMESTAMP,
         score DECIMAL(10,2) DEFAULT 0,
         total_marks DECIMAL(10,2) DEFAULT 0,
         percentage DECIMAL(5,2) DEFAULT 0,
@@ -211,10 +213,18 @@ async function initSchema() {
         status VARCHAR(50) DEFAULT 'in_progress',
         time_spent_minutes INTEGER DEFAULT 0,
         answers JSONB DEFAULT '[]',
+        assigned_questions JSONB DEFAULT '[]',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT check_student_exam_student CHECK (
+            (student_id IS NOT NULL AND external_student_id IS NULL) OR
+            (student_id IS NULL AND external_student_id IS NOT NULL)
+        )
       )
     `);
+
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_student_exams_schedule ON student_exams(exam_schedule_id)`);
+
 
     // 10. Payments table
     await client.query(`

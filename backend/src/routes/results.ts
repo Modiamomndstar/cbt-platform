@@ -1,6 +1,9 @@
 import { Router, Request, Response } from "express";
 import { pool } from "../config/database";
 import { authenticate, requireRole } from "../middleware/auth";
+import { ApiResponseHandler } from "../utils/apiResponse";
+import { validateAnswer } from "../utils/answerValidator";
+import { getPaginationOptions, formatPaginationResponse } from "../utils/pagination";
 
 const router = Router();
 
@@ -17,20 +20,23 @@ router.post(
 
       await client.query("BEGIN");
 
-      // Get exam details
+      // Get exam details and current student category (snapshot)
       const scheduleResult = await client.query(
-        `SELECT es.*, e.duration, e.total_questions as total_marks, e.passing_score
+        `SELECT es.*, e.duration, e.total_questions as exam_total_marks, e.passing_score,
+                COALESCE(s.category_id, ext.category_id) as student_category_id,
+                sc.name as student_category_name
        FROM exam_schedules es
        JOIN exams e ON es.exam_id = e.id
-       WHERE es.id = $1 AND es.student_id = $2`,
+       LEFT JOIN students s ON es.student_id = s.id
+       LEFT JOIN external_students ext ON es.external_student_id = ext.id
+       LEFT JOIN student_categories sc ON sc.id = COALESCE(s.category_id, ext.category_id)
+       WHERE es.id = $1 AND (es.student_id = $2 OR es.external_student_id = $2)`,
         [scheduleId, user.id],
       );
 
       if (scheduleResult.rows.length === 0) {
         await client.query("ROLLBACK");
-        return res
-          .status(404)
-          .json({ success: false, message: "Exam schedule not found" });
+        return ApiResponseHandler.notFound(res, "Exam schedule not found");
       }
 
       const schedule = scheduleResult.rows[0];
@@ -55,9 +61,9 @@ router.post(
          // Use assigned questions
          questions = assignedQuestions;
       } else {
-         // Fallback: Get all questions from bank (Legacy behavior, but we want to avoid this if possible)
+         // Fallback for legacy data (should be rare after my schedules.ts updates)
          const questionsResult = await client.query(
-           `SELECT id, correct_answer, marks, question_type FROM questions
+           `SELECT id, correct_answer, marks, question_type, question_text, options FROM questions
             WHERE exam_id = $1`,
            [schedule.exam_id],
          );
@@ -79,24 +85,15 @@ router.post(
 
         totalPossibleMarks += qMarks;
 
-        if (
-          question.question_type === "multiple_choice" ||
-          question.question_type === "true_false"
-        ) {
-          isCorrect =
-            studentAnswer.toLowerCase() ===
-            question.correct_answer.toLowerCase();
-          marksObtained = isCorrect ? qMarks : 0;
-        } else if (question.question_type === "theory") {
-          // Theory questions need manual grading
-          marksObtained = 0;
-          isCorrect = false;
-        } else if (question.question_type === "fill_blank") {
-             isCorrect =
-            studentAnswer.toLowerCase().trim() ===
-            question.correct_answer.toLowerCase().trim();
-          marksObtained = isCorrect ? qMarks : 0;
-        }
+        const validationResult = validateAnswer(
+          studentAnswer,
+          question.correct_answer,
+          question.question_type,
+          question.options
+        );
+
+        isCorrect = validationResult.isCorrect;
+        marksObtained = isCorrect ? qMarks : 0;
 
         if (isCorrect) correctAnswers++;
         totalScore += marksObtained;
@@ -108,8 +105,12 @@ router.post(
           isCorrect,
           marksObtained,
           maxMarks: qMarks,
+          requiresManualGrading: validationResult.requiresManualGrading,
         });
       }
+
+      // Check if any question requires manual grading
+      const needsManualGrading = answerRecords.some(a => a.requiresManualGrading);
 
       // Calculate percentage
       // Use totalPossibleMarks from the assigned questions, NOT schedule.total_marks (which might be exam-level aggregate)
@@ -121,35 +122,45 @@ router.post(
 
 
 
-      // Update student_exams record
+      // Update student_exams record with historical category snapshot
       const studentExamResult = await client.query(
         `UPDATE student_exams
-       SET end_time = NOW(),
-           score = $1,
-           total_marks = $2,
-           percentage = $3,
-           status = $4,
-           time_spent = $5,
-           answers = $6,
-           auto_submitted = $7
-       WHERE exam_schedule_id = $8
-       RETURNING *`,
+        SET completed_at = NOW(),
+            score = $1,
+            total_marks = $2,
+            percentage = $3,
+            status = $4,
+            time_spent_minutes = $5,
+            answers = $6,
+            auto_submitted = $7,
+            historical_category_id = $8,
+            historical_level_name = $9,
+            snapshot_metadata = $10
+        WHERE exam_schedule_id = $11
+        RETURNING *`,
         [
           totalScore,
           totalPossibleMarks, // Save the specific total marks for this student attempt
           percentage,
-          passed ? "completed" : "failed",
+          needsManualGrading ? "pending_grading" : (passed ? "completed" : "failed"),
           timeSpentMinutes,
           JSON.stringify(answerRecords),
           autoSubmitted || false,
+          schedule.student_category_id,
+          schedule.student_category_name,
+          JSON.stringify({
+            submitted_at: new Date().toISOString(),
+            client_ip: req.ip,
+            user_agent: req.get('user-agent')
+          }),
           scheduleId,
         ],
       );
 
-      // Update schedule status with completed_at and auto_submitted
+       // Update schedule status
       await client.query(
-        `UPDATE exam_schedules SET status = 'completed', completed_at = NOW(), auto_submitted = $2, updated_at = NOW() WHERE id = $1`,
-        [scheduleId, autoSubmitted || false],
+        `UPDATE exam_schedules SET status = $3, completed_at = NOW(), auto_submitted = $2, updated_at = NOW() WHERE id = $1`,
+        [scheduleId, autoSubmitted || false, needsManualGrading ? "pending_grading" : "completed"],
       );
 
       await client.query("COMMIT");
@@ -158,26 +169,23 @@ router.post(
       const showResult = await client.query(`SELECT show_result_immediately FROM exams WHERE id = $1`, [schedule.exam_id]);
       const shouldShow = showResult.rows[0]?.show_result_immediately;
 
-      res.json({
-        success: true,
-        message: "Exam submitted successfully",
-        data: shouldShow ? {
-          score: totalScore,
-          totalMarks: totalPossibleMarks,
-          percentage: percentage.toFixed(2),
-          passed,
-          correctAnswers,
-          totalQuestions,
-          timeSpentMinutes,
-          answers: answerRecords,
-        } : {}, // Empty data if not showing result
-      });
+      ApiResponseHandler.success(res, shouldShow ? {
+        score: totalScore,
+        totalMarks: totalPossibleMarks,
+        percentage: percentage.toFixed(2),
+        passed,
+        correctAnswers,
+        totalQuestions,
+        timeSpentMinutes,
+        answers: answerRecords,
+        status: needsManualGrading ? "pending_grading" : (passed ? "completed" : "failed"),
+      } : {
+        status: needsManualGrading ? "pending_grading" : (passed ? "completed" : "failed"),
+      }, needsManualGrading ? "Exam submitted. Some questions require manual grading." : "Exam submitted successfully");
     } catch (error) {
       await client.query("ROLLBACK");
       console.error("Submit exam error:", error);
-      res
-        .status(500)
-        .json({ success: false, message: "Failed to submit exam" });
+      ApiResponseHandler.serverError(res, "Failed to submit exam");
     } finally {
       client.release();
     }
@@ -197,46 +205,39 @@ router.get(
 
       const result = await client.query(
         `SELECT se.*,
-              e.title as exam_title, e.description, e.duration, e.total_questions as exam_total_marks, e.passing_score,
-              es.scheduled_date, es.start_time, es.end_time as schedule_end_time
-       FROM student_exams se
-       JOIN exams e ON se.exam_id = e.id
-       JOIN exam_schedules es ON se.exam_schedule_id = es.id
-       WHERE se.exam_schedule_id = $1 AND se.student_id = $2`,
+               e.title as exam_title, e.description, e.duration, e.total_questions as exam_total_marks, e.passing_score,
+               es.scheduled_date, es.start_time, es.end_time as schedule_end_time
+        FROM student_exams se
+        JOIN exams e ON se.exam_id = e.id
+        JOIN exam_schedules es ON se.exam_schedule_id = es.id
+        WHERE se.exam_schedule_id = $1 AND (se.student_id = $2 OR se.external_student_id = $2)`,
         [scheduleId, user.id],
       );
 
       if (result.rows.length === 0) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Result not found" });
+        return ApiResponseHandler.notFound(res, "Result not found");
       }
 
       const row = result.rows[0];
 
-      res.json({
-        success: true,
-        data: {
-          id: row.id,
-          examTitle: row.exam_title,
-          description: row.description,
-          score: row.score,
-          totalMarks: row.total_marks,
-          percentage: row.percentage,
-          status: row.status,
-          timeSpentMinutes: row.time_spent,
-          startTime: row.start_time,
-          endTime: row.end_time,
-          scheduledDate: row.scheduled_date,
-          answers: row.answers,
-          passed: row.percentage >= row.passing_score,
-        },
-      });
+      ApiResponseHandler.success(res, {
+        id: row.id,
+        examTitle: row.exam_title,
+        description: row.description,
+        score: row.score,
+        totalMarks: row.total_marks,
+        percentage: row.percentage,
+        status: row.status,
+        timeSpentMinutes: row.time_spent,
+        startTime: row.start_time,
+        endTime: row.end_time,
+        scheduledDate: row.scheduled_date,
+        answers: row.answers,
+        passed: row.percentage >= row.passing_score,
+      }, "Result retrieved");
     } catch (error) {
       console.error("Get result error:", error);
-      res
-        .status(500)
-        .json({ success: false, message: "Failed to fetch result" });
+      ApiResponseHandler.serverError(res, "Failed to fetch result");
     } finally {
       client.release();
     }
@@ -258,19 +259,20 @@ router.get(
       const result = await client.query(
         `SELECT se.*,
               e.title as exam_title, e.duration, e.total_questions as exam_total_marks, e.passing_score,
-              s.full_name, s.first_name, s.last_name, s.student_id, s.email
+              COALESCE(s.full_name, ext_s.full_name, (s.first_name || ' ' || s.last_name)) as student_full_name,
+              COALESCE(s.student_id, ext_s.username) as reg_number,
+              COALESCE(s.email, ext_s.email) as student_email
          FROM student_exams se
          JOIN exams e ON se.exam_id = e.id
-         JOIN students s ON se.student_id = s.id
+         LEFT JOIN students s ON se.student_id = s.id
+         LEFT JOIN external_students ext_s ON se.external_student_id = ext_s.id
          JOIN tutors t ON e.tutor_id = t.id
          WHERE se.id = $1 AND t.school_id = $2`,
         [id, user.schoolId],
       );
 
       if (result.rows.length === 0) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Result not found" });
+        return ApiResponseHandler.notFound(res, "Result not found");
       }
 
       const row = result.rows[0];
@@ -298,28 +300,24 @@ router.get(
         };
       });
 
-      res.json({
-        success: true,
-        data: {
-          id: row.id,
-          studentName: row.full_name || `${row.first_name || ''} ${row.last_name || ''}`.trim(),
-          registrationNumber: row.student_id,
-          examTitle: row.exam_title,
-          score: parseFloat(row.score),
-          totalMarks: parseFloat(row.total_marks),
-          percentage: parseFloat(row.percentage),
-          passed: parseFloat(row.percentage) >= row.passing_score,
-          status: row.status,
-          timeSpentMinutes: row.time_spent,
-          submittedAt: row.end_time || row.completed_at,
-          questions: detailedQuestions
-        },
-      });
+      ApiResponseHandler.success(res, {
+        id: row.id,
+        studentName: row.student_full_name || 'Unknown',
+        registrationNumber: row.reg_number,
+        examTitle: row.exam_title,
+        score: parseFloat(row.score),
+        totalMarks: parseFloat(row.total_marks),
+        percentage: parseFloat(row.percentage),
+        passed: parseFloat(row.percentage) >= row.passing_score,
+        status: row.status,
+        timeSpentMinutes: row.time_spent_minutes,
+        submittedAt: row.completed_at,
+        startedAt: row.started_at,
+        questions: detailedQuestions
+      }, "Detailed result retrieved");
     } catch (error) {
       console.error("Get detailed result error:", error);
-      res
-        .status(500)
-        .json({ success: false, message: "Failed to fetch detailed result" });
+      ApiResponseHandler.serverError(res, "Failed to fetch detailed result");
     } finally {
       client.release();
     }
@@ -347,9 +345,7 @@ router.get(
       );
 
       if (examCheck.rows.length === 0) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Exam not found" });
+        return ApiResponseHandler.notFound(res, "Exam not found");
       }
 
       let query = `
@@ -391,38 +387,33 @@ router.get(
 
       const result = await client.query(query, params);
 
-      res.json({
-        success: true,
-        data: result.rows.map((row) => {
-          const passed = row.percentage !== null ? parseFloat(row.percentage) >= (row.passing_score || 50) : null;
-          return {
-            id: row.id,
-            studentId: row.student_id,
-            studentName: row.full_name || `${row.first_name || ''} ${row.last_name || ''}`.trim() || 'Unknown',
-            firstName: row.first_name,
-            lastName: row.last_name,
-            email: row.email,
-            registrationNumber: row.student_id,
-            categoryName: row.category_name,
-            score: row.score !== null ? parseFloat(row.score) : null,
-            totalMarks: row.total_marks !== null ? parseFloat(row.total_marks) : null,
-            percentage: row.percentage !== null ? parseFloat(row.percentage) : null,
-            passed,
-            status: row.status,
-            timeSpentMinutes: row.time_spent,
-            startedAt: row.schedule_started_at || row.start_time,
-            completedAt: row.completed_at || row.end_time,
-            autoSubmitted: row.schedule_auto_submitted || row.auto_submitted || false,
-            scheduledDate: row.scheduled_date,
-            submittedAt: row.end_time,
-          };
-        }),
-      });
+      ApiResponseHandler.success(res, result.rows.map((row) => {
+        const passed = row.percentage !== null ? parseFloat(row.percentage) >= (row.passing_score || 50) : null;
+        return {
+          id: row.id,
+          studentId: row.student_id,
+          studentName: row.full_name || `${row.first_name || ''} ${row.last_name || ''}`.trim() || 'Unknown',
+          firstName: row.first_name,
+          lastName: row.last_name,
+          email: row.email,
+          registrationNumber: row.student_id,
+          categoryName: row.category_name,
+          score: row.score !== null ? parseFloat(row.score) : null,
+          totalMarks: row.total_marks !== null ? parseFloat(row.total_marks) : null,
+          percentage: row.percentage !== null ? parseFloat(row.percentage) : null,
+          passed,
+          status: row.status,
+          timeSpentMinutes: row.time_spent,
+          startedAt: row.schedule_started_at || row.start_time,
+          completedAt: row.completed_at || row.end_time,
+          autoSubmitted: row.schedule_auto_submitted || row.auto_submitted || false,
+          scheduledDate: row.scheduled_date,
+          submittedAt: row.end_time,
+        };
+      }), "Exam results retrieved");
     } catch (error) {
       console.error("Get exam results error:", error);
-      res
-        .status(500)
-        .json({ success: false, message: "Failed to fetch results" });
+      ApiResponseHandler.serverError(res, "Failed to fetch results");
     } finally {
       client.release();
     }
@@ -438,23 +429,21 @@ router.get(
     const client = await pool.connect();
     try {
       const user = req.user!;
-      const { page = 1, limit = 10 } = req.query;
-
-      const offset = (Number(page) - 1) * Number(limit);
+      const pagination = getPaginationOptions(req, 10);
 
       const result = await client.query(
         `SELECT se.*,
               e.title as exam_title, e.description, e.duration, e.passing_score,
-              es.scheduled_date,
-              t.full_name as tutor_full_name, t.first_name as tutor_first_name, t.last_name as tutor_last_name
-       FROM student_exams se
+              es.scheduled_date, se.started_at, se.completed_at,
+             t.full_name as tutor_full_name, t.first_name as tutor_first_name, t.last_name as tutor_last_name
+      FROM student_exams se
        JOIN exams e ON se.exam_id = e.id
        JOIN exam_schedules es ON se.exam_schedule_id = es.id
        JOIN tutors t ON e.tutor_id = t.id
        WHERE se.student_id = $1
-       ORDER BY se.end_time DESC
+       ORDER BY se.completed_at DESC
        LIMIT $2 OFFSET $3`,
-        [user.id, limit, offset],
+        [user.id, pagination.limit, pagination.offset],
       );
 
       const countResult = await client.query(
@@ -464,9 +453,9 @@ router.get(
 
       const totalCount = parseInt(countResult.rows[0].count);
 
-      res.json({
-        success: true,
-        data: result.rows.map((row) => ({
+      ApiResponseHandler.success(
+        res,
+        result.rows.map((row) => ({
           id: row.id,
           examTitle: row.exam_title,
           description: row.description,
@@ -476,22 +465,17 @@ router.get(
           percentage: row.percentage,
           status: row.status,
           passed: row.percentage >= row.passing_score,
-          timeSpentMinutes: row.time_spent,
+          timeSpentMinutes: row.time_spent_minutes,
           scheduledDate: row.scheduled_date,
-          submittedAt: row.end_time,
+          submittedAt: row.completed_at,
+          startedAt: row.started_at,
         })),
-        pagination: {
-          page: Number(page),
-          limit: Number(limit),
-          totalCount,
-          totalPages: Math.ceil(totalCount / Number(limit)),
-        },
-      });
+        "Student exam history retrieved",
+        formatPaginationResponse(totalCount, pagination)
+      );
     } catch (error) {
       console.error("Get exam history error:", error);
-      res
-        .status(500)
-        .json({ success: false, message: "Failed to fetch exam history" });
+      ApiResponseHandler.serverError(res, "Failed to fetch exam history");
     } finally {
       client.release();
     }
@@ -519,9 +503,7 @@ router.post(
       );
 
       if (examCheck.rows.length === 0) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Student exam not found" });
+        return ApiResponseHandler.notFound(res, "Student exam not found");
       }
 
       const studentExam = examCheck.rows[0];
@@ -567,20 +549,14 @@ router.post(
         ],
       );
 
-      res.json({
-        success: true,
-        message: "Theory questions graded successfully",
-        data: {
-          score: totalScore,
-          totalMarks: studentExam.total_marks,
-          percentage: percentage.toFixed(2),
-        },
-      });
+      ApiResponseHandler.success(res, {
+        score: totalScore,
+        totalMarks: studentExam.total_marks,
+        percentage: percentage.toFixed(2),
+      }, "Theory questions graded successfully");
     } catch (error) {
       console.error("Grade theory error:", error);
-      res
-        .status(500)
-        .json({ success: false, message: "Failed to grade theory questions" });
+      ApiResponseHandler.serverError(res, "Failed to grade theory questions");
     } finally {
       client.release();
     }
@@ -607,9 +583,7 @@ router.get(
       );
 
       if (examCheck.rows.length === 0) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Exam not found" });
+        return ApiResponseHandler.notFound(res, "Exam not found");
       }
 
       // Get statistics
@@ -655,27 +629,20 @@ router.get(
         [examId],
       );
 
-      res.json({
-        success: true,
-        data: {
-          totalStudents: parseInt(stats.total_students),
-          completedCount: parseInt(stats.completed_count),
-          failedCount: parseInt(stats.failed_count),
-          inProgressCount: parseInt(stats.in_progress_count),
-          averageScore: parseFloat(stats.average_score || 0).toFixed(2),
-          highestScore: parseFloat(stats.highest_score || 0).toFixed(2),
-          lowestScore: parseFloat(stats.lowest_score || 0).toFixed(2),
-          averagePercentage: parseFloat(stats.average_percentage || 0).toFixed(
-            2,
-          ),
-          gradeDistribution: gradeDistribution.rows,
-        },
-      });
+      ApiResponseHandler.success(res, {
+        totalStudents: parseInt(stats.total_students),
+        completedCount: parseInt(stats.completed_count),
+        failedCount: parseInt(stats.failed_count),
+        inProgressCount: parseInt(stats.in_progress_count),
+        averageScore: parseFloat(stats.average_score || 0).toFixed(2),
+        highestScore: parseFloat(stats.highest_score || 0).toFixed(2),
+        lowestScore: parseFloat(stats.lowest_score || 0).toFixed(2),
+        averagePercentage: parseFloat(stats.average_percentage || 0).toFixed(2),
+        gradeDistribution: gradeDistribution.rows,
+      }, "Exam statistics retrieved");
     } catch (error) {
       console.error("Get exam statistics error:", error);
-      res
-        .status(500)
-        .json({ success: false, message: "Failed to fetch statistics" });
+      ApiResponseHandler.serverError(res, "Failed to fetch statistics");
     } finally {
       client.release();
     }
@@ -690,9 +657,8 @@ router.get(
     const client = await pool.connect();
     try {
       const user = req.user!;
-      const { search, status, categoryId, examId, startDate, endDate, page = 1, limit = 20 } = req.query;
-
-      const offset = (Number(page) - 1) * Number(limit);
+      const { search, status, categoryId, examId, startDate, endDate } = req.query;
+      const pagination = getPaginationOptions(req, 20);
 
       let query = `
       SELECT se.*,
@@ -770,43 +736,34 @@ router.get(
 
       // Add ordering and pagination
       query += ` ORDER BY es.scheduled_date DESC, se.score DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-      params.push(limit, offset);
+      params.push(pagination.limit, pagination.offset);
 
       const result = await client.query(query, params);
 
-      res.json({
-        success: true,
-        data: result.rows.map((row) => {
-          const passed = row.percentage !== null ? parseFloat(row.percentage) >= (row.passing_score || 50) : null;
-          return {
-            id: row.id,
-            studentId: row.student_id,
-            studentName: row.student_name,
-            email: row.email,
-            registrationNumber: row.student_id,
-            categoryName: row.category_name,
-            examTitle: row.exam_title,
-            examCategory: row.exam_category,
-            score: row.score !== null ? parseFloat(row.score) : null,
-            totalMarks: row.total_marks !== null ? parseFloat(row.total_marks) : null,
-            percentage: row.percentage !== null ? parseFloat(row.percentage) : null,
-            passed,
-            status: row.status,
-            timeSpentMinutes: row.time_spent,
-            scheduledDate: row.scheduled_date,
-            submittedAt: row.end_time || row.completed_at,
-          };
-        }),
-        pagination: {
-          page: Number(page),
-          limit: Number(limit),
-          totalCount,
-          totalPages: Math.ceil(totalCount / Number(limit)),
-        },
-      });
+      ApiResponseHandler.success(res, result.rows.map((row) => {
+        const passed = row.percentage !== null ? parseFloat(row.percentage) >= (row.passing_score || 50) : null;
+        return {
+          id: row.id,
+          studentId: row.student_id,
+          studentName: row.student_name,
+          email: row.email,
+          registrationNumber: row.student_id,
+          categoryName: row.category_name,
+          examTitle: row.exam_title,
+          examCategory: row.exam_category,
+          score: row.score !== null ? parseFloat(row.score) : null,
+          totalMarks: row.total_marks !== null ? parseFloat(row.total_marks) : null,
+          percentage: row.percentage !== null ? parseFloat(row.percentage) : null,
+          passed,
+          status: row.status,
+          timeSpentMinutes: row.time_spent_minutes,
+          scheduledDate: row.scheduled_date,
+          submittedAt: row.end_time || row.completed_at,
+        };
+      }), "School results retrieved", formatPaginationResponse(totalCount, pagination));
     } catch (error) {
       console.error("Get school results error:", error);
-      res.status(500).json({ success: false, message: "Failed to fetch school results", dbError: (error as any).message });
+      ApiResponseHandler.serverError(res, "Failed to fetch school results");
     } finally {
       client.release();
     }
@@ -831,8 +788,8 @@ router.get(
              s.email, s.student_id,
              sc.name as category_name,
              e.title as exam_title, ec.name as exam_category,
-             es.scheduled_date, se.started_at, se.submitted_at,
-             se.score, se.total_marks, se.percentage, se.status, se.time_spent
+             es.scheduled_date, se.started_at, se.completed_at,
+             se.score, se.total_marks, se.percentage, se.status, se.time_spent_minutes
       FROM student_exams se
       -- ts-node-dev cache bust
       JOIN students s ON se.student_id = s.id
@@ -896,8 +853,8 @@ router.get(
         row.score,
         row.total_marks,
         `${Number(row.percentage).toFixed(2)}%`,
-        row.time_spent,
-        row.submitted_at ? new Date(row.submitted_at).toLocaleString() : '-'
+        row.time_spent_minutes,
+        row.completed_at ? new Date(row.completed_at).toLocaleString() : '-'
       ]);
 
       const csvContent = [
@@ -911,11 +868,109 @@ router.get(
 
     } catch (error) {
       console.error("Export results error:", error);
-      res.status(500).json({ success: false, message: "Failed to export results", dbError: (error as any).message });
+      ApiResponseHandler.serverError(res, "Failed to export results");
     } finally {
       client.release();
     }
   },
+);
+
+// Grade a student exam (Manual Grading for Theory/Unsupported)
+router.post(
+  "/:id/grade",
+  authenticate,
+  requireRole(["school", "tutor"]),
+  async (req: Request, res: Response) => {
+    const client = await pool.connect();
+    try {
+      const { id } = req.params; // student_exams.id
+      const { grades, tutorFeedback } = req.body; // Map: { questionId: marks }
+      const user = req.user!;
+
+      await client.query("BEGIN");
+
+      // Fetch the exam record
+      const examResult = await client.query(
+        `SELECT se.*, e.passing_score
+         FROM student_exams se
+         JOIN exams e ON se.exam_id = e.id
+         JOIN tutors t ON e.tutor_id = t.id
+         WHERE se.id = $1 AND t.school_id = $2`,
+        [id, user.schoolId]
+      );
+
+      if (examResult.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return ApiResponseHandler.notFound(res, "Exam record not found");
+      }
+
+      const examRecord = examResult.rows[0];
+      let answerRecords = examRecord.answers || [];
+
+      // Update marks in answerRecords
+      let totalScore = 0;
+      let updatedAnswerRecords = answerRecords.map((record: any) => {
+        if (grades[record.questionId] !== undefined) {
+          const awardedMarks = parseFloat(grades[record.questionId]);
+          const maxMarks = parseFloat(record.maxMarks) || 0;
+
+          record.marksObtained = awardedMarks;
+          record.isCorrect = awardedMarks >= (maxMarks / 2); // Simple heuristic
+          record.gradedBy = user.id;
+          record.gradedAt = new Date().toISOString();
+        }
+        totalScore += parseFloat(record.marksObtained) || 0;
+        return record;
+      });
+
+      const totalPossibleMarks = parseFloat(examRecord.total_marks) || 1;
+      const percentage = (totalScore / totalPossibleMarks) * 100;
+      const passingScore = examRecord.passing_score || 50;
+      const passed = percentage >= passingScore;
+
+      // Update student_exams
+      await client.query(
+        `UPDATE student_exams
+         SET score = $1,
+             percentage = $2,
+             status = $3,
+             answers = $4,
+             tutor_feedback = $5,
+             updated_at = NOW()
+         WHERE id = $6`,
+        [
+          totalScore,
+          percentage,
+          passed ? "completed" : "failed",
+          JSON.stringify(updatedAnswerRecords),
+          tutorFeedback || null,
+          id
+        ]
+      );
+
+      // Update schedule status if it was pending_grading
+      await client.query(
+        `UPDATE exam_schedules
+         SET status = 'completed', updated_at = NOW()
+         WHERE id = $1 AND status = 'pending_grading'`,
+        [examRecord.exam_schedule_id]
+      );
+
+      await client.query("COMMIT");
+      ApiResponseHandler.success(res, {
+        score: totalScore,
+        percentage: percentage.toFixed(2),
+        status: passed ? "completed" : "failed"
+      }, "Exam graded successfully");
+
+    } catch (error) {
+      await client.query("ROLLBACK");
+      console.error("Manual grading error:", error);
+      ApiResponseHandler.serverError(res, "Failed to grade exam");
+    } finally {
+      client.release();
+    }
+  }
 );
 
 export default router;

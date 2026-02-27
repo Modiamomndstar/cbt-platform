@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { UserPlus, Pencil, Trash2, Eye, EyeOff, Upload, FolderOpen, Download } from 'lucide-react';
+import { UserPlus, Pencil, Trash2, Upload, FolderOpen, Download } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import api, { uploadAPI } from '@/services/api';
+import api, { externalStudentAPI, API_BASE_URL } from '@/services/api';
 
 interface ExternalStudent {
   id: string;
@@ -21,6 +21,7 @@ interface ExternalStudent {
   category_id?: string;
   category_name?: string;
   category_color?: string;
+  level_class?: string;
 }
 
 interface Category {
@@ -35,7 +36,6 @@ export default function ExternalStudents() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -44,16 +44,20 @@ export default function ExternalStudents() {
   const [categoryDesc, setCategoryDesc] = useState('');
 
   const [isBulkOpen, setIsBulkOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [bulkFile, setBulkFile] = useState<File | null>(null);
   const [bulkCategoryId, setBulkCategoryId] = useState('');
+  const [sendBulkEmail, setSendBulkEmail] = useState(true);
 
   // Form State
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
     phone: '',
+    levelClass: '',
     categoryId: 'none',
-    isActive: true
+    isActive: true,
+    sendEmail: true
   });
 
   useEffect(() => {
@@ -85,24 +89,29 @@ export default function ExternalStudents() {
   };
 
   const handleCreateNew = () => {
+    setIsFormOpen(true);
     setIsCreating(true);
     setEditingId(null);
-    setFormData({ fullName: '', email: '', phone: '', categoryId: 'none', isActive: true });
+    setFormData({ fullName: '', email: '', phone: '', levelClass: '', categoryId: 'none', isActive: true, sendEmail: true });
   };
 
   const handleEdit = (student: ExternalStudent) => {
+    setIsFormOpen(true);
     setIsCreating(false);
     setEditingId(student.id);
     setFormData({
       fullName: student.full_name,
       email: student.email || '',
       phone: student.phone || '',
+      levelClass: student.level_class || '',
       categoryId: student.category_id || 'none',
-      isActive: student.is_active
+      isActive: student.is_active,
+      sendEmail: false
     });
   };
 
   const handleCancel = () => {
+    setIsFormOpen(false);
     setIsCreating(false);
     setEditingId(null);
   };
@@ -116,23 +125,27 @@ export default function ExternalStudents() {
          payload.categoryId = null; // explicit null updates db to null
       }
 
-      if (isCreating) {
+       if (isCreating) {
         const res = await api.post('/tutor/external-students', payload);
         setStudents([res.data.data, ...students]);
         toast.success("External student added successfully.");
+        setIsFormOpen(false);
         setIsCreating(false);
       } else if (editingId) {
         const updatePayload: any = {
           fullName: formData.fullName,
           email: formData.email,
           phone: formData.phone,
+          levelClass: formData.levelClass,
           isActive: formData.isActive,
-          categoryId: payload.categoryId
+          categoryId: payload.categoryId,
+          sendEmail: formData.sendEmail
         };
 
         const res = await api.patch(`/tutor/external-students/${editingId}`, updatePayload);
         setStudents(students.map(s => s.id === editingId ? res.data.data : s));
         toast.success("Student updated successfully.");
+        setIsFormOpen(false);
         setEditingId(null);
       }
     } catch (error: any) {
@@ -183,7 +196,14 @@ export default function ExternalStudents() {
     }
     try {
       toast.loading('Uploading students...');
-      await externalStudentAPI.upload(bulkFile, bulkCategoryId === 'none' ? undefined : bulkCategoryId);
+      const formDataUpload = new FormData();
+      formDataUpload.append('file', bulkFile);
+      if (bulkCategoryId && bulkCategoryId !== 'none') formDataUpload.append('categoryId', bulkCategoryId);
+      formDataUpload.append('sendEmail', String(sendBulkEmail));
+
+      await api.post('/uploads/external-students', formDataUpload, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       // Wait a sec for triggers/data then reload
       setTimeout(fetchStudents, 500);
       toast.dismiss();
@@ -212,7 +232,7 @@ export default function ExternalStudents() {
           <Button variant="outline" onClick={() => setIsBulkOpen(true)}>
             <Upload className="w-4 h-4 mr-2" /> Bulk Add
           </Button>
-          <Button onClick={handleCreateNew} disabled={isCreating || !!editingId} className="bg-indigo-600 hover:bg-indigo-700">
+           <Button onClick={handleCreateNew} className="bg-indigo-600 hover:bg-indigo-700">
             <UserPlus className="w-4 h-4 mr-2" /> Add Student
           </Button>
         </div>
@@ -256,28 +276,21 @@ export default function ExternalStudents() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Bulk Upload External Students</DialogTitle>
-            <DialogDescription>Upload a CSV file containing columns: Registration Number, Full Name, Category ID, Email.</DialogDescription>
+            <DialogDescription>Upload a CSV file containing columns: full_name, email, phone, level_class.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="flex items-center gap-2 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
               <Download className="w-4 h-4 text-indigo-600 flex-shrink-0" />
               <span className="text-sm text-gray-600">Need the correct format?</span>
-              <button
-                type="button"
-                onClick={() => {
-                  const csv = 'Registration Number,Full Name,Email\nSTU001,John Doe,john@example.com\nSTU002,Jane Smith,jane@example.com';
-                  const blob = new Blob([csv], { type: 'text/csv' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = 'external_students_template.csv';
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
+              <a
+                href={`${API_BASE_URL}/uploads/template/external-students`}
+                download="external_students_template.csv"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 underline"
               >
                 Download CSV Template
-              </button>
+              </a>
             </div>
             <div className="space-y-2">
               <Label>Assign Category (Optional)</Label>
@@ -293,6 +306,18 @@ export default function ExternalStudents() {
               <Label>CSV File *</Label>
               <Input type="file" accept=".csv" onChange={(e) => setBulkFile(e.target.files?.[0] || null)} />
             </div>
+            <div className="flex items-center space-x-2 p-3 bg-indigo-50 rounded-lg">
+              <input 
+                type="checkbox" 
+                id="sendBulkEmail"
+                checked={sendBulkEmail} 
+                onChange={e => setSendBulkEmail(e.target.checked)} 
+                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" 
+              />
+              <Label htmlFor="sendBulkEmail" className="text-sm font-medium text-indigo-700 cursor-pointer">
+                Send Welcome Email with Portal Credentials (PAYG Credits)
+              </Label>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsBulkOpen(false)}>Cancel</Button>
@@ -301,23 +326,40 @@ export default function ExternalStudents() {
         </DialogContent>
       </Dialog>
 
-      {(isCreating || editingId) && (
-        <Card className="border-indigo-100 shadow-md">
-          <CardHeader className="bg-indigo-50/50">
-            <CardTitle>{isCreating ? 'Add New External Student' : 'Edit Student Details'}</CardTitle>
-            <CardDescription>
-              These students will be assigned to your account directly.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>{isCreating ? 'Add New External Student' : 'Edit Student Details'}</DialogTitle>
+            <DialogDescription>
+              {isCreating ? 'Provide details for the new independent student.' : 'Update information for this independent student.'}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Full Name <span className="text-red-500">*</span></Label>
-                <Input required value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} />
+                <Input required value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} placeholder="e.g. John Doe" />
               </div>
-
               <div className="space-y-2">
-                <Label>Category</Label>
+                <Label>Level / Class <span className="text-gray-400 text-xs">(Optional)</span></Label>
+                <Input value={formData.levelClass} onChange={e => setFormData({...formData, levelClass: e.target.value})} placeholder="e.g. Grade 10" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Email <span className="text-gray-400 text-xs">(Optional)</span></Label>
+                <Input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="john@example.com" />
+              </div>
+              <div className="space-y-2">
+                <Label>Phone <span className="text-gray-400 text-xs">(Optional)</span></Label>
+                <Input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="+234..." />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Category / Cohort</Label>
                 <Select value={formData.categoryId} onValueChange={(val) => setFormData({...formData, categoryId: val})}>
                   <SelectTrigger><SelectValue placeholder="No Category" /></SelectTrigger>
                   <SelectContent>
@@ -326,36 +368,50 @@ export default function ExternalStudents() {
                   </SelectContent>
                 </Select>
               </div>
-
               <div className="space-y-2">
-                <Label>Email <span className="text-gray-400">(Optional)</span></Label>
-                <Input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-              </div>
-              <div className="space-y-2">
-                <Label>Phone <span className="text-gray-400">(Optional)</span></Label>
-                <Input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-              </div>
-
-              {editingId && (
-                <div className="space-y-2 flex flex-col justify-center">
-                  <Label>Account Status</Label>
-                  <div className="flex items-center space-x-2 mt-2">
-                    <input type="checkbox" checked={formData.isActive} onChange={e => setFormData({...formData, isActive: e.target.checked})} className="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" />
-                    <span className="text-sm font-medium text-gray-700">Account is Active</span>
-                  </div>
+                <Label>Options</Label>
+                <div className="flex flex-col space-y-2 justify-center h-10">
+                  {isCreating && (
+                    <div className="flex items-center space-x-2 text-indigo-700">
+                      <input 
+                        type="checkbox" 
+                        id="sendEmail"
+                        checked={formData.sendEmail} 
+                        onChange={e => setFormData({...formData, sendEmail: e.target.checked})} 
+                        className="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" 
+                      />
+                      <Label htmlFor="sendEmail" className="text-sm font-medium cursor-pointer">
+                        Send Welcome Email (PAYG)
+                      </Label>
+                    </div>
+                  )}
+                  {editingId && (
+                    <div className="flex items-center space-x-2">
+                      <input 
+                        type="checkbox" 
+                        id="isActive"
+                        checked={formData.isActive} 
+                        onChange={e => setFormData({...formData, isActive: e.target.checked})} 
+                        className="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" 
+                      />
+                      <Label htmlFor="isActive" className="text-sm font-medium text-gray-700 cursor-pointer">
+                        Account Active
+                      </Label>
+                    </div>
+                  )}
                 </div>
-              )}
-
-              <div className="md:col-span-2 flex justify-end space-x-4 pt-4 border-t">
-                <Button type="button" variant="outline" onClick={handleCancel}>Cancel</Button>
-                <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700">
-                  {isCreating ? 'Create Student' : 'Save Changes'}
-                </Button>
               </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+            </div>
+
+            <DialogFooter className="pt-4">
+              <Button type="button" variant="outline" onClick={handleCancel}>Cancel</Button>
+              <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700">
+                {isCreating ? 'Create Student' : 'Update Student'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <div className="overflow-x-auto">
@@ -363,6 +419,7 @@ export default function ExternalStudents() {
             <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b">
               <tr>
                 <th className="px-6 py-4">Student Details</th>
+                <th className="px-6 py-4">Level / Class</th>
                 <th className="px-6 py-4">Contact</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Joined</th>
@@ -372,13 +429,18 @@ export default function ExternalStudents() {
             <tbody>
               {students.map((student) => (
                 <tr key={student.id} className="border-b bg-white hover:bg-gray-50">
-                  <td className="px-6 py-4">
+                   <td className="px-6 py-4">
                     <div className="font-medium text-gray-900">{student.full_name}</div>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs text-indigo-600 font-medium">@{student.username}</span>
                       {student.category_name && (
                          <Badge style={{ backgroundColor: student.category_color || '#4F46E5', color: 'white' }} className="text-[10px] h-4 px-1 pb-0 shadow-sm border-none leading-none items-center">{student.category_name}</Badge>
                       )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      {student.level_class || 'General'}
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -408,7 +470,7 @@ export default function ExternalStudents() {
               ))}
               {students.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                     <div className="flex flex-col items-center">
                       <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                         <UserPlus className="w-8 h-8 text-gray-400" />

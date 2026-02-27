@@ -142,6 +142,23 @@ async function migrate() {
       }
     ];
 
+    // Read remaining from migrations directory
+    const fs = require('fs');
+    const path = require('path');
+    const migrationsDir = path.join(__dirname, '../migrations');
+    if (fs.existsSync(migrationsDir)) {
+      const files = fs.readdirSync(migrationsDir).filter((f: string) => f.endsWith('.sql')).sort();
+      for (const file of files) {
+        const name = file.replace('.sql', '');
+        if (!migrations.find(m => m.name === name)) {
+          migrations.push({
+            name,
+            sql: fs.readFileSync(path.join(migrationsDir, file), 'utf-8')
+          });
+        }
+      }
+    }
+
     // Execute pending migrations
     for (const migration of migrations) {
       if (!executedMigrations.includes(migration.name)) {

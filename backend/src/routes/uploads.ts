@@ -8,6 +8,9 @@ import path from 'path';
 import fs from 'fs';
 import type { UploadedFile } from 'express-fileupload';
 import { sendStudentPortalCredentialsEmail } from '../services/email';
+import { ApiResponseHandler } from '../utils/apiResponse';
+import { canAddExternalStudent } from '../services/planService';
+import { paygService } from '../services/paygService';
 
 const router = Router();
 
@@ -30,24 +33,18 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       if (!req.files || Object.keys(req.files).length === 0) {
-        return res.status(400).json({ success: false, message: 'No file uploaded' });
+        return ApiResponseHandler.badRequest(res, 'No file uploaded');
       }
 
       const file = req.files.image as UploadedFile;
 
       // Server-side MIME type validation
       if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid file type. Only JPEG, PNG, WebP, and GIF are allowed.',
-        });
+        return ApiResponseHandler.badRequest(res, 'Invalid file type. Only JPEG, PNG, WebP, and GIF are allowed.');
       }
 
       if (file.size > MAX_IMAGE_SIZE) {
-        return res.status(400).json({
-          success: false,
-          message: 'File too large. Maximum size is 5MB.',
-        });
+        return ApiResponseHandler.badRequest(res, 'File too large. Maximum size is 5MB.');
       }
 
       // Generate unique filename to prevent collisions/overwrites
@@ -59,14 +56,10 @@ router.post(
 
       const publicUrl = `/uploads/logos/${uniqueName}`;
 
-      res.json({
-        success: true,
-        message: 'Image uploaded successfully',
-        data: { url: publicUrl },
-      });
+      ApiResponseHandler.success(res, { url: publicUrl }, 'Image uploaded successfully');
     } catch (error) {
       console.error('Image upload error:', error);
-      res.status(500).json({ success: false, message: 'Failed to upload image' });
+      ApiResponseHandler.serverError(res, 'Failed to upload image');
     }
   },
 );
@@ -130,7 +123,11 @@ const generateUniqueUsername = async (client: any, fullName: string, schoolId: s
     }
 
     const result = await client.query(
-      "SELECT 1 FROM students WHERE username = $1",
+      `SELECT 1 FROM (
+        SELECT username FROM students WHERE username = $1
+        UNION
+        SELECT username FROM external_students WHERE username = $1
+      ) as combined_usernames`,
       [username]
     );
 
@@ -173,7 +170,7 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
   const client = await pool.connect();
   try {
     if (!req.files || !req.files.file) {
-      return res.status(400).json({ success: false, message: 'No file uploaded' });
+      return ApiResponseHandler.badRequest(res, 'No file uploaded');
     }
 
     const file = req.files.file as any;
@@ -190,7 +187,7 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
     // Validate file type
     // Note: Some browsers/systems might send different mimetypes for CSV (e.g. application/vnd.ms-excel), so relying on extension is safer along with basic mimetype check
     if (!file.name.toLowerCase().endsWith('.csv')) {
-      return res.status(400).json({ success: false, message: 'Only CSV files are allowed' });
+      return ApiResponseHandler.badRequest(res, 'Only CSV files are allowed');
     }
 
     // Parse CSV
@@ -212,7 +209,7 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
 
         // Map fields from new template or fallback to old
         // Template: student_id, full_name, email, phone, level_class
-        const studentIdRaw = record.student_id || record.studentId || record.registrationNumber || record.student_id;
+        const studentIdRaw = record.student_id || record.studentId || record.registrationNumber;
         const fullNameRaw = record.full_name || record.fullName;
         const email = record.email;
         const phone = record.phone;
@@ -227,6 +224,21 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
             continue;
         }
 
+        // Check if student_id is already taken in this school
+        if (studentIdRaw) {
+            const idCheck = await client.query(
+                'SELECT id FROM students WHERE student_id = $1 AND school_id = $2',
+                [studentIdRaw, schoolId]
+            );
+            if (idCheck.rows.length > 0) {
+                results.failed.push({
+                    record,
+                    reason: `Registration number ${studentIdRaw} already exists in this school`
+                });
+                continue;
+            }
+        }
+
         // Check email uniqueness
         const emailCheck = await client.query(
           'SELECT id FROM students WHERE email = $1 AND school_id = $2',
@@ -234,7 +246,7 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
         );
 
         if (emailCheck.rows.length > 0) {
-          results.failed.push({ record, reason: 'Email already exists' });
+          results.failed.push({ record, reason: `Email ${email} already exists` });
           continue;
         }
 
@@ -288,7 +300,7 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
         if (sendEmail === 'true' && email) {
           const schoolRes = await client.query("SELECT name FROM schools WHERE id = $1", [schoolId]);
           const schoolName = schoolRes.rows[0]?.name || "CBT Platform";
-          sendStudentPortalCredentialsEmail(email, fullNameRaw, schoolName, {
+          sendStudentPortalCredentialsEmail(schoolId as string, email, fullNameRaw, schoolName, {
               username,
               password
           }).catch(err => console.error("Failed to send bulk upload welcome email:", err));
@@ -312,15 +324,11 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
 
     await client.query('COMMIT');
 
-    res.json({
-      success: true,
-      message: `Processed ${results.totalProcessed} records. ${results.success.length} successful, ${results.failed.length} failed.`,
-      data: results
-    });
+    ApiResponseHandler.success(res, results, `Processed ${results.totalProcessed} records. ${results.success.length} successful, ${results.failed.length} failed.`);
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Upload students error:', error);
-    res.status(500).json({ success: false, message: 'Failed to process CSV file' });
+    ApiResponseHandler.serverError(res, 'Failed to process CSV file');
   } finally {
     client.release();
   }
@@ -331,7 +339,7 @@ router.post('/tutors', authenticate, requireRole(['school']), async (req: Reques
   const client = await pool.connect();
   try {
     if (!req.files || !req.files.file) {
-      return res.status(400).json({ success: false, message: 'No file uploaded' });
+      return ApiResponseHandler.badRequest(res, 'No file uploaded');
     }
 
     const file = req.files.file as any;
@@ -340,7 +348,7 @@ router.post('/tutors', authenticate, requireRole(['school']), async (req: Reques
 
     // Validate file type
     if (!file.mimetype.includes('csv') && !file.name.endsWith('.csv')) {
-      return res.status(400).json({ success: false, message: 'Only CSV files are allowed' });
+      return ApiResponseHandler.badRequest(res, 'Only CSV files are allowed');
     }
 
     // Parse CSV
@@ -422,15 +430,11 @@ router.post('/tutors', authenticate, requireRole(['school']), async (req: Reques
 
     await client.query('COMMIT');
 
-    res.json({
-      success: true,
-      message: `Processed ${results.totalProcessed} records. ${results.success.length} successful, ${results.failed.length} failed.`,
-      data: results
-    });
+    ApiResponseHandler.success(res, results, `Processed ${results.totalProcessed} records. ${results.success.length} successful, ${results.failed.length} failed.`);
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Upload tutors error:', error);
-    res.status(500).json({ success: false, message: 'Failed to process CSV file' });
+    ApiResponseHandler.serverError(res, 'Failed to process CSV file');
   } finally {
     client.release();
   }
@@ -441,7 +445,7 @@ router.post('/questions', authenticate, requireRole(['school', 'tutor']), async 
   const client = await pool.connect();
   try {
     if (!req.files || !req.files.file) {
-      return res.status(400).json({ success: false, message: 'No file uploaded' });
+      return ApiResponseHandler.badRequest(res, 'No file uploaded');
     }
 
     const file = req.files.file as any;
@@ -450,7 +454,7 @@ router.post('/questions', authenticate, requireRole(['school', 'tutor']), async 
 
     // Validate file type
     if (!file.mimetype.includes('csv') && !file.name.endsWith('.csv')) {
-      return res.status(400).json({ success: false, message: 'Only CSV files are allowed' });
+      return ApiResponseHandler.badRequest(res, 'Only CSV files are allowed');
     }
 
     // Verify exam belongs to user's school
@@ -462,7 +466,7 @@ router.post('/questions', authenticate, requireRole(['school', 'tutor']), async 
     );
 
     if (examCheck.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Exam not found' });
+      return ApiResponseHandler.notFound(res, 'Exam not found');
     }
 
     // Parse CSV
@@ -534,15 +538,11 @@ router.post('/questions', authenticate, requireRole(['school', 'tutor']), async 
 
     await client.query('COMMIT');
 
-    res.json({
-      success: true,
-      message: `Processed ${results.totalProcessed} questions. ${results.success.length} successful, ${results.failed.length} failed.`,
-      data: results
-    });
+    ApiResponseHandler.success(res, results, `Processed ${results.totalProcessed} questions. ${results.success.length} successful, ${results.failed.length} failed.`);
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Upload questions error:', error);
-    res.status(500).json({ success: false, message: 'Failed to process CSV file' });
+    ApiResponseHandler.serverError(res, 'Failed to process CSV file');
   } finally {
     client.release();
   }
@@ -553,18 +553,34 @@ router.post('/external-students', authenticate, requireRole(['tutor', 'school'])
   const client = await pool.connect();
   try {
     if (!req.files || !req.files.file) {
-      return res.status(400).json({ success: false, message: 'No file uploaded' });
+      return ApiResponseHandler.badRequest(res, 'No file uploaded');
     }
 
     const file = req.files.file as any;
-    const { categoryId } = req.body;
+    const { categoryId, sendEmail } = req.body;
     const user = req.user!;
 
     if (!file.name.toLowerCase().endsWith('.csv')) {
-      return res.status(400).json({ success: false, message: 'Only CSV files are allowed' });
+      return ApiResponseHandler.badRequest(res, 'Only CSV files are allowed');
     }
 
     const records = await parseCSV(file.data);
+    const totalToProcess = records.length;
+
+    // ── Pre-check limits ──
+    const schoolId = user.schoolId;
+    const tutorId = user.tutorId || user.id;
+    const canAdd = await canAddExternalStudent(schoolId, tutorId);
+    if (!canAdd.allowed) {
+      return ApiResponseHandler.badRequest(res, canAdd.reason || 'Limit reached');
+    }
+
+    // ── Handle PAYG Emails (Batching) ──
+    let allowedToEmail = false;
+    if (sendEmail === 'true') {
+      const result = await paygService.consumeCredits(schoolId, 'bulk_email_batch', totalToProcess);
+      allowedToEmail = result.success;
+    }
 
     const results = {
       success: [] as any[],
@@ -583,6 +599,7 @@ router.post('/external-students', authenticate, requireRole(['tutor', 'school'])
         const fullNameRaw = record.full_name || record.fullName;
         const email = record.email;
         const phone = record.phone;
+        const levelClass = record.level_class || record.level;
 
         if (!fullNameRaw) {
             results.failed.push({
@@ -592,24 +609,52 @@ router.post('/external-students', authenticate, requireRole(['tutor', 'school'])
             continue;
         }
 
+        // Map school and tutor strictly safely
+        // schoolId and tutorId already defined above
+
+        // Check for duplicate email in external_students
+        if (email) {
+            const emailCheck = await client.query(
+                'SELECT id FROM external_students WHERE email = $1 AND school_id = $2',
+                [email, schoolId]
+            );
+            if (emailCheck.rows.length > 0) {
+                results.failed.push({
+                    record,
+                    reason: `External student with email ${email} already exists`
+                });
+                continue;
+            }
+        }
+
+        // Handle Category (Level/Class)
+        let finalCategoryId = categoryId || null;
+        if ((!finalCategoryId || finalCategoryId === 'none') && levelClass) {
+            finalCategoryId = await findOrCreateCategory(client, schoolId as string, levelClass);
+        }
+
         // Generate dummy login credentials since they take exams natively with access codes
-        const username = await generateUniqueUsername(client, fullNameRaw, user.schoolId as string, batchUsernames);
+        const username = await generateUniqueUsername(client, fullNameRaw, schoolId as string, batchUsernames);
         batchUsernames.add(username);
         const password = generatePassword();
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Map school and tutor strictly safely
-        let schoolId = user.schoolId;
-        let tutorId = user.tutorId || user.id;
+        // Parse name parts
+        const nameParts = fullNameRaw.trim().split(' ');
+        const firstName = nameParts[0];
+        const lastName = nameParts.slice(1).join(' ') || '.';
 
         const result = await client.query(
-          `INSERT INTO external_students (tutor_id, school_id, category_id, full_name, email, phone, username, password_hash, is_active)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+          `INSERT INTO external_students (tutor_id, school_id, category_id, level_class, first_name, last_name, full_name, email, phone, username, password_hash, is_active)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true)
            RETURNING *`,
           [
             tutorId,
             schoolId,
-            categoryId && categoryId !== 'none' ? categoryId : null,
+            finalCategoryId,
+            levelClass || null,
+            firstName,
+            lastName,
             fullNameRaw,
             email || null,
             phone || null,
@@ -618,8 +663,20 @@ router.post('/external-students', authenticate, requireRole(['tutor', 'school'])
           ]
         );
 
+        const student = result.rows[0];
+
+        // Send email if allowed
+        if (allowedToEmail && email) {
+          const schoolRes = await client.query("SELECT name FROM schools WHERE id = $1", [schoolId]);
+          const schoolName = schoolRes.rows[0]?.name || "CBT Platform";
+          sendStudentPortalCredentialsEmail(schoolId, email, fullNameRaw, schoolName, {
+              username: student.username,
+              password
+          }).catch(err => console.error("Failed to send bulk external student email:", err));
+        }
+
         results.success.push({
-          ...result.rows[0],
+          ...student,
           generatedPassword: password
         });
 
@@ -633,15 +690,11 @@ router.post('/external-students', authenticate, requireRole(['tutor', 'school'])
 
     await client.query('COMMIT');
 
-    res.json({
-      success: true,
-      message: `Processed ${results.totalProcessed} records. ${results.success.length} successful, ${results.failed.length} failed.`,
-      data: results
-    });
+    ApiResponseHandler.success(res, results, `Processed ${results.totalProcessed} records. ${results.success.length} successful, ${results.failed.length} failed.`);
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Upload external students error:', error);
-    res.status(500).json({ success: false, message: 'Failed to process CSV file' });
+    ApiResponseHandler.serverError(res, 'Failed to process CSV file');
   } finally {
     client.release();
   }
@@ -656,16 +709,22 @@ router.get('/template/:type', async (req: Request, res: Response) => {
 
   switch (type) {
     case 'students':
-      filename = 'students_template.csv';
-      csvContent = 'student_id,full_name,email,phone,level_class,target_qualification,department,subject,school_category\n' +
-                   'STU001,Alice Johnson,alice@student.edu,1111111111,"Grades 1-6",Diplomas,Science,Math,Primary\n' +
-                   'STU002,Bob Williams,bob@student.edu,2222222222,"SS1-SS3",Degree,Arts,English,Secondary';
+      filename = 'internal_students_template.csv';
+      csvContent = 'student_id,full_name,email,phone,level_class\n' +
+                   'STU001,Alice Johnson,alice@student.edu,1111111111,JSS 1\n' +
+                   'STU002,Bob Williams,bob@student.edu,2222222222,SSS 3';
+      break;
+    case 'external-students':
+      filename = 'external_students_template.csv';
+      csvContent = 'full_name,email,phone,level_class\n' +
+                   'Charlie Brown,charlie@external.com,3333333333,External Batch A\n' +
+                   'Dana Smith,dana@external.com,4444444444,Private Coaching';
       break;
     case 'tutors':
       filename = 'tutors_template.csv';
       csvContent = 'firstName,lastName,email,phone,specialization\n' +
-                   'Prof.,Johnson,prof.johnson@example.com,+1234567890,Mathematics\n' +
-                   'Dr.,Williams,dr.williams@example.com,+1234567891,Physics';
+                   'John,Doe,john.doe@example.com,+1234567890,Mathematics\n' +
+                   'Jane,Smith,jane.smith@example.com,+1234567891,Physics';
       break;
     case 'questions':
       filename = 'questions_template.csv';
@@ -675,7 +734,7 @@ router.get('/template/:type', async (req: Request, res: Response) => {
                    '"Explain photosynthesis",theory,"","",10,3';
       break;
     default:
-      return res.status(400).json({ success: false, message: 'Invalid template type' });
+      return ApiResponseHandler.badRequest(res, 'Invalid template type');
   }
 
   res.setHeader('Content-Type', 'text/csv');

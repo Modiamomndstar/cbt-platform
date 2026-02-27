@@ -189,7 +189,7 @@ export default function TutorDashboard() {
             <CardTitle className="text-lg">Upcoming Exams</CardTitle>
           </CardHeader>
           <CardContent>
-            {stats?.upcomingExams?.length > 0 ? (
+            {Array.isArray(stats?.upcomingExams) && stats.upcomingExams.length > 0 ? (
               <div className="space-y-3">
                 {stats.upcomingExams.map((exam: any) => (
                   <div key={exam.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">

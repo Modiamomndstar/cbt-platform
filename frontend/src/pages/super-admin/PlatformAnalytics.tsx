@@ -94,7 +94,7 @@ export default function PlatformAnalytics() {
                 <div key={index} className="bg-gray-50 rounded-lg p-4 text-center">
                   <p className="text-2xl font-bold">{sub.count || 0}</p>
                   <p className="text-sm text-gray-600 capitalize">
-                    {sub.subscription_status || sub.subscriptionStatus || 'Unknown'}
+                    {sub.plan_status || sub.subscription_status || 'Unknown'}
                   </p>
                 </div>
               ))}
@@ -130,7 +130,7 @@ export default function PlatformAnalytics() {
                   {data.recentSchools.map((school: any) => (
                     <tr key={school.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium text-gray-900">
-                        {school.school_name || school.name || 'Unknown'}
+                        {school.name || 'Unknown'}
                       </td>
                       <td className="px-4 py-3 text-gray-600">
                         {school.email || '-'}
@@ -140,11 +140,11 @@ export default function PlatformAnalytics() {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          school.subscription_status === 'active'
+                          school.plan_status === 'active'
                             ? 'bg-emerald-100 text-emerald-700'
                             : 'bg-gray-100 text-gray-700'
                         }`}>
-                          {school.subscription_status || 'Free'}
+                          {school.plan_status || 'Free'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-600">

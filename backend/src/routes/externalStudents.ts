@@ -3,13 +3,15 @@ import { body, param, validationResult } from 'express-validator';
 import bcrypt from 'bcryptjs';
 import { authenticate, authorize } from '../middleware/auth';
 import { db } from '../config/database';
+import { ApiResponseHandler } from '../utils/apiResponse';
+import { validate } from '../middleware/validation';
+import { getPaginationOptions, formatPaginationResponse } from '../utils/pagination';
+import { canAddExternalStudent } from '../services/planService';
+import { paygService } from '../services/paygService';
+import { sendStudentPortalCredentialsEmail } from '../services/email';
 
 const router = Router();
-const validate = (req: any, res: any, next: any) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
-  next();
-};
+
 
 // All routes require tutor authentication
 router.use(authenticate, authorize('tutor'));
@@ -35,7 +37,7 @@ router.get('/categories', async (req: any, res: any, next: any) => {
        WHERE tutor_id = $1 ORDER BY name ASC`,
       [tutorId]
     );
-    res.json({ success: true, data: result.rows });
+    ApiResponseHandler.success(res, result.rows, 'External student categories retrieved');
   } catch (error) { next(error); }
 });
 
@@ -54,14 +56,14 @@ router.post('/categories', [
     const { name, color, description } = req.body;
 
     const exists = await db.query('SELECT id FROM student_categories WHERE tutor_id = $1 AND name = $2', [tutorId, name]);
-    if (exists.rows.length > 0) return res.status(400).json({ success: false, message: 'Category already exists' });
+    if (exists.rows.length > 0) return ApiResponseHandler.badRequest(res, 'Category already exists');
 
     const result = await db.query(
       `INSERT INTO student_categories (school_id, tutor_id, name, color, description)
        VALUES ($1, $2, $3, $4, $5) RETURNING id, name, description, color, created_at`,
       [schoolId, tutorId, name, color || '#4F46E5', description]
     );
-    res.status(201).json({ success: true, data: result.rows[0] });
+    ApiResponseHandler.created(res, result.rows[0], 'Category created');
   } catch (error) { next(error); }
 });
 
@@ -83,8 +85,8 @@ router.put('/categories/:id', [
        WHERE id = $4 AND tutor_id = $5 RETURNING id, name, description, color`,
       [name, color || '#4F46E5', description, id, tutorId]
     );
-    if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Category not found' });
-    res.json({ success: true, data: result.rows[0] });
+    if (result.rows.length === 0) return ApiResponseHandler.notFound(res, 'Category not found');
+    ApiResponseHandler.success(res, result.rows[0], 'Category updated');
   } catch (error) { next(error); }
 });
 
@@ -100,9 +102,9 @@ router.delete('/categories/:id', async (req: any, res: any, next: any) => {
     await db.query(`UPDATE external_students SET category_id = NULL WHERE category_id = $1 AND tutor_id = $2`, [id, tutorId]);
 
     const result = await db.query('DELETE FROM student_categories WHERE id = $1 AND tutor_id = $2 RETURNING id', [id, tutorId]);
-    if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Category not found' });
+    if (result.rows.length === 0) return ApiResponseHandler.notFound(res, 'Category not found');
 
-    res.json({ success: true, message: 'Category deleted' });
+    ApiResponseHandler.success(res, null, 'Category deleted');
   } catch (error) { next(error); }
 });
 
@@ -113,20 +115,16 @@ router.get('/', async (req: any, res: any, next: any) => {
   try {
     const tutorId = req.user.tutorId;
     const schoolId = req.user.schoolId;
-    const categoryId = req.query.categoryId;
+    const { categoryId } = req.query as any;
+    const pagination = getPaginationOptions(req);
 
-    const allowed = await checkExternalEnabled(schoolId);
-    if (!allowed) {
-      return res.status(403).json({ success: false, message: 'External students are disabled by your school admin.' });
-    }
-
-    let query = `
-       SELECT s.id, s.full_name, s.email, s.phone, s.username, s.is_active, s.created_at, s.category_id,
-              c.name as category_name, c.color as category_color
-       FROM external_students s
-       LEFT JOIN student_categories c ON s.category_id = c.id
-       WHERE s.tutor_id = $1
-    `;
+     let query = `
+        SELECT s.id, s.full_name, s.email, s.phone, s.username, s.is_active, s.created_at, s.category_id, s.level_class,
+               c.name as category_name, c.color as category_color
+        FROM external_students s
+        LEFT JOIN student_categories c ON s.category_id = c.id
+        WHERE s.tutor_id = $1
+     `;
     const params: any[] = [tutorId];
 
     if (categoryId && categoryId !== "all") {
@@ -138,10 +136,31 @@ router.get('/', async (req: any, res: any, next: any) => {
        }
     }
 
-    query += ` ORDER BY s.created_at DESC`;
+    query += ` ORDER BY s.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    params.push(pagination.limit, pagination.offset);
 
     const result = await db.query(query, params);
-    res.json({ success: true, data: result.rows });
+
+    // Get total count for pagination
+    const countParams = [tutorId];
+    let countQuery = `SELECT COUNT(*) FROM external_students WHERE tutor_id = $1`;
+    if (categoryId && categoryId !== "all") {
+      if (categoryId === 'uncategorized') {
+        countQuery += ` AND category_id IS NULL`;
+      } else {
+        countParams.push(categoryId);
+        countQuery += ` AND category_id = $2`;
+      }
+    }
+    const countResult = await db.query(countQuery, countParams);
+    const totalCount = parseInt(countResult.rows[0].count);
+
+    ApiResponseHandler.success(
+      res,
+      result.rows,
+      'External students retrieved',
+      formatPaginationResponse(totalCount, pagination)
+    );
   } catch (error) {
     next(error);
   }
@@ -153,51 +172,24 @@ router.get('/', async (req: any, res: any, next: any) => {
 router.post('/', [
   body('fullName').trim().notEmpty().withMessage('Full name is required'),
   body('email').optional({ checkFalsy: true }).isEmail(),
-  body('phone').optional().trim(),
+   body('phone').optional().trim(),
   body('categoryId').optional().isUUID(),
+  body('levelClass').optional().trim(),
   validate
 ], async (req: any, res: any, next: any) => {
   try {
-    const tutorId = req.user.tutorId || req.user.id;
+     const tutorId = req.user.tutorId || req.user.id;
     const schoolId = req.user.schoolId;
-    const { fullName, email, phone, categoryId } = req.body;
+    const { fullName, email, phone, categoryId, levelClass } = req.body;
 
     const allowed = await checkExternalEnabled(schoolId);
     if (!allowed) {
-      return res.status(403).json({ success: false, message: 'External students are disabled.' });
+      return ApiResponseHandler.forbidden(res, 'External students are disabled.');
     }
 
-    // ── Tiered external student limit ──
-    // 1. Plan cap = plan_definitions.max_external_per_tutor + school_subscriptions.extra_external_students
-    // 2. School admin setting = school_settings.max_external_per_tutor (clamped to plan cap)
-    // 3. Effective limit = MIN(school_admin_setting, plan_cap)
-    const planQuery = await db.query(
-      `SELECT COALESCE(p.max_external_per_tutor, 999999) AS plan_max,
-              COALESCE(ss.extra_external_students, 0) AS extra
-       FROM school_subscriptions ss
-       JOIN plan_definitions p ON ss.plan_type = p.plan_type
-       WHERE ss.school_id = $1 AND ss.status IN ('active', 'trialing')
-       LIMIT 1`,
-      [schoolId]
-    );
-    const settingsQuery = await db.query(
-      `SELECT max_external_per_tutor FROM school_settings WHERE school_id = $1`,
-      [schoolId]
-    );
-
-    const planMax = planQuery.rows[0] ? (planQuery.rows[0].plan_max + planQuery.rows[0].extra) : 5; // fallback 5
-    const adminSetting = settingsQuery.rows[0]?.max_external_per_tutor ?? planMax;
-    const effectiveMax = Math.min(adminSetting, planMax);
-
-    const currentQuery = await db.query('SELECT COUNT(*) FROM external_students WHERE tutor_id = $1', [tutorId]);
-    const currentCount = parseInt(currentQuery.rows[0].count);
-
-    if (currentCount >= effectiveMax) {
-      return res.status(402).json({
-        success: false,
-        code: 'PLAN_LIMIT_EXCEEDED',
-        message: `You have reached your limit of ${effectiveMax} external students. Contact your school admin to upgrade.`
-      });
+    const canAdd = await canAddExternalStudent(schoolId, tutorId);
+    if (!canAdd.allowed) {
+      return ApiResponseHandler.badRequest(res, canAdd.reason || 'Student limit reached', { code: 'PLAN_LIMIT_EXCEEDED' });
     }
 
     // Generate unique username
@@ -213,14 +205,35 @@ router.post('/', [
     const password = Math.random().toString(36).slice(-8);
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const result = await db.query(
-      `INSERT INTO external_students (tutor_id, school_id, full_name, username, password_hash, email, phone, category_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, full_name, email, phone, username, is_active, created_at, category_id`,
-      [tutorId, schoolId, fullName, username, passwordHash, email, phone, categoryId || null]
+    // Parse name parts
+    const nameParts = fullName.trim().split(' ');
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(' ') || '.';
+
+     const result = await db.query(
+      `INSERT INTO external_students (tutor_id, school_id, first_name, last_name, full_name, username, password_hash, email, phone, category_id, level_class)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       RETURNING id, first_name, last_name, full_name, email, phone, username, is_active, created_at, category_id, level_class`,
+      [tutorId, schoolId, firstName, lastName, fullName, username, passwordHash, email, phone, categoryId || null, levelClass || null]
     );
 
-    res.status(201).json({ success: true, data: result.rows[0] });
+    const student = result.rows[0];
+
+    // ── Handle Optional Welcome Email (PAYG) ──
+    if (req.body.sendEmail && email) {
+      const allowed = await paygService.shouldSendEmail(schoolId);
+      if (allowed) {
+        const schoolRes = await db.query("SELECT name FROM schools WHERE id = $1", [schoolId]);
+        const schoolName = schoolRes.rows[0]?.name || "CBT Platform";
+        
+        sendStudentPortalCredentialsEmail(schoolId, email, fullName, schoolName, {
+          username: student.username,
+          password
+        }).catch(err => console.error("Failed to send external student welcome email:", err));
+      }
+    }
+
+    ApiResponseHandler.created(res, student, 'External student added successfully');
   } catch (error) {
     next(error);
   }
@@ -234,8 +247,9 @@ router.patch('/:id', [
   body('fullName').optional().trim().notEmpty(),
   body('email').optional({ checkFalsy: true }).isEmail(),
   body('phone').optional().trim(),
-  body('isActive').optional().isBoolean(),
+   body('isActive').optional().isBoolean(),
   body('categoryId').optional({ nullable: true }),
+  body('levelClass').optional().trim(),
   validate
 ], async (req: any, res: any, next: any) => {
   try {
@@ -244,18 +258,31 @@ router.patch('/:id', [
 
     // Ensure tutor owns this student
     const ownership = await db.query('SELECT id FROM external_students WHERE id = $1 AND tutor_id = $2', [id, tutorId]);
-    if (ownership.rows.length === 0) return res.status(404).json({ success: false, message: 'Student not found' });
+    if (ownership.rows.length === 0) return ApiResponseHandler.notFound(res, 'Student not found');
 
     const updates: string[] = [];
     const values: any[] = [];
     let p = 1;
 
-    for (const key of ['fullName', 'email', 'phone', 'isActive', 'categoryId']) {
+     for (const key of ['fullName', 'email', 'phone', 'isActive', 'categoryId', 'levelClass']) {
       if (req.body[key] !== undefined) {
-        // Map camelCase to snake_case
-        const dbKey = key === 'fullName' ? 'full_name' : key === 'isActive' ? 'is_active' : key === 'categoryId' ? 'category_id' : key;
+        const val = req.body[key];
+
+        if (key === 'fullName' && typeof val === 'string') {
+          const nameParts = val.trim().split(' ');
+          const firstName = nameParts[0];
+          const lastName = nameParts.slice(1).join(' ') || '.';
+
+          updates.push(`first_name = $${p++}`);
+          values.push(firstName);
+          updates.push(`last_name = $${p++}`);
+          values.push(lastName);
+        }
+
+         // Map camelCase to snake_case
+        const dbKey = key === 'fullName' ? 'full_name' : key === 'isActive' ? 'is_active' : key === 'categoryId' ? 'category_id' : key === 'levelClass' ? 'level_class' : key;
         updates.push(`${dbKey} = $${p++}`);
-        values.push(req.body[key]);
+        values.push(val);
       }
     }
 
@@ -265,15 +292,15 @@ router.patch('/:id', [
       values.push(hash);
     }
 
-    if (updates.length === 0) return res.status(400).json({ success: false, message: 'Nothing to update' });
+    if (updates.length === 0) return ApiResponseHandler.badRequest(res, 'Nothing to update');
 
     values.push(id);
-    const result = await db.query(
-      `UPDATE external_students SET ${updates.join(', ')} WHERE id = $${p} RETURNING id, full_name, email, phone, username, is_active`,
+     const result = await db.query(
+      `UPDATE external_students SET ${updates.join(', ')} WHERE id = $${p} RETURNING id, full_name, email, phone, username, is_active, level_class, category_id`,
       values
     );
 
-    res.json({ success: true, data: result.rows[0] });
+    ApiResponseHandler.success(res, result.rows[0], 'Student updated successfully');
   } catch (error) {
     next(error);
   }
@@ -288,10 +315,10 @@ router.delete('/:id', param('id').isUUID(), validate, async (req: any, res: any,
     const tutorId = req.user.tutorId;
 
     const ownership = await db.query('SELECT id FROM external_students WHERE id = $1 AND tutor_id = $2', [id, tutorId]);
-    if (ownership.rows.length === 0) return res.status(404).json({ success: false, message: 'Student not found' });
+    if (ownership.rows.length === 0) return ApiResponseHandler.notFound(res, 'Student not found');
 
     await db.query('DELETE FROM external_students WHERE id = $1', [id]);
-    res.json({ success: true, message: 'External student removed permanently' });
+    ApiResponseHandler.success(res, null, 'External student removed permanently');
   } catch (error) {
     next(error);
   }

@@ -916,8 +916,8 @@ export default function ScheduleExam() {
                 <div className="space-y-4 py-4">
                    <div className="bg-blue-50 border border-blue-100 p-4 rounded-md text-sm text-blue-800">
                       <p className="font-semibold mb-1">CSV Format Required:</p>
-                      <p>student_id, full_name, email, phone, level_class</p>
-                      <a href={`${API_BASE_URL}/uploads/template/students`} download="students_template.csv" target="_blank" rel="noopener noreferrer" className="underline mt-2 inline-block">Download Template</a>
+                      <p>full_name, email, phone, level_class</p>
+                      <a href={`${API_BASE_URL}/uploads/template/external-students`} download="external_students_template.csv" target="_blank" rel="noopener noreferrer" className="underline mt-2 inline-block">Download Template</a>
                    </div>
                    <div className="space-y-2">
                       <Label>Upload CSV File</Label>

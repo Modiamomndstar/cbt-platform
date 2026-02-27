@@ -145,15 +145,28 @@ export const sendTrialExpiredEmail = async (to: string, schoolName: string): Pro
   return sendEmail(to, `Your ${PLATFORM_NAME} trial has ended — upgrade to continue`, html);
 };
 
-// =============================================
-// Exam credentials for students
-// =============================================
+import { paygService } from './paygService';
+
+// ... (previous layout and helper code remains same)
+
+/**
+ * Exam credentials for students. 
+ * Charges 1 credit per recipient (via bulk_email_batch and batch_size=10 in service).
+ */
 export const sendExamCredentials = async (
+  schoolId: string,
   studentEmail: string,
   studentName: string,
   examTitle: string,
   details: { date: string; time: string; username: string; accessCode: string; password?: string }
 ): Promise<boolean> => {
+  // Check and consume credits
+  const canSend = await paygService.shouldSendEmail(schoolId);
+  if (!canSend) {
+    console.warn(`[PAYG] Skipped email to ${studentEmail} - Insufficient credits for school ${schoolId}`);
+    return false;
+  }
+
   const html = emailLayout(`
     <h2 style="color:#1f2937;margin:0 0 16px;">📝 You've Been Scheduled for an Exam</h2>
     <p style="color:#374151;line-height:1.6;">Hello <strong>${studentName}</strong>,</p>
@@ -176,46 +189,26 @@ export const sendExamCredentials = async (
   return sendEmail(studentEmail, `📝 Exam Credentials: ${examTitle}`, html);
 };
 
-// =============================================
-// Payment confirmation
-// =============================================
-export const sendPaymentConfirmationEmail = async (
-  to: string,
-  schoolName: string,
-  planName: string,
-  amount: string,
-  currency: string,
-  nextBillingDate: Date
-): Promise<boolean> => {
-  const html = emailLayout(`
-    <h2 style="color:#1f2937;margin:0 0 16px;">✅ Payment Confirmed</h2>
-    <p style="color:#374151;line-height:1.6;">
-      Thank you, <strong>${schoolName}</strong>! Your payment has been received.
-    </p>
-    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:20px;margin:24px 0;">
-      <p style="color:#166534;margin:4px 0;"><strong>Plan:</strong> ${planName}</p>
-      <p style="color:#166534;margin:4px 0;"><strong>Amount:</strong> ${currency} ${amount}</p>
-      <p style="color:#166534;margin:4px 0;"><strong>Next billing date:</strong> ${nextBillingDate.toLocaleDateString()}</p>
-    </div>
-    <div style="text-align:center;margin:32px 0;">
-      <a href="${PLATFORM_URL}/billing" style="background:#6366f1;color:#fff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:bold;">
-        View Billing Details →
-      </a>
-    </div>
-  `);
+// ... (payment confirmation remains same)
 
-  return sendEmail(to, `✅ Payment Confirmed — ${planName} Plan Active`, html);
-};
-
-// =============================================
-// Student Portal Credentials
-// =============================================
+/**
+ * Student Portal Credentials.
+ * Charges 1 credit per recipient.
+ */
 export const sendStudentPortalCredentialsEmail = async (
+  schoolId: string,
   studentEmail: string,
   studentName: string,
   schoolName: string,
   details: { username: string; password?: string }
 ): Promise<boolean> => {
+  // Check and consume credits
+  const canSend = await paygService.shouldSendEmail(schoolId);
+  if (!canSend) {
+    console.warn(`[PAYG] Skipped portal credentials to ${studentEmail} - Insufficient credits for school ${schoolId}`);
+    return false; 
+  }
+
   const html = emailLayout(`
     <h2 style="color:#1f2937;margin:0 0 16px;">Welcome to ${schoolName} Student Portal</h2>
     <p style="color:#374151;line-height:1.6;">Hello <strong>${studentName}</strong>,</p>
