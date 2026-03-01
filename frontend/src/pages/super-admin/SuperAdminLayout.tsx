@@ -13,7 +13,8 @@ import {
   Gift,
   Users,
   ShoppingBag,
-  History
+  History,
+  Trophy
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -35,6 +36,7 @@ export default function SuperAdminLayout() {
     { name: 'Monetization', href: '/super-admin/monetization', icon: DollarSign },
     { name: 'Marketplace', href: '/super-admin/marketplace', icon: ShoppingBag },
     { name: 'Financial Audit', href: '/super-admin/finance', icon: History },
+    { name: 'Competition Hub', href: '/super-admin/competitions', icon: Trophy },
     { name: 'Analytics', href: '/super-admin/analytics', icon: BarChart3 },
   ];
 

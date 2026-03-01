@@ -586,6 +586,7 @@ router.put(
   async (req, res, next) => {
     try {
       const { id } = req.params;
+      const { sendEmail: shouldSendEmail } = req.body;
       const { role, schoolId, tutorId } = req.user!;
       let querySchoolId = schoolId;
 
@@ -619,7 +620,7 @@ router.put(
         id,
       ]);
 
-      if (student.email) {
+      if (student.email && shouldSendEmail) {
         const schoolRes = await db.query("SELECT name FROM schools WHERE id = $1", [querySchoolId]);
         const schoolName = schoolRes.rows[0]?.name || "CBT Platform";
         sendStudentPortalCredentialsEmail(querySchoolId, student.email, student.full_name, schoolName, {
@@ -632,7 +633,8 @@ router.put(
       await logUserActivity(req, 'student_password_reset', {
         targetType: 'student',
         targetId: id,
-        targetName: student.full_name
+        targetName: student.full_name,
+        details: { email_sent: !!(student.email && shouldSendEmail) }
       });
 
       ApiResponseHandler.success(res, student, "Password reset successfully", { newPassword: plainTextPassword });

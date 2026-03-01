@@ -52,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           schoolId: userData.school_id || userData.schoolId,
           tutorId: role === 'tutor' ? userData.id : undefined,
           studentId: role === 'student' ? userData.id : undefined,
+          isExternal: !!userData.isExternal,
         };
         setUser(session);
         localStorage.setItem('user', JSON.stringify(session));
@@ -65,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (role: UserRole, usernameOrEmail: string, password: string, schoolIdOrAccessCode?: string): Promise<{ success: boolean; message?: string }> => {
+  const login = async (role: UserRole, usernameOrEmail: string, password: string, schoolIdOrAccessCode?: string): Promise<{ success: boolean; message?: string; data?: any }> => {
     try {
       let response;
 
@@ -81,6 +82,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           break;
         case 'student':
           response = await authAPI.studentLogin(usernameOrEmail, password, schoolIdOrAccessCode);
+          break;
+        case 'student_portal':
+          response = await authAPI.studentPortalLogin(usernameOrEmail, password);
           break;
         default:
           return { success: false, message: 'Invalid role' };
@@ -100,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           schoolId: userData.schoolId,
           tutorId: mappedRole === 'tutor' ? userData.id : undefined,
           studentId: mappedRole === 'student' ? userData.id : undefined,
+          isExternal: !!userData.isExternal,
         };
 
         localStorage.setItem('user', JSON.stringify(session));
@@ -143,7 +148,15 @@ import { Navigate, useLocation } from 'react-router-dom';
 
 // ... (existing imports)
 
-export function RequireAuth({ children, allowedRoles }: { children: ReactNode; allowedRoles: UserRole[] }) {
+export function RequireAuth({
+  children,
+  allowedRoles,
+  disallowExternal = false
+}: {
+  children: ReactNode;
+  allowedRoles: UserRole[];
+  disallowExternal?: boolean;
+}) {
   const { user, isLoading } = useAuth();
   const location = useLocation();
 
@@ -172,6 +185,11 @@ export function RequireAuth({ children, allowedRoles }: { children: ReactNode; a
       case 'super_admin': return <Navigate to="/super-admin/dashboard" replace />;
       default: return <Navigate to="/login" replace />;
     }
+  }
+
+  // Block external students from internal portal routes if specified
+  if (disallowExternal && user.isExternal) {
+    return <Navigate to="/student/login" replace />;
   }
 
   return <>{children}</>;

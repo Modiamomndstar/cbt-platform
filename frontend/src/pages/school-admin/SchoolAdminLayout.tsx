@@ -1,5 +1,7 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { usePlan } from '@/hooks/usePlan';
+import { FeatureLockedModal, FeatureLockBadge } from '@/components/common/FeatureLock';
 import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard,
@@ -12,7 +14,8 @@ import {
   X,
   BookOpen,
   CreditCard,
-  Settings
+  Settings,
+  Trophy
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { schoolAPI } from '@/services/api';
@@ -21,7 +24,9 @@ export default function SchoolAdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { isFeatureAllowed } = usePlan();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [lockModal, setLockModal] = useState<{ open: boolean; feature: string }>({ open: false, feature: '' });
   const [schoolName, setSchoolName] = useState<string>('');
   const [schoolLogo, setSchoolLogo] = useState<string>('');
 
@@ -52,7 +57,8 @@ export default function SchoolAdminLayout() {
     { name: 'Tutor Management', href: '/school-admin/tutors', icon: Users },
     { name: 'Student Management', href: '/school-admin/students', icon: GraduationCap },
     { name: 'Student Categories', href: '/school-admin/categories', icon: BookOpen },
-    { name: 'Analytics', href: '/school-admin/analytics', icon: BarChart3 },
+    { name: 'Analytics', href: '/school-admin/analytics', icon: BarChart3, feature: 'advanced_analytics' },
+    { name: 'Competition Hub', href: '/school-admin/competitions', icon: Trophy },
     { name: 'Billing & Plan', href: '/school-admin/billing', icon: CreditCard },
     { name: 'Settings', href: '/school-admin/settings', icon: Settings },
   ];
@@ -81,15 +87,24 @@ export default function SchoolAdminLayout() {
           {navigation.map((item) => (
             <button
               key={item.name}
-              onClick={() => navigate(item.href)}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+              onClick={() => {
+                if (item.feature && !isFeatureAllowed(item.feature)) {
+                  setLockModal({ open: true, feature: item.name });
+                  return;
+                }
+                navigate(item.href);
+              }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
                 isActive(item.href)
                   ? 'bg-indigo-50 text-indigo-700'
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
-              <item.icon className="h-5 w-5" />
-              <span>{item.name}</span>
+              <div className="flex items-center space-x-3">
+                <item.icon className="h-5 w-5" />
+                <span>{item.name}</span>
+              </div>
+              {item.feature && !isFeatureAllowed(item.feature) && <FeatureLockBadge />}
             </button>
           ))}
         </nav>
@@ -136,17 +151,24 @@ export default function SchoolAdminLayout() {
                 <button
                   key={item.name}
                   onClick={() => {
+                    if (item.feature && !isFeatureAllowed(item.feature)) {
+                      setLockModal({ open: true, feature: item.name });
+                      return;
+                    }
                     navigate(item.href);
                     setSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
                     isActive(item.href)
                       ? 'bg-indigo-50 text-indigo-700'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
-                  <item.icon className="h-5 w-5" />
-                  <span>{item.name}</span>
+                  <div className="flex items-center space-x-3">
+                    <item.icon className="h-5 w-5" />
+                    <span>{item.name}</span>
+                  </div>
+                  {item.feature && !isFeatureAllowed(item.feature) && <FeatureLockBadge />}
                 </button>
               ))}
             </nav>
@@ -185,6 +207,12 @@ export default function SchoolAdminLayout() {
           <Outlet />
         </div>
       </main>
+
+      <FeatureLockedModal
+        isOpen={lockModal.open}
+        onClose={() => setLockModal({ ...lockModal, open: false })}
+        featureName={lockModal.feature}
+      />
     </div>
   );
 }

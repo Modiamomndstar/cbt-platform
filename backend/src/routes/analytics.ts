@@ -336,6 +336,47 @@ router.get(
         [user.id],
       );
 
+      // Awards Count (Percentage >= 70)
+      const awardsCount = await client.query(
+        "SELECT COUNT(*) FROM student_exams WHERE student_id = $1 AND percentage >= 70 AND status = 'completed'",
+        [user.id]
+      );
+
+      // Percentile Calculation (relative to all students in school)
+      let percentile = 50; // Default
+      const avgQuery = await client.query(
+        "SELECT AVG(percentage) as avg_p FROM student_exams WHERE student_id = $1",
+        [user.id]
+      );
+
+      if (avgQuery.rows[0].avg_p !== null) {
+        const studentAvg = parseFloat(avgQuery.rows[0].avg_p);
+
+        const schoolRankQuery = await client.query(
+          `SELECT
+             (SELECT COUNT(*) FROM (
+               SELECT AVG(percentage) as p
+               FROM student_exams se
+               JOIN students s ON se.student_id = s.id
+               WHERE s.school_id = $1
+               GROUP BY s.id
+             ) as school_avgs WHERE p < $2) as below,
+             (SELECT COUNT(*) FROM (
+               SELECT AVG(percentage) as p
+               FROM student_exams se
+               JOIN students s ON se.student_id = s.id
+               WHERE s.school_id = $1
+               GROUP BY s.id
+             ) as school_avgs) as total`,
+          [user.schoolId, studentAvg]
+        );
+
+        const { below, total } = schoolRankQuery.rows[0];
+        if (parseInt(total) > 0) {
+          percentile = Math.round((parseInt(below) / parseInt(total)) * 100);
+        }
+      }
+
       ApiResponseHandler.success(
         res,
         {
@@ -344,16 +385,18 @@ router.get(
           failedCount: parseInt(examStats.rows[0].failed_count),
           averagePercentage: parseFloat(
             scoreStats.rows[0].average_percentage || 0,
-          ).toFixed(2),
+          ).toFixed(1),
           averageScore: parseFloat(
             scoreStats.rows[0].average_score || 0,
-          ).toFixed(2),
+          ).toFixed(1),
           highestPercentage: parseFloat(
             scoreStats.rows[0].highest_percentage || 0,
-          ).toFixed(2),
+          ).toFixed(1),
           highestScore: parseFloat(
             scoreStats.rows[0].highest_score || 0,
-          ).toFixed(2),
+          ).toFixed(1),
+          awardsEarned: parseInt(awardsCount.rows[0].count),
+          percentile: percentile,
           recentExams: recentExams.rows.map((e) => ({
             id: e.id,
             examTitle: e.exam_title,
@@ -372,14 +415,13 @@ router.get(
             endTime: e.end_time,
           })),
           categoryPerformance: categoryPerformance.rows.map((c) => ({
-            categoryName: c.category_name,
+            subject: c.category_name, // Map for radar chart
+            A: parseFloat(c.average_percentage || 0).toFixed(1), // Map for radar chart
             examCount: parseInt(c.exam_count),
-            averagePercentage: parseFloat(c.average_percentage || 0).toFixed(2),
           })),
           monthlyProgress: monthlyProgress.rows.map((m) => ({
-            month: m.month,
-            examCount: parseInt(m.exam_count),
-            averagePercentage: parseFloat(m.average_percentage || 0).toFixed(2),
+            name: new Date(m.month).toLocaleDateString('en-US', { month: 'short' }), // Map for line chart
+            score: parseFloat(m.average_percentage || 0).toFixed(1), // Map for line chart
           })),
         },
         "Student dashboard analytics retrieved",
@@ -658,7 +700,7 @@ router.get(
       // Fetch Student Info and School Details
       const studentQuery = await client.query(
         `SELECT s.id, s.full_name, s.student_id as reg_number, s.email,
-              sc.name as category_name, sch.name as school_name,
+              sc.name as category_name, sch.name as school_name, sch.logo_url,
               sch.address as school_address, sch.email as school_email, sch.phone as school_phone
        FROM students s
        JOIN schools sch ON s.school_id = sch.id
@@ -673,30 +715,46 @@ router.get(
 
       const student = studentQuery.rows[0];
 
-      // Build Timeframe Filter
-      let timeframeFilter = "";
+      // Build Timeframe, Category, and Tutor Filters
+      let filters = "";
+      const queryParams: any[] = [studentId];
+
       if (timeframe === "weekly") {
-        timeframeFilter = "AND se.completed_at >= NOW() - INTERVAL '1 week'";
+        filters += " AND se.completed_at >= NOW() - INTERVAL '1 week'";
       } else if (timeframe === "monthly") {
-        timeframeFilter = "AND se.completed_at >= NOW() - INTERVAL '1 month'";
+        filters += " AND se.completed_at >= NOW() - INTERVAL '1 month'";
       } else if (timeframe === "yearly") {
-        timeframeFilter = "AND se.completed_at >= NOW() - INTERVAL '1 year'";
+        filters += " AND se.completed_at >= NOW() - INTERVAL '1 year'";
+      }
+
+      // Dynamic Category Filtering
+      const { categories, tutors } = req.query;
+      if (categories) {
+        const catArray = typeof categories === 'string' ? categories.split(',') : (categories as string[]);
+        queryParams.push(catArray);
+        filters += ` AND ec.id = ANY($${queryParams.length})`;
+      }
+
+      // Dynamic Tutor Filtering
+      if (tutors) {
+        const tutorArray = typeof tutors === 'string' ? tutors.split(',') : (tutors as string[]);
+        queryParams.push(tutorArray);
+        filters += ` AND t.id = ANY($${queryParams.length})`;
       }
 
       // Fetch Results - Consolidated across all tutors in the same school
-      // Uses historical_level_name for progression tracking
       const resultsQuery = await client.query(
         `SELECT se.id, se.score, se.total_marks, se.percentage, se.status, se.completed_at,
               se.historical_level_name as level,
-              e.title as exam_title, ec.name as exam_category,
-              t.first_name || ' ' || t.last_name as tutor_name
+              e.title as exam_title, ec.name as exam_category, ec.id as exam_category_id,
+              t.id as tutor_id, t.first_name || ' ' || t.last_name as tutor_name
        FROM student_exams se
        JOIN exams e ON se.exam_id = e.id
        JOIN tutors t ON e.tutor_id = t.id
        LEFT JOIN exam_categories ec ON e.category_id = ec.id
-       WHERE se.student_id = $1 AND se.status = 'completed' ${timeframeFilter}
+       WHERE se.student_id = $1 AND se.status = 'completed' ${filters}
        ORDER BY se.completed_at DESC`,
-        [studentId],
+        queryParams,
       );
 
       // Group results by level (historical_level_name) then by exam_category
@@ -744,6 +802,7 @@ router.get(
               address: student.school_address,
               email: student.school_email,
               phone: student.school_phone,
+              logo_url: student.logo_url,
             },
           },
           timeframe: timeframe || "all",
@@ -770,6 +829,116 @@ router.get(
       client.release();
     }
   },
+);
+
+// Issue a report to a student's portal
+router.post(
+  "/issue-report",
+  authenticate,
+  requireRole(["school", "tutor", "super_admin"]),
+  async (req: Request, res: Response) => {
+    const client = await pool.connect();
+    try {
+      const { studentId, title, config } = req.body;
+      const user = req.user!;
+
+      if (!studentId || !title || !config) {
+        return ApiResponseHandler.badRequest(res, "Missing required fields");
+      }
+
+      const result = await client.query(
+        `INSERT INTO issued_reports (student_id, staff_id, title, config)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id`,
+        [studentId, user.id, title, JSON.stringify(config)]
+      );
+
+      ApiResponseHandler.success(res, { id: result.rows[0].id }, "Report issued successfully");
+    } catch (error: any) {
+      console.error("Issue report error detailed:", {
+        message: error.message,
+        code: error.code,
+        detail: error.detail,
+        stack: error.stack
+      });
+      ApiResponseHandler.serverError(res, `Failed to issue report: ${error.message}`);
+    } finally {
+      client.release();
+    }
+  }
+);
+
+// Get all issued reports for a student
+router.get(
+  "/issued-reports/:studentId",
+  authenticate,
+  async (req: Request, res: Response) => {
+    const client = await pool.connect();
+    try {
+      const { studentId } = req.params;
+      const user = req.user!;
+
+      // Authorization Check
+      if (user.role === "student" && user.id !== studentId) {
+        return ApiResponseHandler.forbidden(res, "Unauthorized");
+      }
+
+      const result = await client.query(
+        `SELECT ir.*,
+                COALESCE(s.name, t.full_name, sa.name, 'Administrator') as issued_by_name
+         FROM issued_reports ir
+         LEFT JOIN schools s ON ir.staff_id = s.id
+         LEFT JOIN tutors t ON ir.staff_id = t.id
+         LEFT JOIN staff_accounts sa ON ir.staff_id = sa.id
+         WHERE ir.student_id = $1
+         ORDER BY ir.created_at DESC`,
+        [studentId]
+      );
+
+      ApiResponseHandler.success(res, result.rows, "Issued reports retrieved");
+    } catch (error) {
+      console.error("Get issued reports error:", error);
+      ApiResponseHandler.serverError(res, "Failed to retrieve issued reports");
+    } finally {
+      client.release();
+    }
+  }
+);
+
+// Get a specific issued report configuration
+router.get(
+  "/issued-report/:reportId",
+  authenticate,
+  async (req: Request, res: Response) => {
+    const client = await pool.connect();
+    try {
+      const { reportId } = req.params;
+      const user = req.user!;
+
+      const result = await client.query(
+        "SELECT * FROM issued_reports WHERE id = $1",
+        [reportId]
+      );
+
+      if (result.rows.length === 0) {
+        return ApiResponseHandler.notFound(res, "Report not found");
+      }
+
+      const report = result.rows[0];
+
+      // Authorization check (student can only see their own)
+      if (user.role === "student" && user.id !== report.student_id) {
+        return ApiResponseHandler.forbidden(res, "Unauthorized");
+      }
+
+      ApiResponseHandler.success(res, report, "Issued report retrieved");
+    } catch (error) {
+      console.error("Get issued report error:", error);
+      ApiResponseHandler.serverError(res, "Failed to retrieve issued report");
+    } finally {
+      client.release();
+    }
+  }
 );
 
 export default router;

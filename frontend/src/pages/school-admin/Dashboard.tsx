@@ -3,6 +3,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { schoolAPI, tutorAPI, examAPI } from '@/services/api';
+import { CompetitionBanner } from '@/components/competitions/CompetitionBanner';
+import { usePlan } from '@/hooks/usePlan';
+import { FeatureLockedModal, FeatureLockBadge } from '@/components/common/FeatureLock';
 import {
   Users,
   BookOpen,
@@ -10,17 +13,20 @@ import {
   CheckCircle,
   TrendingUp,
   Calendar,
-  ArrowRight
+  ArrowRight,
+  Trophy
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function SchoolAdminDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isFeatureAllowed } = usePlan();
   const [stats, setStats] = useState<any>(null);
   const [tutors, setTutors] = useState<any[]>([]);
   const [exams, setExams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showLockModal, setShowLockModal] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -104,6 +110,8 @@ export default function SchoolAdminDashboard() {
 
   return (
     <div className="space-y-6">
+      <CompetitionBanner />
+
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">School Dashboard</h1>
@@ -256,16 +264,40 @@ export default function SchoolAdminDashboard() {
             </Button>
             <Button
               variant="outline"
-              className="h-auto py-4 flex flex-col items-center text-center"
-              onClick={() => navigate('/school-admin/analytics')}
+              className="h-auto py-4 flex flex-col items-center text-center relative"
+              onClick={() => {
+                if (isFeatureAllowed('advanced_analytics')) {
+                  navigate('/school-admin/analytics');
+                } else {
+                  setShowLockModal(true);
+                }
+              }}
             >
               <TrendingUp className="h-6 w-6 mb-2" />
-              <span className="font-medium">View Analytics</span>
-              <span className="text-xs text-gray-500 mt-1">Performance reports</span>
+              <span className="font-medium inline-flex items-center">
+                View Analytics
+                {!isFeatureAllowed('advanced_analytics') && <FeatureLockBadge />}
+              </span>
+              <span className="text-xs text-gray-600 mt-1">Performance reports</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-auto py-4 flex flex-col items-center text-center border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50 text-indigo-700"
+              onClick={() => navigate('/school-admin/competitions')}
+            >
+              <Trophy className="h-6 w-6 mb-2" />
+              <span className="font-medium">Register for Competition</span>
+              <span className="text-xs text-indigo-600 mt-1">Global & Regional events</span>
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      <FeatureLockedModal
+        isOpen={showLockModal}
+        onClose={() => setShowLockModal(false)}
+        featureName="Advanced Analytics"
+      />
     </div>
   );
 }

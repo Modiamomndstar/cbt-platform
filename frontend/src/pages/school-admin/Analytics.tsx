@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { schoolAPI } from '@/services/api';
 
 import { TrendingUp, Users, BookOpen, Award } from 'lucide-react';
@@ -140,7 +141,37 @@ export default function SchoolAnalytics() {
             </div>
           </CardContent>
         </Card>
-      </div>
+    </div>
+
+      {/* Advanced Reports Discovery */}
+      <Card className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-none shadow-lg overflow-hidden relative">
+        <div className="absolute top-0 right-0 p-4 opacity-10">
+          <Award className="h-24 w-24" />
+        </div>
+        <CardContent className="p-6 relative z-10">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="space-y-2">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <TrendingUp className="h-6 w-6" />
+                Advanced Student Report Cards
+              </h2>
+              <p className="text-indigo-100 max-w-xl text-sm leading-relaxed">
+                Generate professional, branded academic transcripts for your students.
+                Our new advanced reports include level progression tracking, signature customization, and high-quality PDF exports.
+                <span className="block mt-2 font-bold text-white border-l-2 border-indigo-300 pl-3">
+                  How to generate: Go to Student Management, find your student, and select "Generate Advanced Report" from the actions menu.
+                </span>
+              </p>
+            </div>
+            <Button
+              onClick={() => { window.location.href = '/school-admin/students'; }}
+              className="bg-white text-indigo-600 hover:bg-indigo-50 font-bold px-8 py-6 h-auto shadow-md"
+            >
+              Generate Reports Now
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

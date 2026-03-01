@@ -4,6 +4,7 @@ import { authenticate, requireRole } from "../middleware/auth";
 import { ApiResponseHandler } from "../utils/apiResponse";
 import { validateAnswer } from "../utils/answerValidator";
 import { getPaginationOptions, formatPaginationResponse } from "../utils/pagination";
+import { promotionService } from "../services/promotionService";
 
 const router = Router();
 
@@ -24,13 +25,20 @@ router.post(
       const scheduleResult = await client.query(
         `SELECT es.*, e.duration, e.total_questions as exam_total_marks, e.passing_score,
                 COALESCE(s.category_id, ext.category_id) as student_category_id,
-                sc.name as student_category_name
-       FROM exam_schedules es
-       JOIN exams e ON es.exam_id = e.id
-       LEFT JOIN students s ON es.student_id = s.id
-       LEFT JOIN external_students ext ON es.external_student_id = ext.id
-       LEFT JOIN student_categories sc ON sc.id = COALESCE(s.category_id, ext.category_id)
-       WHERE es.id = $1 AND (es.student_id = $2 OR es.external_student_id = $2)`,
+                sc.name as student_category_name,
+                comp.id as competition_id,
+                comp.negative_marking_rate,
+                comp.max_violations,
+                comp.auto_promote
+         FROM exam_schedules es
+         JOIN exams e ON es.exam_id = e.id
+         LEFT JOIN students s ON es.student_id = s.id
+         LEFT JOIN external_students ext ON es.external_student_id = ext.id
+         LEFT JOIN student_categories sc ON sc.id = COALESCE(s.category_id, ext.category_id)
+         -- Check for competition link via registration
+         LEFT JOIN competition_registrations reg ON (reg.student_id = es.student_id OR reg.external_student_id = es.external_student_id)
+         LEFT JOIN competitions comp ON reg.competition_id = comp.id
+         WHERE es.id = $1 AND (es.student_id = $2 OR es.external_student_id = $2)`,
         [scheduleId, user.id],
       );
 
@@ -40,8 +48,9 @@ router.post(
       }
 
       const schedule = scheduleResult.rows[0];
+      const negRate = parseFloat(schedule.negative_marking_rate || 0);
 
-      // Get student_exams record to retrieve assigned questions
+      // Get student_exams record
       const studentExamRows = await client.query(
         `SELECT id, assigned_questions FROM student_exams WHERE exam_schedule_id = $1`,
         [scheduleId]
@@ -52,16 +61,10 @@ router.post(
          assignedQuestions = studentExamRows.rows[0].assigned_questions || [];
       }
 
-      // If no assigned questions found (legacy or error), fallback to all exam questions IF assigned_questions is empty
-      // But ideally we should rely on assigned_questions for the dynamic scoring fix.
-
       let questions: any[] = [];
-
       if (assignedQuestions.length > 0) {
-         // Use assigned questions
          questions = assignedQuestions;
       } else {
-         // Fallback for legacy data (should be rare after my schedules.ts updates)
          const questionsResult = await client.query(
            `SELECT id, correct_answer, marks, question_type, question_text, options FROM questions
             WHERE exam_id = $1`,
@@ -72,7 +75,7 @@ router.post(
 
       let totalScore = 0;
       let correctAnswers = 0;
-      let totalQuestions = questions.length;
+      const totalQuestions = questions.length;
       let totalPossibleMarks = 0;
 
       // Process answers
@@ -93,9 +96,17 @@ router.post(
         );
 
         isCorrect = validationResult.isCorrect;
-        marksObtained = isCorrect ? qMarks : 0;
 
-        if (isCorrect) correctAnswers++;
+        if (isCorrect) {
+          correctAnswers++;
+          marksObtained = qMarks;
+        } else if (studentAnswer !== "" && negRate > 0) {
+          // Apply negative marking for WRONG answers only (not for skipped ones)
+          marksObtained = -(qMarks * (negRate / 100));
+        } else {
+          marksObtained = 0;
+        }
+
         totalScore += marksObtained;
 
         answerRecords.push({
@@ -109,20 +120,28 @@ router.post(
         });
       }
 
+      const { violations = [] } = req.body;
+      const isDisqualified = schedule.competition_id && violations.length >= (schedule.max_violations || 3);
+
+      // Percentage calculation with floor at 0
+      const finalScore = isDisqualified ? 0 : Math.max(0, totalScore);
+      const percentage = totalPossibleMarks > 0 ? (finalScore / totalPossibleMarks) * 100 : 0;
+      const passed = !isDisqualified && percentage >= schedule.passing_score;
+
       // Check if any question requires manual grading
-      const needsManualGrading = answerRecords.some(a => a.requiresManualGrading);
+      const needsManualGrading = !isDisqualified && answerRecords.some(a => a.requiresManualGrading);
 
-      // Calculate percentage
-      // Use totalPossibleMarks from the assigned questions, NOT schedule.total_marks (which might be exam-level aggregate)
-      const percentage =
-        totalPossibleMarks > 0
-          ? (totalScore / totalPossibleMarks) * 100
-          : 0;
-      const passed = percentage >= schedule.passing_score;
+      // Status determination
+      let status = "failed";
+      if (isDisqualified) {
+        status = "disqualified";
+      } else if (needsManualGrading) {
+        status = "pending_grading";
+      } else if (passed) {
+        status = "completed";
+      }
 
-
-
-      // Update student_exams record with historical category snapshot
+      // Update student_exams record
       const studentExamResult = await client.query(
         `UPDATE student_exams
         SET completed_at = NOW(),
@@ -139,10 +158,10 @@ router.post(
         WHERE exam_schedule_id = $11
         RETURNING *`,
         [
-          totalScore,
-          totalPossibleMarks, // Save the specific total marks for this student attempt
+          finalScore,
+          totalPossibleMarks,
           percentage,
-          needsManualGrading ? "pending_grading" : (passed ? "completed" : "failed"),
+          status,
           timeSpentMinutes,
           JSON.stringify(answerRecords),
           autoSubmitted || false,
@@ -151,26 +170,36 @@ router.post(
           JSON.stringify({
             submitted_at: new Date().toISOString(),
             client_ip: req.ip,
-            user_agent: req.get('user-agent')
+            user_agent: req.get('user-agent'),
+            violations: violations // Log anti-cheating violations
           }),
           scheduleId,
         ],
       );
 
-       // Update schedule status
+      // Update schedule status
       await client.query(
         `UPDATE exam_schedules SET status = $3, completed_at = NOW(), auto_submitted = $2, updated_at = NOW() WHERE id = $1`,
-        [scheduleId, autoSubmitted || false, needsManualGrading ? "pending_grading" : "completed"],
+        [scheduleId, autoSubmitted || false, status],
       );
 
       await client.query("COMMIT");
+
+      // Auto-promotion logic for competitions
+      if (schedule.competition_id && schedule.competition_stage_id && schedule.auto_promote) {
+        try {
+          await promotionService.promoteStudents(schedule.competition_stage_id);
+        } catch (promoError) {
+          console.error("Auto-promotion failed for stage:", schedule.competition_stage_id, promoError);
+        }
+      }
 
       // Check if we should show result immediately
       const showResult = await client.query(`SELECT show_result_immediately FROM exams WHERE id = $1`, [schedule.exam_id]);
       const shouldShow = showResult.rows[0]?.show_result_immediately;
 
       ApiResponseHandler.success(res, shouldShow ? {
-        score: totalScore,
+        score: finalScore,
         totalMarks: totalPossibleMarks,
         percentage: percentage.toFixed(2),
         passed,
@@ -178,10 +207,12 @@ router.post(
         totalQuestions,
         timeSpentMinutes,
         answers: answerRecords,
-        status: needsManualGrading ? "pending_grading" : (passed ? "completed" : "failed"),
+        status,
+        isDisqualified
       } : {
-        status: needsManualGrading ? "pending_grading" : (passed ? "completed" : "failed"),
-      }, needsManualGrading ? "Exam submitted. Some questions require manual grading." : "Exam submitted successfully");
+        status,
+        isDisqualified
+      }, isDisqualified ? "Student disqualified due to security violations." : (needsManualGrading ? "Exam submitted. Some questions require manual grading." : "Exam submitted successfully"));
     } catch (error) {
       await client.query("ROLLBACK");
       console.error("Submit exam error:", error);
@@ -190,6 +221,65 @@ router.post(
       client.release();
     }
   },
+);
+
+// Get public leaderboard for a competition
+router.get(
+  "/leaderboard/:competitionId",
+  async (req: Request, res: Response) => {
+    const client = await pool.connect();
+    try {
+      const { competitionId } = req.params;
+      const { categoryId } = req.query;
+
+      let query = `
+        SELECT
+          se.score, se.percentage, se.time_spent_minutes, se.completed_at,
+          COALESCE(s.full_name, ext_s.full_name) as student_name,
+          sch.name as school_name, sch.state as school_state, sch.country as school_country,
+          cc.name as category_name,
+          cs.stage_number, cs.title as stage_title
+        FROM student_exams se
+        JOIN exam_schedules es ON se.exam_schedule_id = es.id
+        LEFT JOIN students s ON es.student_id = s.id
+        LEFT JOIN external_students ext_s ON es.external_student_id = ext_s.id
+        JOIN schools sch ON COALESCE(s.school_id, ext_s.school_id) = sch.id
+        JOIN competition_stages cs ON es.competition_stage_id = cs.id
+        JOIN competition_categories cc ON cs.competition_category_id = cc.id
+        WHERE cc.competition_id = $1 AND se.status = 'completed'
+      `;
+
+      const params: any[] = [competitionId];
+      if (categoryId) {
+        query += ` AND cc.id = $2`;
+        params.push(categoryId);
+      }
+
+      // Ranking logic: Higher score first, then lower time spent
+      query += ` ORDER BY se.score DESC, se.time_spent_minutes ASC`;
+
+      const result = await client.query(query, params);
+
+      ApiResponseHandler.success(res, result.rows.map((row, index) => ({
+        rank: index + 1,
+        studentName: row.student_name,
+        schoolName: row.school_name,
+        state: row.school_state,
+        country: row.school_country,
+        score: parseFloat(row.score),
+        percentage: parseFloat(row.percentage).toFixed(2),
+        category: row.category_name,
+        stage: row.stage_title,
+        timeSpent: row.time_spent_minutes,
+        completedAt: row.completed_at
+      })), "Leaderboard retrieved successfully");
+    } catch (error) {
+      console.error("Get leaderboard error:", error);
+      ApiResponseHandler.serverError(res, "Failed to fetch leaderboard");
+    } finally {
+      client.release();
+    }
+  }
 );
 
 // Get exam result for student

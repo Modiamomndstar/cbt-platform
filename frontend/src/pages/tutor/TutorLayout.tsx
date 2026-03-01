@@ -1,5 +1,7 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { usePlan } from '@/hooks/usePlan';
+import { FeatureLockedModal, FeatureLockBadge } from '@/components/common/FeatureLock';
 import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard,
@@ -10,7 +12,8 @@ import {
   GraduationCap,
   Menu,
   X,
-  UserPlus
+  UserPlus,
+  TrendingUp
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -18,7 +21,9 @@ export default function TutorLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { isFeatureAllowed } = usePlan();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [lockModal, setLockModal] = useState<{ open: boolean; feature: string }>({ open: false, feature: '' });
 
   const tutorName = user?.name || 'Tutor';
 
@@ -34,6 +39,7 @@ export default function TutorLayout() {
     { name: 'School Students', href: '/tutor/students', icon: Users },
     { name: 'External Students', href: '/tutor/external-students', icon: UserPlus },
     { name: 'Results', href: '/tutor/results', icon: BarChart3 },
+    { name: 'Advanced Analytics', href: '/tutor/analytics', icon: TrendingUp, feature: 'advanced_analytics' },
   ];
 
   const isActive = (path: string) => {
@@ -66,15 +72,24 @@ export default function TutorLayout() {
           {navigation.map((item) => (
             <button
               key={item.name}
-              onClick={() => navigate(item.href)}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+              onClick={() => {
+                if (item.feature && !isFeatureAllowed(item.feature)) {
+                  setLockModal({ open: true, feature: item.name });
+                  return;
+                }
+                navigate(item.href);
+              }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
                 isActive(item.href)
                   ? 'bg-indigo-50 text-indigo-700'
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
-              <item.icon className="h-5 w-5" />
-              <span>{item.name}</span>
+              <div className="flex items-center space-x-3">
+                <item.icon className="h-5 w-5" />
+                <span>{item.name}</span>
+              </div>
+              {item.feature && !isFeatureAllowed(item.feature) && <FeatureLockBadge />}
             </button>
           ))}
         </nav>
@@ -121,17 +136,24 @@ export default function TutorLayout() {
                 <button
                   key={item.name}
                   onClick={() => {
+                    if (item.feature && !isFeatureAllowed(item.feature)) {
+                      setLockModal({ open: true, feature: item.name });
+                      return;
+                    }
                     navigate(item.href);
                     setSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
                     isActive(item.href)
                       ? 'bg-indigo-50 text-indigo-700'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
-                  <item.icon className="h-5 w-5" />
-                  <span>{item.name}</span>
+                  <div className="flex items-center space-x-3">
+                    <item.icon className="h-5 w-5" />
+                    <span>{item.name}</span>
+                  </div>
+                  {item.feature && !isFeatureAllowed(item.feature) && <FeatureLockBadge />}
                 </button>
               ))}
             </nav>
@@ -170,6 +192,12 @@ export default function TutorLayout() {
           <Outlet />
         </div>
       </main>
+
+      <FeatureLockedModal
+        isOpen={lockModal.open}
+        onClose={() => setLockModal({ ...lockModal, open: false })}
+        featureName={lockModal.feature}
+      />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 // import { useQuery } from '@tanstack/react-query';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,9 +20,12 @@ export default function ExamResults() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
 
+  const [searchParams] = useSearchParams();
+  const urlExamId = searchParams.get('examId');
+
   // Filters
   const [filters, setFilters] = useState({
-    examId: 'all',
+    examId: urlExamId || 'all',
     search: '',
     startDate: '',
     endDate: '',

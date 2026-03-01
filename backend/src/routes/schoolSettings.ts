@@ -51,6 +51,8 @@ router.put('/', [
   body('emailOnNewStudent').optional().isBoolean(),
   body('emailOnResultsRelease').optional().isBoolean(),
   body('primaryColor').optional().matches(/^#[0-9A-Fa-f]{6}$/).withMessage('Invalid hex color'),
+  body('reportSignatureTitle').optional().isString().isLength({ max: 255 }),
+  body('reportSignatureName').optional().isString().isLength({ max: 255 }),
   validate
 ], async (req, res, next) => {
   try {
@@ -59,7 +61,7 @@ router.put('/', [
       allowExternalStudents, maxExternalPerTutor, allowTutorCreateStudents,
       allowTutorEditCategories, studentPortalEnabled, resultReleaseMode, allowStudentPdfDownload,
       defaultExamAttempts, emailOnExamComplete, emailOnNewStudent,
-      emailOnResultsRelease, primaryColor
+      emailOnResultsRelease, primaryColor, reportSignatureTitle, reportSignatureName
     } = req.body;
 
     // Clamp maxExternalPerTutor to plan ceiling
@@ -94,6 +96,8 @@ router.put('/', [
       email_on_new_student: emailOnNewStudent,
       email_on_results_release: emailOnResultsRelease,
       primary_color: primaryColor,
+      report_signature_title: reportSignatureTitle,
+      report_signature_name: reportSignatureName,
     };
 
     for (const [col, val] of Object.entries(fields)) {

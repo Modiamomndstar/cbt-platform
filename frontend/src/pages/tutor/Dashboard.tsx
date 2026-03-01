@@ -4,6 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { tutorAPI, examAPI } from '@/services/api';
+import { usePlan } from '@/hooks/usePlan';
+import { FeatureLockedModal, FeatureLockBadge } from '@/components/common/FeatureLock';
 import {
   BookOpen,
   Users,
@@ -19,9 +21,11 @@ import { Badge } from '@/components/ui/badge';
 export default function TutorDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isFeatureAllowed } = usePlan();
   const [stats, setStats] = useState<any>(null);
   const [exams, setExams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showLockModal, setShowLockModal] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -252,10 +256,31 @@ export default function TutorDashboard() {
                 <TrendingUp className="h-4 w-4 mr-2" />
                 View Results
               </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => {
+                  if (isFeatureAllowed('advanced_analytics')) {
+                    navigate('/tutor/analytics'); // Assuming this route exists or we'll point to something relevant
+                  } else {
+                    setShowLockModal(true);
+                  }
+                }}
+              >
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Advanced Insights
+                {!isFeatureAllowed('advanced_analytics') && <FeatureLockBadge />}
+              </Button>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      <FeatureLockedModal
+        isOpen={showLockModal}
+        onClose={() => setShowLockModal(false)}
+        featureName="Advanced Analytics"
+      />
     </div>
   );
 }

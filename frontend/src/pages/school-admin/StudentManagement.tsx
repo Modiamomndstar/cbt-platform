@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { usePlan } from '@/hooks/usePlan';
 import {
   Table,
   TableBody,
@@ -46,7 +48,14 @@ import {
   UserPlus,
   MoreVertical,
   Upload,
-  X
+  X,
+  Key,
+  ShieldAlert,
+  Mail,
+  Copy,
+  CheckCircle2,
+  Sparkles,
+  FileText
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -83,6 +92,8 @@ interface Tutor {
 }
 
 export default function StudentManagement() {
+  const navigate = useNavigate();
+  const { isFeatureAllowed } = usePlan();
   const [students, setStudents] = useState<Student[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tutors, setTutors] = useState<Tutor[]>([]);
@@ -109,6 +120,15 @@ export default function StudentManagement() {
     description: '',
     onConfirm: () => {}
   });
+
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [resetOptions, setResetOptions] = useState<{
+    id: string;
+    name: string;
+    username: string;
+    email: string | null;
+    sendEmail: boolean;
+  }>({ id: '', name: '', username: '', email: null, sendEmail: true });
 
   const confirmAction = (title: string, description: string, onConfirm: () => void) => {
     setConfirmDialog({ isOpen: true, title, description, onConfirm });
@@ -203,24 +223,22 @@ export default function StudentManagement() {
     }
   };
 
-  const handleResetPassword = (id: string, username?: string) => {
-    confirmAction(
-      "Reset Password",
-      "Are you sure you want to reset this student's password? The old password will no longer work.",
-      async () => {
-        try {
-          const res = await studentAPI.resetPassword(id);
-          toast.success("Password reset successfully");
-          setGeneratedCredentials({
-            username: username || "Student Username",
-            password: res.data.data.newPassword
-          });
-          setIsCredentialsModalOpen(true);
-        } catch (error: any) {
-          toast.error(error.response?.data?.message || "Failed to reset password");
-        }
-      }
-    );
+  const handleResetPassword = async () => {
+    setSubmitting(true);
+    try {
+      const res = await studentAPI.resetPassword(resetOptions.id, { sendEmail: resetOptions.sendEmail });
+      toast.success("Password reset successfully");
+      setGeneratedCredentials({
+        username: res.data.data.username || resetOptions.username,
+        password: res.data.newPassword
+      });
+      setIsResetConfirmOpen(false);
+      setIsCredentialsModalOpen(true);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to reset password");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleAssignTutor = async () => {
@@ -498,14 +516,36 @@ export default function StudentManagement() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
+                    <div className="flex justify-end space-x-2">
+                       {isFeatureAllowed('advanced_analytics') && (
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                           onClick={() => navigate(`/advanced-report/${student.id}`)}
+                           title="Advanced Report Card"
+                         >
+                           <Sparkles className="h-4 w-4" />
+                         </Button>
+                       )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        {isFeatureAllowed('advanced_analytics') && (
+                          <DropdownMenuItem onSelect={() => navigate(`/advanced-report/${student.id}`)}>
+                            <Sparkles className="mr-2 h-4 w-4 text-purple-600" />
+                            Generate Advanced Report
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onSelect={() => navigate(`/report-card/${student.id}`)}>
+                          <FileText className="mr-2 h-4 w-4" />
+                          View Standard Report
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => { setSelectedStudent(student); setIsAssignOpen(true); }}>
                           <UserPlus className="mr-2 h-4 w-4" /> Assign Tutor
                         </DropdownMenuItem>
@@ -517,16 +557,24 @@ export default function StudentManagement() {
                             email: student.email || '',
                             phone: student.phone || '',
                             categoryId: student.category_id || '',
-                            password: ''
+                            password: '',
+                            sendEmail: !!student.email
                           });
                           setIsEditOpen(true);
                         }}>
                           <Edit2 className="mr-2 h-4 w-4" /> Edit Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleResetPassword(student.id, student.student_id)}>
-                          <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4v-3.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                          </svg>
+                        <DropdownMenuItem onClick={() => {
+                          setResetOptions({
+                            id: student.id,
+                            name: student.full_name,
+                            username: student.username || student.student_id,
+                            email: student.email || null,
+                            sendEmail: !!student.email
+                          });
+                          setIsResetConfirmOpen(true);
+                        }}>
+                          <Key className="mr-2 h-4 w-4" />
                           Reset Password
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
@@ -538,7 +586,8 @@ export default function StudentManagement() {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  </TableCell>
+                  </div>
+                </TableCell>
                 </TableRow>
               ))
             )}
@@ -838,30 +887,140 @@ export default function StudentManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* Credentials Modal */}
-      <Dialog open={isCredentialsModalOpen} onOpenChange={setIsCredentialsModalOpen}>
-        <DialogContent>
+      {/* Reset Password Confirmation Modal */}
+      <Dialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}>
+        <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
-            <DialogTitle>Student Portal Credentials</DialogTitle>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Key className="h-5 w-5 text-indigo-600" />
+              Reset Password
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <p className="text-sm text-muted-foreground">
-              Please save these credentials or send them to the student. They will need them to log in to the Student Portal.
-            </p>
-            <div className="bg-muted p-4 rounded-md space-y-2 font-mono text-sm">
-              <div className="flex justify-between items-center">
-                <span className="font-semibold text-foreground">Username:</span>
-                <span>{generatedCredentials?.username}</span>
+
+          <div className="space-y-6 py-4">
+            <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl flex gap-3">
+              <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0" />
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-amber-900">Security Warning</p>
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  Resetting the password for <strong>{resetOptions.name}</strong> will immediately invalidate their current login credentials.
+                </p>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="font-semibold text-foreground">Password:</span>
-                <span>{generatedCredentials?.password}</span>
+            </div>
+
+            <div className="space-y-4">
+              <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold">Notification Options</Label>
+              <div className="flex items-start space-x-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                <Checkbox
+                  id="resetSendEmail"
+                  checked={resetOptions.sendEmail}
+                  disabled={!resetOptions.email}
+                  onCheckedChange={(checked) => setResetOptions(prev => ({ ...prev, sendEmail: !!checked }))}
+                />
+                <div className="space-y-1 cursor-pointer" onClick={() => resetOptions.email && setResetOptions(prev => ({ ...prev, sendEmail: !prev.sendEmail }))}>
+                  <Label htmlFor="resetSendEmail" className="text-sm font-bold flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-slate-400" />
+                    Email new credentials
+                  </Label>
+                  <p className="text-xs text-slate-500">
+                    {resetOptions.email
+                      ? `Send to ${resetOptions.email}`
+                      : "No student email on file. Notification disabled."}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button onClick={() => setIsCredentialsModalOpen(false)}>Close</Button>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setIsResetConfirmOpen(false)} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleResetPassword}
+              disabled={submitting}
+              className="bg-indigo-600 hover:bg-indigo-700 font-bold"
+            >
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Key className="h-4 w-4 mr-2" />}
+              Reset Now
+            </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Credentials Modal */}
+      <Dialog open={isCredentialsModalOpen} onOpenChange={setIsCredentialsModalOpen}>
+        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl rounded-[32px]">
+          <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-8 text-white relative">
+            <div className="absolute top-0 right-0 p-8 opacity-10">
+              <Key className="h-24 w-24 rotate-12" />
+            </div>
+
+            <DialogHeader className="relative z-10 text-left">
+              <div className="h-12 w-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-4 border border-white/20">
+                <CheckCircle2 className="h-6 w-6 text-emerald-400" />
+              </div>
+              <DialogTitle className="text-2xl font-black tracking-tight">Security Credentials</DialogTitle>
+              <p className="text-indigo-200/70 text-sm mt-1">Portal access details updated successfully.</p>
+            </DialogHeader>
+          </div>
+
+          <div className="p-8 space-y-8 bg-white">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] uppercase tracking-widest text-slate-400 font-black">Portal Username</Label>
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group">
+                  <span className="font-mono text-lg font-bold text-slate-800">{generatedCredentials?.username}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-white hover:shadow-sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(generatedCredentials?.username || '');
+                      toast.success("Username copied");
+                    }}
+                  >
+                    <Copy className="h-4 w-4 text-slate-400" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] uppercase tracking-widest text-slate-400 font-black">Secure Password</Label>
+                <div className="flex items-center justify-between p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 group">
+                  <span className="font-mono text-lg font-bold text-indigo-700">{generatedCredentials?.password}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-white hover:shadow-sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(generatedCredentials?.password || '');
+                      toast.success("Password copied");
+                    }}
+                  >
+                    <Copy className="h-4 w-4 text-indigo-400" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+               <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
+                  <ShieldAlert className="h-3 w-3 text-amber-500" />
+                  Important Instructions
+               </div>
+               <p className="text-xs text-slate-500 leading-relaxed">
+                 Provide these credentials to the student. They should not share them with anyone else.
+               </p>
+            </div>
+
+            <Button
+              className="w-full h-12 bg-slate-900 hover:bg-black text-white font-bold rounded-xl shadow-xl shadow-slate-200 transition-all border-none"
+              onClick={() => setIsCredentialsModalOpen(false)}
+            >
+              Done
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -951,22 +1110,3 @@ export default function StudentManagement() {
   );
 }
 
-function XIcon(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
-    </svg>
-  );
-}

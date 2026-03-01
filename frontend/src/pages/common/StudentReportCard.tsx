@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import { analyticsAPI } from '../../services/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Loader2, Printer, ArrowLeft } from 'lucide-react';
+import { Loader2, Printer, ArrowLeft, Lock, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePlan } from '@/hooks/usePlan';
+import { FeatureLockedModal } from '@/components/common/FeatureLock';
 
 interface ReportData {
   student: {
@@ -33,10 +36,14 @@ interface ReportData {
 }
 
 export default function StudentReportCard() {
-  const { studentId } = useParams();
+  const { studentId: paramId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const studentId = paramId || user?.id;
+  const { isFeatureAllowed } = usePlan();
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showLockModal, setShowLockModal] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -63,7 +70,7 @@ export default function StudentReportCard() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
       </div>
     );
   }
@@ -85,11 +92,37 @@ export default function StudentReportCard() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back
         </Button>
-        <Button onClick={handlePrint}>
-          <Printer className="mr-2 h-4 w-4" />
-          Print Report
-        </Button>
+        <div className="flex items-center gap-3">
+          {isFeatureAllowed('advanced_analytics') ? (
+            <Button
+              className="bg-indigo-600 hover:bg-indigo-700"
+              onClick={() => navigate(`/advanced-report/${studentId}`)}
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              Advanced Report
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              className="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+              onClick={() => setShowLockModal(true)}
+            >
+              <Lock className="mr-2 h-4 w-4" />
+              Unlock Advanced Report
+            </Button>
+          )}
+          <Button variant="secondary" onClick={handlePrint}>
+            <Printer className="mr-2 h-4 w-4" />
+            Print Basic
+          </Button>
+        </div>
       </div>
+
+      <FeatureLockedModal
+        isOpen={showLockModal}
+        onClose={() => setShowLockModal(false)}
+        featureName="Advanced Comprehensive Reports"
+      />
 
       {/* Report Card Content */}
       <Card className="max-w-4xl mx-auto print:border-none print:shadow-none">
@@ -149,7 +182,7 @@ export default function StudentReportCard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {exams.map((result, index) => (
+                      {(exams as any[]).map((result, index) => (
                         <tr key={index} className="hover:bg-slate-50">
                           <td className="px-4 py-3">{result.exam}</td>
                           <td className="px-4 py-3 text-center">{result.score}</td>

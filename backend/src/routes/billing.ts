@@ -15,9 +15,12 @@ const router = Router();
 // -----------------------------------------------------------
 // GET /api/billing/status — current plan, usage, limits
 // -----------------------------------------------------------
-router.get('/status', authenticate, authorize('school'), async (req, res, next) => {
+router.get('/status', authenticate, authorize('school', 'tutor', 'student'), async (req, res, next) => {
   try {
-    const schoolId = req.user!.id;
+    const schoolId = req.user!.role === 'school' ? req.user!.id : req.user!.schoolId;
+    if (!schoolId) {
+       return ApiResponseHandler.badRequest(res, 'School ID not found in session');
+    }
     const status = await getSchoolBillingStatus(schoolId);
     ApiResponseHandler.success(res, status, 'Billing status retrieved');
   } catch (error) {
@@ -63,7 +66,7 @@ router.post('/marketplace/purchase', authenticate, authorize('school'), [
     }
 
     // 3. Apply capacity changes if it's a persistent slot
-    if (!p.is_one_time) {
+    if (p.item_type === 'capacity') {
       if (featureKey === 'extra_tutor_slot') {
         await db.query(
           'UPDATE school_subscriptions SET purchased_tutor_slots = purchased_tutor_slots + $1 WHERE school_id = $2',
@@ -75,7 +78,7 @@ router.post('/marketplace/purchase', authenticate, authorize('school'), [
           [quantity, p.batch_size, schoolId]
         );
       } else if (featureKey === 'ai_query_pack') {
-        // AI packs are consumable but tracked in sub to persist across months until used? 
+        // AI packs are consumable but tracked in sub to persist across months until used?
         // User said "if you dont use it you dont get charge" but packs are usually pre-paid credits.
         // We'll add them to a monthly limit that superseeds plan limit.
         await db.query(
@@ -85,7 +88,7 @@ router.post('/marketplace/purchase', authenticate, authorize('school'), [
       }
     }
 
-    ApiResponseHandler.success(res, { 
+    ApiResponseHandler.success(res, {
       creditsDeducted: result.creditsDeducted,
       message: `Purchase successful: ${p.display_name}`
     });

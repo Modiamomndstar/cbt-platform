@@ -48,7 +48,7 @@ router.post('/', [
   body('email').isEmail().withMessage('Valid email required'),
   body('username').trim().isLength({ min: 4 }).withMessage('Username must be 4+ characters'),
   body('password').isLength({ min: 8 }).withMessage('Password must be 8+ characters'),
-  body('role').isIn(['customer_success', 'support_agent', 'finance', 'sales_manager', 'content_reviewer'])
+  body('role').isIn(['customer_success', 'support_agent', 'finance', 'sales_manager', 'content_reviewer', 'competition_admin'])
     .withMessage('Invalid role'),
   validate
 ], async (req: any, res: any, next: any) => {
@@ -85,7 +85,7 @@ router.post('/', [
 // -----------------------------------------------------------
 router.patch('/:id', [
   param('id').isUUID(),
-  body('role').optional().isIn(['customer_success', 'support_agent', 'finance', 'sales_manager', 'content_reviewer']),
+  body('role').optional().isIn(['customer_success', 'support_agent', 'finance', 'sales_manager', 'content_reviewer', 'competition_admin']),
   body('isActive').optional().isBoolean(),
   validate
 ], async (req: any, res: any, next: any) => {
@@ -143,7 +143,7 @@ router.get('/audit-log', async (req, res, next) => {
   try {
     const pagination = getPaginationOptions(req);
     const result = await db.query(
-      `SELECT id, created_at, action, user_type, ip_address, 
+      `SELECT id, created_at, action, user_type, ip_address,
               COALESCE(actor_name, 'System') as actor_name,
               COALESCE(target_type, resource_type, 'unknown') as target_type,
               COALESCE(target_name, 'unknown') as target_name

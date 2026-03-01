@@ -1,5 +1,5 @@
 // User Roles
-export type UserRole = "super_admin" | "school_admin" | "tutor" | "student";
+export type UserRole = "super_admin" | "school_admin" | "tutor" | "student" | "student_portal";
 
 // School Interface
 export interface School {
@@ -126,6 +126,7 @@ export interface UserSession {
   schoolId?: string;
   tutorId?: string;
   studentId?: string;
+  isExternal?: boolean;
 }
 
 // CSV Upload Template

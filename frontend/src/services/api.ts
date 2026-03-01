@@ -42,7 +42,7 @@ api.interceptors.response.use(
       // Don't redirect if we're on a login page already
       const path = window.location.pathname;
       const isLoginPage = path === "/login" || path === "/admin/login" || path === "/student/login";
-      
+
       if (isLoginPage) {
         // Do nothing – let the login form handle the error
       } else if (path.startsWith("/student")) {
@@ -118,7 +118,7 @@ export const studentAPI = {
     api.post(`/students/bulk-assign-tutor`, { studentIds, tutorId }),
   removeTutor: (studentId: string, tutorId: string) =>
     api.delete(`/students/${studentId}/assign-tutor/${tutorId}`),
-  resetPassword: (id: string) => api.put(`/students/${id}/reset-password`),
+  resetPassword: (id: string, data?: { sendEmail: boolean }) => api.put(`/students/${id}/reset-password`, data),
 };
 
 // Category API
@@ -229,11 +229,17 @@ export const resultAPI = {
   // Get exam statistics
   getStatistics: (examId: string) =>
     api.get(`/results/exam/${examId}/statistics`),
+
+  // Get public leaderboard for a competition
+  getLeaderboard: (competitionId: string, categoryId?: string) =>
+    api.get(`/results/leaderboard/${competitionId}`, { params: { categoryId } }),
 };
 
-// Payment API
+// Billing & Subscription API is shifted down to line 350 for logical grouping
+
+// Payment API (Old/Legacy - keeping for compatibility)
 export const paymentAPI = {
-  // Get payment plans
+  // Get payment plans (legacy)
   getPlans: () => api.get("/payments/plans"),
 
   // Create Stripe payment intent
@@ -266,7 +272,15 @@ export const analyticsAPI = {
   // Student dashboard analytics
   getStudentDashboard: () => api.get('/analytics/student/dashboard'),
   getStudentReportCard: (studentId: string) => api.get(`/analytics/student-report-card/${studentId}`),
+  getAdvancedReportCard: (studentId: string, timeframe?: string) =>
+    api.get(`/analytics/advanced-report-card/${studentId}${timeframe ? `?timeframe=${timeframe}` : ''}`),
   getSuperAdminOverview: () => api.get('/analytics/super-admin/overview'),
+  issueReport: (data: { studentId: string; title: string; config: any }) =>
+    api.post("/analytics/issue-report", data),
+  getIssuedReports: (studentId: string) =>
+    api.get(`/analytics/issued-reports/${studentId}`),
+  getIssuedReport: (reportId: string) =>
+    api.get(`/analytics/issued-report/${reportId}`),
 };
 
 // Upload API
@@ -318,14 +332,15 @@ export const uploadAPI = {
 
 // ── Billing API ─────────────────────────────────────────────
 export const billingAPI = {
+  // Get billing status, plans, and limits
   getStatus: () => api.get("/billing/status"),
   getPlans: () => api.get("/billing/plans"),
   validateCoupon: (code: string, planType: string) =>
     api.post("/billing/coupon/validate", { code, planType }),
   getPaygBalance: () => api.get("/billing/payg/balance"),
-  getPaygHistory: () => api.get("/billing/payg/history"),
+  getPaygHistory: (params?: any) => api.get("/billing/payg/history", { params }),
   getMarketplace: () => api.get("/billing/marketplace"),
-  purchaseMarketplaceItem: (featureKey: string) => api.post("/billing/marketplace/purchase", { featureKey }),
+  purchaseMarketplaceItem: (data: { featureKey: string; quantity?: number }) => api.post("/billing/marketplace/purchase", data),
   consumeCredits: (featureKey: string) => api.post("/billing/payg/consume", { featureKey }),
 };
 
@@ -409,10 +424,9 @@ export const superAdminAPI = {
 
   // Export
   exportData: (type: 'tutors' | 'students' | 'external_students', schoolId?: string) => {
-    const token = localStorage.getItem('token');
     const url = `${API_BASE_URL}/super-admin/export/${type}${schoolId ? `?school_id=${schoolId}` : ''}`;
-    // We use a temporary link to handle the download with the token if possible, 
-    // but standard browser downloads work better with direct URLs for CSVs 
+    // We use a temporary link to handle the download with the token if possible,
+    // but standard browser downloads work better with direct URLs for CSVs
     // provided the server allows it or we attach the token to the URL (less secure)
     // or we fetch as blob. Blob is safest.
     return api.get(url, { responseType: 'blob' }).then(res => {
@@ -425,6 +439,27 @@ export const superAdminAPI = {
       link.remove();
     });
   }
+};
+
+// Competition API
+export const competitionAPI = {
+  getAll: () => api.get("/competitions"),
+  getById: (id: string) => api.get(`/competitions/${id}`),
+  create: (data: any) => api.post("/competitions", data),
+  addCategory: (id: string, data: any) => api.post(`/competitions/${id}/categories`, data),
+  addStage: (catId: string, data: any) => api.post(`/competitions/categories/${catId}/stages`, data),
+  updateStatus: (id: string, status: string) => api.patch(`/competitions/${id}/status`, { status }),
+  getAvailableForSchool: () => api.get("/competitions/available/school"),
+  getMyCompetitions: () => api.get("/competitions/student/my-competitions"),
+  register: (id: string, data: { categoryId: string, studentIds: string[] }) =>
+    api.post(`/competitions/${id}/register`, data),
+  getFeatured: () => api.get("/competitions/featured"),
+  getRewards: (id: string) => api.get(`/competitions/${id}/rewards`),
+  setRewards: (id: string, rewards: any[]) => api.post(`/competitions/${id}/rewards`, { rewards }),
+  updatePromotion: (id: string, data: any) => api.patch(`/competitions/${id}/promotion`, data),
+
+  // Get hub statistics for super admin
+  getHubStats: () => api.get("/competitions/hub-stats"),
 };
 
 export default api;

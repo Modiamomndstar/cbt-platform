@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth, RequireAuth } from '@/hooks/useAuth';
+import { PlanProvider } from '@/hooks/usePlan';
 import { initializeDemoData } from '@/lib/dataStore';
 import { Toaster } from '@/components/ui/sonner';
 
@@ -9,6 +10,7 @@ import LandingPage from '@/pages/LandingPage';
 import LoginPage from '@/pages/LoginPage';
 import AdminLogin from '@/pages/auth/AdminLogin';
 import SchoolRegistrationPage from '@/pages/SchoolRegistrationPage';
+import PublicLeaderboard from '@/pages/public/PublicLeaderboard';
 
 // School Admin Pages
 import SchoolAdminLayout from '@/pages/school-admin/SchoolAdminLayout';
@@ -18,6 +20,7 @@ import TutorManagement from '@/pages/school-admin/TutorManagement';
 import SchoolAnalytics from '@/pages/school-admin/Analytics';
 import CategoryManagement from '@/pages/common/CategoryManagement';
 import SchoolStudentManagement from '@/pages/school-admin/StudentManagement';
+import SchoolCompetitionHub from '@/pages/school-admin/SchoolCompetitionHub';
 import BillingPage from '@/pages/school-admin/Billing';
 import SchoolSettingsPage from '@/pages/school-admin/SchoolSettings';
 
@@ -31,6 +34,7 @@ import TutorStudentManagement from '@/pages/tutor/StudentManagement';
 import ScheduleExam from '@/pages/tutor/ScheduleExam';
 import ExamResults from '@/pages/tutor/ExamResults';
 import ExternalStudents from '@/pages/tutor/ExternalStudents';
+import TutorAnalytics from '@/pages/tutor/Analytics';
 
 // Student Pages
 import StudentLogin from '@/pages/student/StudentLogin';
@@ -39,9 +43,12 @@ import StudentDashboard from '@/pages/student/StudentDashboard';
 import TakeExam from '@/pages/student/TakeExam';
 import StudentResults from '@/pages/student/StudentResults';
 import StudentProfile from '@/pages/student/StudentProfile';
+import StudentPerformance from '@/pages/student/StudentPerformance';
+import StudentCompetitionHub from '@/pages/student/StudentCompetitionHub';
 
 // Common Pages
 import StudentReportCard from './pages/common/StudentReportCard';
+import AdvancedReportCard from './pages/common/AdvancedReportCard';
 
 // Super Admin Pages
 import SuperAdminLayout from '@/pages/super-admin/SuperAdminLayout';
@@ -54,6 +61,7 @@ import StaffManagement from '@/pages/super-admin/StaffManagement';
 import SchoolDetails from '@/pages/super-admin/SchoolDetails';
 import MarketplaceManagement from '@/pages/super-admin/MarketplaceManagement';
 import FinancialAnalytics from '@/pages/super-admin/FinancialAnalytics';
+import CompetitionManagement from '@/pages/super-admin/CompetitionManagement';
 
 function AppRoutes() {
   const { isLoading } = useAuth();
@@ -79,6 +87,7 @@ function AppRoutes() {
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/register-school" element={<SchoolRegistrationPage />} />
       <Route path="/student/login" element={<StudentLogin />} />
+      <Route path="/leaderboard/:competitionId" element={<PublicLeaderboard />} />
 
       {/* School Admin Routes */}
       <Route
@@ -95,6 +104,7 @@ function AppRoutes() {
         <Route path="tutors" element={<TutorManagement />} />
         <Route path="students" element={<SchoolStudentManagement />} />
         <Route path="analytics" element={<SchoolAnalytics />} />
+        <Route path="competitions" element={<SchoolCompetitionHub />} />
         <Route path="categories" element={<CategoryManagement />} />
         <Route path="billing" element={<BillingPage />} />
         <Route path="settings" element={<SchoolSettingsPage />} />
@@ -119,13 +129,14 @@ function AppRoutes() {
         <Route path="students" element={<TutorStudentManagement />} />
         <Route path="external-students" element={<ExternalStudents />} />
         <Route path="results" element={<ExamResults />} />
+        <Route path="analytics" element={<TutorAnalytics />} />
       </Route>
 
       {/* Student Routes */}
       <Route
         path="/student/*"
         element={
-          <RequireAuth allowedRoles={['student']}>
+          <RequireAuth allowedRoles={['student']} disallowExternal>
             <StudentLayout />
           </RequireAuth>
         }
@@ -135,6 +146,9 @@ function AppRoutes() {
         <Route path="profile" element={<StudentProfile />} />
         <Route path="exam/:scheduleId" element={<TakeExam />} />
         <Route path="results" element={<StudentResults />} />
+        <Route path="performance" element={<StudentPerformance />} />
+        <Route path="competitions" element={<StudentCompetitionHub />} />
+        <Route path="report-card" element={<StudentReportCard />} />
       </Route>
 
       {/* Super Admin Routes */}
@@ -156,11 +170,13 @@ function AppRoutes() {
         <Route path="school-overrides" element={<SchoolOverridesPage />} />
         <Route path="marketplace" element={<MarketplaceManagement />} />
         <Route path="finance" element={<FinancialAnalytics />} />
+        <Route path="competitions" element={<CompetitionManagement />} />
       </Route>
 
       {/* Common Protected Routes (not nested under a specific layout) */}
       <Route path="/student/take-exam/:scheduleId" element={<RequireAuth allowedRoles={['student']}><TakeExam /></RequireAuth>} />
-      <Route path="/report-card/:studentId" element={<RequireAuth allowedRoles={['student', 'tutor', 'school_admin']}><StudentReportCard /></RequireAuth>} />
+      <Route path="/report-card/:studentId?" element={<RequireAuth allowedRoles={['student', 'tutor', 'school_admin']}><StudentReportCard /></RequireAuth>} />
+      <Route path="/advanced-report/:studentId?/:reportId?" element={<RequireAuth allowedRoles={['student', 'tutor', 'school_admin']}><AdvancedReportCard /></RequireAuth>} />
 
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/login" replace />} />
@@ -171,10 +187,12 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-        <Toaster position="top-right" />
-      </BrowserRouter>
+      <PlanProvider>
+        <BrowserRouter>
+          <AppRoutes />
+          <Toaster position="top-right" />
+        </BrowserRouter>
+      </PlanProvider>
     </AuthProvider>
   );
 }

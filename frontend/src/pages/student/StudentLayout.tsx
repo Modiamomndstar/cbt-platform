@@ -7,20 +7,48 @@ import {
   GraduationCap,
   Menu,
   X,
-  User
+  User,
+  TrendingUp,
+  Award,
+  BookOpen,
+  FileText
 } from 'lucide-react';
 import { useState } from 'react';
+import { usePlan } from '@/hooks/usePlan';
+import { FeatureLockedModal, FeatureLockBadge } from '@/components/common/FeatureLock';
 
 export default function StudentLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { isFeatureAllowed } = usePlan();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showLockModal, setShowLockModal] = useState(false);
+  const [lockedFeature, setLockedFeature] = useState('');
 
   const studentName = user?.name || 'Student';
 
   const handleLogout = () => {
     logout();
     navigate('/student/login');
+  };
+
+  const navItems = [
+    { name: 'Dashboard', href: '/student/dashboard', icon: LayoutDashboard },
+    { name: 'My Performance', href: '/student/performance', icon: TrendingUp, feature: 'advanced_analytics' },
+    { name: 'Competitions', href: '/student/competitions', icon: Award },
+    { name: 'Exam Results', href: '/student/results', icon: BookOpen },
+    { name: 'Report Card', href: '/student/report-card', icon: FileText, feature: 'advanced_analytics' },
+    { name: 'My Profile', href: '/student/profile', icon: User },
+  ];
+
+  const handleNavClick = (item: any) => {
+    if (item.feature && !isFeatureAllowed(item.feature)) {
+      setLockedFeature(item.name);
+      setShowLockModal(true);
+      return;
+    }
+    navigate(item.href);
+    setSidebarOpen(false);
   };
 
   return (
@@ -37,20 +65,19 @@ export default function StudentLayout() {
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
-          <button
-            onClick={() => navigate('/student/dashboard')}
-            className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-gray-700 hover:bg-gray-100"
-          >
-            <LayoutDashboard className="h-5 w-5" />
-            <span>Dashboard</span>
-          </button>
-          <button
-            onClick={() => navigate('/student/profile')}
-            className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-gray-700 hover:bg-gray-100"
-          >
-            <User className="h-5 w-5" />
-            <span>Profile</span>
-          </button>
+          {navItems.map((item) => (
+            <button
+              key={item.name}
+              onClick={() => handleNavClick(item)}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-gray-700 hover:bg-gray-100"
+            >
+              <div className="flex items-center space-x-3">
+                <item.icon className="h-5 w-5" />
+                <span>{item.name}</span>
+              </div>
+              {item.feature && !isFeatureAllowed(item.feature) && <FeatureLockBadge />}
+            </button>
+          ))}
         </nav>
 
         <div className="p-4 border-t border-gray-200">
@@ -91,26 +118,19 @@ export default function StudentLayout() {
               </button>
             </div>
             <nav className="p-4 space-y-1">
-              <button
-                onClick={() => {
-                  navigate('/student/dashboard');
-                  setSidebarOpen(false);
-                }}
-                className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-gray-700 hover:bg-gray-100"
-              >
-                <LayoutDashboard className="h-5 w-5" />
-                <span>Dashboard</span>
-              </button>
-               <button
-                onClick={() => {
-                  navigate('/student/profile');
-                  setSidebarOpen(false);
-                }}
-                className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-gray-700 hover:bg-gray-100"
-              >
-                <User className="h-5 w-5" />
-                <span>Profile</span>
-              </button>
+              {navItems.map((item) => (
+                <button
+                  key={item.name}
+                  onClick={() => handleNavClick(item)}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-gray-700 hover:bg-gray-100"
+                >
+                  <div className="flex items-center space-x-3">
+                    <item.icon className="h-5 w-5" />
+                    <span>{item.name}</span>
+                  </div>
+                  {item.feature && !isFeatureAllowed(item.feature) && <FeatureLockBadge />}
+                </button>
+              ))}
             </nav>
             <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
               <Button
@@ -147,6 +167,13 @@ export default function StudentLayout() {
           <Outlet />
         </div>
       </main>
+
+      <FeatureLockedModal
+        isOpen={showLockModal}
+        onClose={() => setShowLockModal(false)}
+        featureName={lockedFeature}
+        description={`${lockedFeature} is available on our Advanced and Enterprise plans. Ask your school administrator to upgrade to unlock this feature for all students.`}
+      />
     </div>
   );
 }

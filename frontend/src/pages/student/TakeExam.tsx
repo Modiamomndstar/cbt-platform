@@ -5,8 +5,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { scheduleAPI, resultAPI } from '@/services/api';
-import { Clock, AlertTriangle, ChevronLeft, ChevronRight, Flag } from 'lucide-react';
+import { Clock, AlertTriangle, ChevronLeft, ChevronRight, Flag, ShieldCheck, AlertCircle, Play } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -19,6 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export default function TakeExam() {
   const { scheduleId } = useParams<{ scheduleId: string }>();
@@ -40,6 +42,13 @@ export default function TakeExam() {
   const [verifying, setVerifying] = useState(false);
   const [examStartTime, setExamStartTime] = useState<Date | null>(null);
 
+  // Anti-cheating state
+  const [violations, setViolations] = useState<any[]>([]);
+  const [showRules, setShowRules] = useState(false);
+  const [maxViolations, setMaxViolations] = useState(3);
+  const [hasAgreed, setHasAgreed] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   // Load exam data
   useEffect(() => {
     if (scheduleId) {
@@ -49,7 +58,7 @@ export default function TakeExam() {
 
   const loadSchedule = async () => {
     try {
-      // Try to get schedule info from scheduled exams
+      setLoading(true);
       const response = await scheduleAPI.getMyExams();
       if (response.data.success) {
         const schedules = response.data.data || [];
@@ -57,13 +66,19 @@ export default function TakeExam() {
         if (mySchedule) {
           setSchedule(mySchedule);
           const dur = mySchedule.durationMinutes || mySchedule.duration || mySchedule.exam_duration || 60;
+
           setExam({
             title: mySchedule.examTitle || mySchedule.exam_title || 'Exam',
             duration: dur,
             category: mySchedule.examCategory || mySchedule.exam_category || '',
+            isCompetition: !!mySchedule.competition_id,
+            rules: mySchedule.competition_rules || '',
+            maxViolations: mySchedule.max_violations ?? 3
           });
+
+          setMaxViolations(mySchedule.max_violations ?? 3);
           setTimeRemaining(dur * 60);
-          // Pre-fill access code if available
+
           if (mySchedule.accessCode || mySchedule.access_code) {
             setAccessCode(mySchedule.accessCode || mySchedule.access_code);
           }
@@ -76,6 +91,62 @@ export default function TakeExam() {
       setLoading(false);
     }
   };
+
+  // Anti-cheating listeners
+  useEffect(() => {
+    if (!isStarted || !exam?.isCompetition || maxViolations === 0) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        recordViolation('tab_switch', 'User switched tabs or minimized window');
+      }
+    };
+
+    const handleBlur = () => {
+       recordViolation('window_blur', 'Window lost focus');
+    };
+
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && isStarted && exam?.isCompetition) {
+        setIsFullscreen(false);
+        recordViolation('fullscreen_exit', 'User exited fullscreen mode');
+      } else if (document.fullscreenElement) {
+        setIsFullscreen(true);
+      }
+    };
+
+    const recordViolation = (type: string, description: string) => {
+      setViolations(prev => {
+        const newViolation = {
+          type,
+          timestamp: new Date().toISOString(),
+          description
+        };
+        const updated = [...prev, newViolation];
+
+        toast.warning(`Security Alert: ${description} (${updated.length}/${maxViolations})`, {
+          description: "Continued violations will result in automatic disqualification.",
+          duration: 5000
+        });
+
+        if (updated.length >= maxViolations) {
+          toast.error("Security threshold exceeded. Disqualifying...");
+          handleSubmit(true, updated);
+        }
+        return updated;
+      });
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleBlur);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBlur);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [isStarted, exam, maxViolations]);
 
   // Timer
   useEffect(() => {
@@ -105,16 +176,31 @@ export default function TakeExam() {
   const handleStartExam = async () => {
     if (!scheduleId) return;
 
+    if (exam?.isCompetition && !showRules) {
+      setShowRules(true);
+      return;
+    }
+
+    // Try to enter fullscreen
+    if (exam?.isCompetition) {
+      try {
+        await document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+      } catch (err) {
+        console.error('Failed to enter fullscreen:', err);
+        toast.error('Fullscreen is required for this competition. Please enable it to proceed.');
+        return;
+      }
+    }
+
     setVerifying(true);
     try {
-      // Verify access — send timezone for time-window check
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const response = await scheduleAPI.verifyAccess(scheduleId, accessCode, timezone);
       if (response.data.success) {
         const data = response.data.data;
         const examQuestions = data.questions || [];
 
-        // Process questions
         const processedQuestions = examQuestions.map((q: any) => ({
           ...q,
           id: q.id,
@@ -134,7 +220,8 @@ export default function TakeExam() {
 
         setExamStartTime(new Date());
         setIsStarted(true);
-        toast.success('Exam started!');
+        setShowRules(false);
+        toast.success(exam?.isCompetition ? 'Competition started! Monitor your security status.' : 'Exam started!');
       }
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Failed to start exam. Check your access code.';
@@ -161,14 +248,11 @@ export default function TakeExam() {
 
   const [resultData, setResultData] = useState<any>(null);
 
-  // ... (existing code)
-
-  const handleSubmit = async (isTimeout: boolean = false) => {
+  const handleSubmit = async (isTimeout: boolean = false, currentViolations?: any[]) => {
     if (!scheduleId) return;
 
     setIsSubmitting(true);
 
-    // Calculate time spent
     const timeSpentMinutes = examStartTime
       ? Math.round((new Date().getTime() - examStartTime.getTime()) / 60000)
       : 0;
@@ -179,11 +263,11 @@ export default function TakeExam() {
         answers,
         autoSubmitted: isTimeout,
         timeSpentMinutes,
+        violations: currentViolations || violations // Use the violations state if not passed directly
       });
 
-      toast.success(isTimeout ? 'Exam auto-submitted (Time expired)' : 'Exam submitted successfully');
+      toast.success(isTimeout ? 'Exam auto-submitted' : 'Exam submitted successfully');
 
-      // If result is returned, show it
       if (response.data.data && response.data.data.percentage !== undefined) {
           setResultData(response.data.data);
       } else {
@@ -209,56 +293,147 @@ export default function TakeExam() {
     );
   }
 
+  // Rules Disclosure Modal
+  if (showRules) {
+    return (
+      <div className="max-w-2xl mx-auto py-8">
+        <Card className="border-2 border-indigo-600 shadow-2xl overflow-hidden rounded-3xl">
+          <div className="bg-indigo-600 p-6 text-white">
+            <h2 className="text-2xl font-black flex items-center gap-3">
+              <ShieldCheck className="h-8 w-8" />
+              Competition Rules
+            </h2>
+            <p className="text-indigo-100 mt-1">Please read carefully before beginning</p>
+          </div>
+          <CardContent className="p-8">
+            <div className="space-y-6">
+              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 prose prose-slate max-w-none">
+                <h3 className="text-lg font-bold text-slate-900 mb-2">Terms & Regulations</h3>
+                <div className="text-slate-600 whitespace-pre-wrap leading-relaxed">
+                  {exam?.rules || "No specific rules provided for this competition."}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-2xl border border-amber-100">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-bold text-amber-900 text-sm">Anti-Cheating</h4>
+                    <p className="text-xs text-amber-700">Max {maxViolations} tab switches permitted. System logs all focus loss.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                  <Clock className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-bold text-blue-900 text-sm">Timer Policy</h4>
+                    <p className="text-xs text-blue-700">Once started, the timer cannot be paused or reset.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2 p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                <Checkbox
+                  id="agree"
+                  checked={hasAgreed}
+                  onCheckedChange={(checked) => setHasAgreed(checked === true)}
+                  className="h-5 w-5 border-2 border-indigo-600 data-[state=checked]:bg-indigo-600"
+                />
+                <label
+                  htmlFor="agree"
+                  className="text-sm font-bold text-slate-700 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  I have read and agree to follow all the rules of this competition.
+                </label>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <Button
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 h-14 rounded-2xl font-bold text-lg group transition-all"
+                  onClick={handleStartExam}
+                  disabled={verifying || !hasAgreed}
+                >
+                  {verifying ? 'Starting...' : (
+                    <div className="flex items-center gap-2">
+                      Enter Fullscreen & Start Competition
+                      <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  )}
+                </Button>
+                <Button variant="ghost" onClick={() => setShowRules(false)} className="rounded-xl">
+                  Go Back
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!isStarted) {
     return (
-      <div className="max-w-2xl mx-auto">
-        <Card>
+      <div className="max-w-2xl mx-auto py-8">
+        <Card className="rounded-3xl shadow-lg border-0 bg-white/50 backdrop-blur-sm overflow-hidden">
+          <div className="h-2 bg-gradient-to-r from-emerald-400 to-indigo-500" />
           <CardContent className="p-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            <h1 className="text-3xl font-black text-slate-900 mb-6 tracking-tight">
               {exam?.title || 'Exam'}
             </h1>
-            <div className="space-y-4 mb-6">
+            <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-500">Duration</p>
-                  <p className="text-lg font-semibold">{exam?.duration || 60} minutes</p>
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 group hover:border-indigo-200 transition-colors">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Duration</p>
+                  <p className="text-xl font-black text-slate-900">{exam?.duration || 60} mins</p>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-500">Category</p>
-                  <p className="text-lg font-semibold">{exam?.category || 'General'}</p>
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 group hover:border-indigo-200 transition-colors">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Category</p>
+                  <p className="text-xl font-black text-slate-900">{exam?.category || 'General'}</p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Access Code</label>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Access Code</label>
                 <input
                   type="text"
                   placeholder="Enter your exam access code"
                   value={accessCode}
                   onChange={(e) => setAccessCode(e.target.value)}
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full p-4 border-2 border-slate-100 bg-slate-50 rounded-2xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all font-mono tracking-widest"
                 />
               </div>
 
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <h3 className="font-semibold text-amber-800 mb-2">Important Instructions:</h3>
-                <ul className="text-sm text-amber-700 space-y-1 list-disc list-inside">
-                  <li>You have {exam?.duration || 60} minutes to complete this exam</li>
-                  <li>The timer starts when you click &quot;Start Exam&quot;</li>
-                  <li>Do not refresh or close the browser</li>
-                  <li>Click the flag icon to mark questions for review</li>
-                  <li>Your progress is submitted when you click Submit</li>
+              <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5">
+                <h3 className="font-bold text-indigo-900 mb-3 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  Candidate Instructions:
+                </h3>
+                <ul className="text-sm text-indigo-700 space-y-2 font-medium">
+                  <li className="flex gap-2 items-start"><span className="h-1.5 w-1.5 rounded-full bg-indigo-500 mt-1.5 shrink-0" /> Timer starts immediately upon launch.</li>
+                  <li className="flex gap-2 items-start"><span className="h-1.5 w-1.5 rounded-full bg-indigo-500 mt-1.5 shrink-0" /> Do not refresh or use browser navigation.</li>
+                  <li className="flex gap-2 items-start"><span className="h-1.5 w-1.5 rounded-full bg-indigo-500 mt-1.5 shrink-0" /> Competition exams have strict anti-cheating protocols.</li>
                 </ul>
               </div>
+
+              <Button
+                className={`w-full h-14 rounded-2xl font-bold text-lg shadow-lg transition-all ${
+                   exam?.isCompetition ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100'
+                }`}
+                onClick={handleStartExam}
+                disabled={verifying || !accessCode.trim()}
+              >
+                {verifying ? (
+                   <div className="flex items-center gap-2">
+                      <div className="h-5 w-5 border-2 border-white/30 border-t-white animate-spin rounded-full" />
+                      Authenticating...
+                   </div>
+                ) : (
+                   <div className="flex items-center gap-2">
+                      {exam?.isCompetition ? <ShieldCheck className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+                      Launch {exam?.isCompetition ? 'Competition' : 'Exam'}
+                   </div>
+                )}
+              </Button>
             </div>
-            <Button
-              className="w-full"
-              size="lg"
-              onClick={handleStartExam}
-              disabled={verifying || !accessCode.trim()}
-            >
-              {verifying ? 'Verifying...' : 'Start Exam'}
-            </Button>
           </CardContent>
         </Card>
       </div>
@@ -266,162 +441,245 @@ export default function TakeExam() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div
+      className="max-w-5xl mx-auto select-none"
+      onContextMenu={(e) => e.preventDefault()}
+      onCopy={(e) => e.preventDefault()}
+      onPaste={(e) => e.preventDefault()}
+    >
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white border-b pb-4 mb-4">
-        <div className="flex justify-between items-center mb-2">
-          <h1 className="text-lg font-semibold">{exam?.title}</h1>
-          <div className={`flex items-center space-x-2 px-4 py-2 rounded-lg ${
-            timeRemaining < 300 ? 'bg-red-100 text-red-700' : 'bg-gray-100'
-          }`}>
-            <Clock className="h-5 w-5" />
-            <span className="text-xl font-mono font-bold">
-              {formatTime(timeRemaining)}
-            </span>
+      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b pb-4 mb-6 pt-2 px-4 rounded-b-3xl shadow-sm">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+               <Badge className={`${exam?.isCompetition ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'} rounded-full px-3`}>
+                  {exam?.isCompetition ? 'Competition Mode' : 'Standard Exam'}
+               </Badge>
+                {exam?.isCompetition && (
+                   <Badge className={`${
+                      isFullscreen ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100 animate-pulse'
+                   } rounded-full`}>
+                      {isFullscreen ? 'Fullscreen Locked' : 'Fullscreen Escaped!'}
+                   </Badge>
+                )}
+             </div>
+            <h1 className="text-xl font-black text-slate-900 tracking-tight">{exam?.title}</h1>
+          </div>
+
+          <div className="flex items-center gap-4 w-full md:w-auto">
+            <div className={`flex items-center space-x-2 px-6 py-3 rounded-2xl border-2 transition-all shadow-sm ${
+              timeRemaining < 300 ? 'bg-red-50 text-red-700 border-red-200 animate-pulse' : 'bg-slate-50 border-slate-100 text-slate-900 font-bold'
+            }`}>
+              <Clock className={`h-5 w-5 ${timeRemaining < 300 ? 'text-red-500' : 'text-slate-400'}`} />
+              <span className="text-2xl font-mono">
+                {formatTime(timeRemaining)}
+              </span>
+            </div>
+            <Button
+               variant="outline"
+               className="rounded-xl border-dashed border-2 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+               onClick={() => setShowSubmitConfirm(true)}
+            >
+               End
+            </Button>
           </div>
         </div>
-        <Progress value={progress} className="h-2" />
-        <div className="flex justify-between text-sm text-gray-500 mt-1">
-          <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
-          <span>{answeredCount} answered</span>
+
+        <div className="space-y-1.5">
+           <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">
+              <span>Overall Progress</span>
+              <span>{answeredCount} of {questions.length} Attempted</span>
+           </div>
+           <Progress value={progress} className={`h-2.5 rounded-full ${exam?.isCompetition ? 'bg-indigo-50' : 'bg-emerald-50'}`} />
         </div>
       </div>
 
-      {/* Question Navigation */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        {questions.map((q: any, index: number) => (
-          <button
-            key={q.id}
-            onClick={() => setCurrentQuestionIndex(index)}
-            className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
-              index === currentQuestionIndex
-                ? 'bg-indigo-600 text-white'
-                : answers[q.id]
-                ? 'bg-emerald-100 text-emerald-700'
-                : flaggedQuestions.includes(q.id)
-                ? 'bg-amber-100 text-amber-700'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            {index + 1}
-          </button>
-        ))}
-      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 px-4">
+        {/* Sidebar Nav */}
+        <div className="lg:col-span-1 space-y-6">
+           <Card className="rounded-3xl border-0 bg-slate-50 p-6">
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Question Grid</h3>
+              <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-3 gap-2">
+                {questions.map((q: any, index: number) => (
+                  <button
+                    key={q.id}
+                    onClick={() => setCurrentQuestionIndex(index)}
+                    className={`h-10 rounded-xl text-xs font-bold transition-all transform hover:scale-105 ${
+                      index === currentQuestionIndex
+                        ? 'bg-slate-900 text-white shadow-lg ring-4 ring-slate-200'
+                        : answers[q.id]
+                        ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-200'
+                        : flaggedQuestions.includes(q.id)
+                        ? 'bg-amber-400 text-white'
+                        : 'bg-white text-slate-400 hover:bg-slate-200 border border-slate-100'
+                    }`}
+                  >
+                    {index + 1}
+                  </button>
+                ))}
+              </div>
 
-      {/* Question Card */}
-      {currentQuestion && (
-        <Card className="mb-4">
-          <CardContent className="p-6">
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex-1">
-                <p className="text-sm text-gray-500 mb-1">
-                  Question {currentQuestionIndex + 1} • {currentQuestion.marks} marks
-                </p>
-                <h2 className="text-lg font-medium">
+              <div className="mt-8 pt-6 border-t border-slate-200 space-y-3">
+                 <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                    <div className="h-2 w-2 rounded-full bg-emerald-500" /> Answered
+                 </div>
+                 <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                    <div className="h-2 w-2 rounded-full bg-amber-400" /> Flagged
+                 </div>
+                 <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                    <div className="h-2 w-2 rounded-full bg-slate-900" /> Current
+                 </div>
+              </div>
+           </Card>
+        </div>
+
+        {/* Main Question Area */}
+        <div className="lg:col-span-3 pb-20">
+          {currentQuestion && (
+            <Card className="border-0 shadow-sm overflow-hidden rounded-[32px] bg-white">
+              <div className="bg-slate-50 flex items-center justify-between px-8 py-4 border-b">
+                 <Badge variant="outline" className="bg-white text-slate-600 font-bold px-3 py-1 border-slate-100">
+                    Question {currentQuestionIndex + 1}
+                 </Badge>
+                 <div className="flex items-center gap-4">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{currentQuestion.marks} Point(s)</span>
+                    <button
+                      onClick={() => toggleFlagQuestion(currentQuestion.id)}
+                      className={`h-8 w-8 rounded-full flex items-center justify-center transition-all ${
+                        flaggedQuestions.includes(currentQuestion.id)
+                          ? 'bg-amber-100 text-amber-600'
+                          : 'bg-white text-slate-300 hover:text-slate-500 border border-slate-100'
+                      }`}
+                    >
+                      <Flag className="h-4 w-4" />
+                    </button>
+                 </div>
+              </div>
+              <CardContent className="p-10">
+                <h2 className="text-2xl font-black text-slate-900 leading-snug mb-10">
                   {currentQuestion.questionText || currentQuestion.question_text}
                 </h2>
-              </div>
-              <button
-                onClick={() => toggleFlagQuestion(currentQuestion.id)}
-                className={`p-2 rounded-lg transition-colors ${
-                  flaggedQuestions.includes(currentQuestion.id)
-                    ? 'bg-amber-100 text-amber-600'
-                    : 'bg-gray-100 text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                <Flag className="h-5 w-5" />
-              </button>
-            </div>
 
-            <div className="space-y-3">
-              {(currentQuestion.questionType || currentQuestion.question_type) === 'multiple_choice' && (
-                (currentQuestion.options || []).map((option: string, index: number) => (
-                  <label
-                    key={index}
-                    className={`flex items-center p-4 border rounded-lg cursor-pointer transition-colors ${
-                      answers[currentQuestion.id] === index.toString()
-                        ? 'border-indigo-500 bg-indigo-50'
-                        : 'border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
+                <div className="space-y-4">
+                  {(currentQuestion.questionType || currentQuestion.question_type) === 'multiple_choice' && (
+                    (currentQuestion.options || []).map((option: string, index: number) => (
+                      <label
+                        key={index}
+                        className={`flex items-center p-6 border-2 rounded-2xl cursor-pointer transition-all ${
+                          answers[currentQuestion.id] === index.toString()
+                            ? 'border-indigo-600 bg-indigo-50/50 shadow-md transform scale-[1.01]'
+                            : 'border-slate-50 hover:bg-slate-50 hover:border-slate-100'
+                        }`}
+                      >
+                        <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center mr-4 transition-all ${
+                           answers[currentQuestion.id] === index.toString()
+                           ? 'border-indigo-600 bg-indigo-600'
+                           : 'border-slate-200'
+                        }`}>
+                           {answers[currentQuestion.id] === index.toString() && <div className="h-2 w-2 rounded-full bg-white transition-all" />}
+                        </div>
+                        <input
+                          type="radio"
+                          className="sr-only"
+                          name={`question-${currentQuestion.id}`}
+                          value={index}
+                          checked={answers[currentQuestion.id] === index.toString()}
+                          onChange={() => handleAnswer(currentQuestion.id, index.toString())}
+                        />
+                        <span className={`text-lg transition-all ${
+                           answers[currentQuestion.id] === index.toString() ? 'font-black text-indigo-900' : 'font-medium text-slate-600'
+                        }`}>
+                           <span className="text-slate-400 mr-2 text-sm">{String.fromCharCode(65 + index)}.</span>
+                           {option}
+                        </span>
+                      </label>
+                    ))
+                  )}
+
+                  {(currentQuestion.questionType || currentQuestion.question_type) === 'true_false' && (
+                    ['True', 'False'].map((option, index) => (
+                      <label
+                        key={index}
+                        className={`flex items-center p-6 border-2 rounded-2xl cursor-pointer transition-all ${
+                          answers[currentQuestion.id] === index.toString()
+                            ? 'border-indigo-600 bg-indigo-50/50 shadow-md transform scale-[1.01]'
+                            : 'border-slate-50 hover:bg-slate-50 hover:border-slate-100'
+                        }`}
+                      >
+                        <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center mr-4 ${
+                           answers[currentQuestion.id] === index.toString() ? 'border-indigo-600 bg-indigo-600' : 'border-slate-200'
+                        }`}>
+                           {answers[currentQuestion.id] === index.toString() && <div className="h-2 w-2 rounded-full bg-white" />}
+                        </div>
+                        <input
+                          type="radio"
+                          className="sr-only"
+                          name={`question-${currentQuestion.id}`}
+                          value={index}
+                          checked={answers[currentQuestion.id] === index.toString()}
+                          onChange={() => handleAnswer(currentQuestion.id, index.toString())}
+                        />
+                        <span className={`text-lg ${
+                           answers[currentQuestion.id] === index.toString() ? 'font-black text-indigo-900' : 'font-medium text-slate-600'
+                        }`}>{option}</span>
+                      </label>
+                    ))
+                  )}
+
+                  {(currentQuestion.questionType || currentQuestion.question_type) === 'fill_blank' && (
                     <input
-                      type="radio"
-                      name={`question-${currentQuestion.id}`}
-                      value={index}
-                      checked={answers[currentQuestion.id] === index.toString()}
-                      onChange={() => handleAnswer(currentQuestion.id, index.toString())}
-                      className="h-4 w-4 text-indigo-600"
+                      type="text"
+                      placeholder="Type your answer here..."
+                      value={answers[currentQuestion.id] || ''}
+                      onChange={(e) => handleAnswer(currentQuestion.id, e.target.value)}
+                      className="w-full p-6 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-600 transition-all font-bold text-lg"
                     />
-                    <span className="ml-3">{String.fromCharCode(65 + index)}. {option}</span>
-                  </label>
-                ))
-              )}
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-              {(currentQuestion.questionType || currentQuestion.question_type) === 'true_false' && (
-                ['True', 'False'].map((option, index) => (
-                  <label
-                    key={index}
-                    className={`flex items-center p-4 border rounded-lg cursor-pointer transition-colors ${
-                      answers[currentQuestion.id] === index.toString()
-                        ? 'border-indigo-500 bg-indigo-50'
-                        : 'border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name={`question-${currentQuestion.id}`}
-                      value={index}
-                      checked={answers[currentQuestion.id] === index.toString()}
-                      onChange={() => handleAnswer(currentQuestion.id, index.toString())}
-                      className="h-4 w-4 text-indigo-600"
-                    />
-                    <span className="ml-3">{option}</span>
-                  </label>
-                ))
-              )}
+          {/* Controls */}
+          <div className="mt-8 flex justify-between items-center bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
+            <Button
+              variant="ghost"
+              className="rounded-2xl h-12 px-6 font-bold text-slate-500 hover:bg-slate-50"
+              onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
+              disabled={currentQuestionIndex === 0}
+            >
+              <ChevronLeft className="h-5 w-5 mr-2" />
+              Previous
+            </Button>
 
-              {(currentQuestion.questionType || currentQuestion.question_type) === 'fill_blank' && (
-                <input
-                  type="text"
-                  placeholder="Enter your answer"
-                  value={answers[currentQuestion.id] || ''}
-                  onChange={(e) => handleAnswer(currentQuestion.id, e.target.value)}
-                  className="w-full p-4 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              )}
+            <div className="flex gap-4">
+               {currentQuestionIndex < questions.length - 1 ? (
+                 <Button
+                   className={`rounded-2xl h-12 px-8 font-black shadow-lg transition-all ${
+                      exam?.isCompetition ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100' : 'bg-slate-900 hover:bg-black shadow-slate-100'
+                   }`}
+                   onClick={() => setCurrentQuestionIndex(prev => Math.min(questions.length - 1, prev + 1))}
+                 >
+                   Next Question
+                   <ChevronRight className="h-5 w-5 ml-2" />
+                 </Button>
+               ) : (
+                 <Button
+                   className="rounded-2xl h-14 px-12 font-black shadow-lg bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100 text-lg"
+                   onClick={() => setShowSubmitConfirm(true)}
+                   disabled={isSubmitting}
+                 >
+                   {isSubmitting ? (
+                      <div className="flex items-center gap-2">
+                         <div className="h-4 w-4 border-2 border-white/30 border-t-white animate-spin rounded-full" />
+                         Submitting...
+                      </div>
+                   ) : 'Finalize & Submit'}
+                 </Button>
+               )}
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Navigation Buttons */}
-      <div className="flex justify-between">
-        <Button
-          variant="outline"
-          onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
-          disabled={currentQuestionIndex === 0}
-        >
-          <ChevronLeft className="h-4 w-4 mr-2" />
-          Previous
-        </Button>
-
-        {currentQuestionIndex < questions.length - 1 ? (
-          <Button
-            onClick={() => setCurrentQuestionIndex(prev => Math.min(questions.length - 1, prev + 1))}
-          >
-            Next
-            <ChevronRight className="h-4 w-4 ml-2" />
-          </Button>
-        ) : (
-          <Button
-            variant="default"
-            className="bg-emerald-600 hover:bg-emerald-700"
-            onClick={() => setShowSubmitConfirm(true)}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? 'Submitting...' : 'Submit Exam'}
-          </Button>
-        )}
+          </div>
+        </div>
       </div>
 
       {/* Flagged Questions Alert */}
@@ -462,19 +720,31 @@ export default function TakeExam() {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-2xl text-center">Exam Result</AlertDialogTitle>
             <AlertDialogDescription className="text-center space-y-4">
-              <div className="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-xl">
-                <span className="text-gray-500 mb-1">Your Score</span>
-                <span className={`text-4xl font-bold ${resultData?.passed ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {resultData?.percentage}%
-                </span>
-                <span className="text-sm text-gray-500 mt-2">
-                  {resultData?.score} / {resultData?.totalMarks} marks
-                </span>
-              </div>
-              <p className="text-gray-700">
-                {resultData?.passed
-                  ? "Congratulations! You have passed the exam."
-                  : "Unfortunately, you did not pass. Keep studying!"}
+              {resultData?.isDisqualified ? (
+                <div className="flex flex-col items-center justify-center p-6 bg-red-50 rounded-xl border border-red-100">
+                  <ShieldCheck className="h-12 w-12 text-red-500 mb-2 opacity-50" />
+                  <span className="text-red-500 font-black text-xl mb-1 uppercase tracking-tighter">Disqualified</span>
+                  <span className="text-sm text-red-700 font-medium">
+                    Security threshold exceeded. Your result has been voided.
+                  </span>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-6 bg-slate-50 rounded-xl">
+                  <span className="text-slate-500 mb-1 font-bold text-xs uppercase tracking-widest">Your Score</span>
+                  <span className={`text-4xl font-black ${resultData?.passed ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {resultData?.percentage}%
+                  </span>
+                  <span className="text-sm text-slate-500 mt-2 font-bold tabular-nums">
+                    {resultData?.score} / {resultData?.totalMarks} marks
+                  </span>
+                </div>
+              )}
+              <p className="text-slate-600 font-medium">
+                {resultData?.isDisqualified
+                  ? "Due to multiple security violations, this attempt has been flagged and your score is 0."
+                  : (resultData?.passed
+                    ? "Congratulations! You have passed the exam."
+                    : "Unfortunately, you did not pass. Keep studying!")}
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>

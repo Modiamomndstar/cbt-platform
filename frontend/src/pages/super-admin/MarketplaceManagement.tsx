@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  ShoppingBag, Gift, Search, Filter, ArrowUpRight,
+  ShoppingBag, Gift, ArrowUpRight,
   Package, History, AlertCircle, CheckCircle2
 } from 'lucide-react';
-import { api } from '@/lib/api';
+import api from '@/services/api';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
@@ -48,9 +48,9 @@ export default function MarketplaceManagement() {
         api.get('/super-admin/finance/logs?limit=20'), // Simplified for now
         api.get('/super-admin/schools')
       ]);
-      setItems(pricingRes.data);
-      setHistory(historyRes.data);
-      setSchools(schoolsRes.data);
+      setItems(pricingRes.data.data || []);
+      setHistory(historyRes.data.data || []);
+      setSchools(schoolsRes.data.data || []);
     } catch (err) {
       toast.error('Failed to load marketplace data');
     } finally {

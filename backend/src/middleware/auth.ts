@@ -19,6 +19,7 @@ declare global {
         schoolId?: string;
         tutorId?: string;
         studentId?: string;
+        isExternal?: boolean;
         staffRole?: string;
       };
     }
@@ -31,6 +32,7 @@ export interface JWTPayload {
   schoolId?: string;
   tutorId?: string;
   studentId?: string;
+  isExternal?: boolean;
   staffRole?: string;
   iat?: number;
   exp?: number;
@@ -75,8 +77,17 @@ export const authenticate = async (
 
     switch (decoded.role) {
       case "super_admin":
-        // Super admin is always valid (hardcoded check)
-        userExists = decoded.id === "super_admin" || decoded.id === "00000000-0000-0000-0000-000000000000";
+        // 1. Primary Super Admin (Nil UUID or legacy "super_admin" string)
+        if (decoded.id === "super_admin" || decoded.id === "00000000-0000-0000-0000-000000000000") {
+          userExists = true;
+        } else {
+          // 2. Individual Staff Account
+          const staffResult = await db.query(
+            "SELECT id, role, is_active FROM staff_accounts WHERE id = $1",
+            [decoded.id]
+          );
+          userExists = staffResult.rows.length > 0 && staffResult.rows[0].is_active;
+        }
         break;
       case "school":
         const schoolResult = await db.query(
@@ -107,7 +118,7 @@ export const authenticate = async (
 
     req.user = {
       ...decoded,
-      id: decoded.role === "super_admin" ? "00000000-0000-0000-0000-000000000000" : decoded.id,
+      id: decoded.id === "super_admin" ? "00000000-0000-0000-0000-000000000000" : decoded.id,
     };
     next();
   } catch (error) {
@@ -175,6 +186,52 @@ export const requireSuperAdmin = (
     ApiResponseHandler.forbidden(res, "Access denied. Super admin required.");
     return;
   }
+  next();
+};
+
+// requireFinanceAccess middleware
+// Accessible by primary Super Admin OR staff with 'finance' role
+export const requireFinanceAccess = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
+  if (!req.user || req.user.role !== "super_admin") {
+    ApiResponseHandler.forbidden(res, "Access denied. Admin required.");
+    return;
+  }
+
+  const isPrimaryAdmin = req.user.id === "00000000-0000-0000-0000-000000000000";
+  const isFinanceStaff = req.user.staffRole === "finance";
+
+  if (!isPrimaryAdmin && !isFinanceStaff) {
+    ApiResponseHandler.forbidden(res, "Access denied. Finance level clearance required.");
+    return;
+  }
+
+  next();
+};
+
+// requireCompetitionAccess middleware
+// Accessible by primary Super Admin OR staff with 'competition_admin' role
+export const requireCompetitionAccess = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
+  if (!req.user || req.user.role !== "super_admin") {
+    ApiResponseHandler.forbidden(res, "Access denied. Admin required.");
+    return;
+  }
+
+  const isPrimaryAdmin = req.user.id === "00000000-0000-0000-0000-000000000000";
+  const isCompetitionStaff = req.user.staffRole === "competition_admin";
+
+  if (!isPrimaryAdmin && !isCompetitionStaff) {
+    ApiResponseHandler.forbidden(res, "Access denied. Competition management clearance required.");
+    return;
+  }
+
   next();
 };
 

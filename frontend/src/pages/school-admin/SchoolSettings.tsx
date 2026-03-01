@@ -18,6 +18,8 @@ interface SchoolSettings {
   email_on_new_student: boolean;
   email_on_results_release: boolean;
   primary_color: string;
+  report_signature_title: string;
+  report_signature_name: string;
 }
 
 function Toggle({ enabled, onChange, label, description }: {
@@ -84,6 +86,8 @@ export default function SchoolSettingsPage() {
         emailOnNewStudent: settings.email_on_new_student,
         emailOnResultsRelease: settings.email_on_results_release,
         primaryColor: settings.primary_color,
+        reportSignatureTitle: settings.report_signature_title,
+        reportSignatureName: settings.report_signature_name,
       });
       toast.success('Settings saved!');
       setDirty(false);
@@ -308,6 +312,46 @@ export default function SchoolSettingsPage() {
               </button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Advanced Reports */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <Save className="h-4 w-4 text-indigo-500" />
+            Advanced Report Settings
+          </CardTitle>
+          <p className="text-xs text-gray-500 mt-1">
+            Configure global defaults for the "Advanced Report Card" premium feature.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-gray-700">Default Signature Title</label>
+              <input
+                type="text"
+                placeholder="e.g. School Principal"
+                value={settings.report_signature_title || ''}
+                onChange={(e) => update('report_signature_title', e.target.value)}
+                className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300 outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700">Default Signature Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Dr. John Doe"
+                value={settings.report_signature_name || ''}
+                onChange={(e) => update('report_signature_name', e.target.value)}
+                className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300 outline-none"
+              />
+            </div>
+          </div>
+          <p className="text-[10px] text-gray-400">
+            These will appear by default on all generated Advanced Report Cards but can still be changed per-student.
+          </p>
         </CardContent>
       </Card>
     </div>

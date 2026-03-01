@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
+import { usePlan } from '@/hooks/usePlan';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { tutorAPI, categoryAPI, externalStudentAPI } from '@/services/api';
-import { Users, Search, Loader2, Mail, Phone, FileText } from 'lucide-react';
+import { Users, Search, Loader2, Mail, Phone, FileText, Sparkles } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -23,13 +24,16 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 export default function StudentManagement() {
   const { user } = useAuth();
+  const { isFeatureAllowed } = usePlan();
   const [internalStudents, setInternalStudents] = useState<any[]>([]);
   const [externalStudents, setExternalStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const navigate = useNavigate();
 
   // Categories
   const [categories, setCategories] = useState<any[]>([]);
@@ -374,16 +378,30 @@ export default function StudentManagement() {
                       </td>
                       <td className="px-4 py-3 text-right">
                          <div className="flex items-center justify-end gap-2">
-                           <Button
-                             variant="ghost"
-                             size="sm"
-                             onClick={() => window.open(`/report-card/${student.id}`, '_blank')}
-                             title="View Report Card"
-                             className="text-gray-400 hover:text-indigo-600"
-                           >
-                             <FileText className="h-4 w-4" />
-                           </Button>
+                           <div className="flex justify-end gap-2">
+                            {isFeatureAllowed('advanced_analytics') && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 px-2 flex items-center gap-1.5"
+                                onClick={() => navigate(`/advanced-report/${student.id}`)}
+                                title="Generate Advanced Report"
+                              >
+                                <Sparkles className="h-4 w-4" />
+                                <span className="text-xs font-semibold">Adv. Report</span>
+                              </Button>
+                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="px-2 flex items-center gap-1.5"
+                              onClick={() => navigate(`/report-card/${student.id}`)}
+                            >
+                              <FileText className="h-4 w-4" />
+                              <span className="text-xs font-medium">Std. Report</span>
+                            </Button>
                          </div>
+                          </div>
                       </td>
                     </tr>
                   ))}

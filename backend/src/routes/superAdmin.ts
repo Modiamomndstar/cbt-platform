@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body, param, validationResult } from 'express-validator';
-import { authenticate, authorize } from '../middleware/auth';
+import { authenticate, authorize, requireFinanceAccess } from '../middleware/auth';
 import { db } from '../config/database';
 import { ApiResponseHandler } from '../utils/apiResponse';
 import { sendWelcomeEmail, sendTrialStartEmail } from '../services/email';
@@ -607,6 +607,7 @@ router.get('/marketplace', async (req, res, next) => {
 
 // PUT /api/super-admin/marketplace/:featureKey
 router.put('/marketplace/:featureKey', [
+  requireFinanceAccess,
   param('featureKey').notEmpty(),
   body('credit_cost').optional().isInt({ min: 0 }),
   body('is_active').optional().isBoolean(),
@@ -644,6 +645,7 @@ router.put('/marketplace/:featureKey', [
 
 // POST /api/super-admin/marketplace/gift
 router.post('/marketplace/gift', [
+  requireFinanceAccess,
   body('schoolId').isUUID(),
   body('featureKey').notEmpty(),
   body('quantity').optional().isInt({ min: 1 }),
@@ -663,15 +665,23 @@ router.post('/marketplace/gift', [
 });
 
 // GET /api/super-admin/finance/overview
-router.get('/finance/overview', async (req, res, next) => {
+router.get('/finance/overview', requireFinanceAccess, async (req, res, next) => {
   try {
+    const { period = 'month' } = req.query;
     const overview = await financeService.getGlobalOverview();
-    ApiResponseHandler.success(res, overview, 'Financial overview retrieved');
+    const history = await financeService.getRevenueHistory(period as any);
+    const bySchool = await financeService.getRevenueBySchool(5);
+
+    ApiResponseHandler.success(res, {
+      ...overview,
+      revenueHistory: history,
+      revenueBySchool: bySchool
+    }, 'Financial overview retrieved');
   } catch (error) { next(error); }
 });
 
 // GET /api/super-admin/finance/revenue
-router.get('/finance/revenue', async (req, res, next) => {
+router.get('/finance/revenue', requireFinanceAccess, async (req, res, next) => {
   try {
     const { period = 'month' } = req.query;
     const history = await financeService.getRevenueHistory(period as any);
@@ -680,7 +690,7 @@ router.get('/finance/revenue', async (req, res, next) => {
 });
 
 // GET /api/super-admin/finance/logs
-router.get('/finance/logs', async (req, res, next) => {
+router.get('/finance/logs', requireFinanceAccess, async (req, res, next) => {
   try {
     const { schoolId, currency, startDate, endDate, limit, offset } = req.query;
     const logs = await financeService.getAuditLogs({

@@ -168,7 +168,9 @@ router.post(
   ],
   async (req, res, next) => {
     try {
-      const { username, password } = req.body;
+      const usernameInput = req.body.username || "";
+      const username = usernameInput.trim().toLowerCase();
+      const { password } = req.body;
 
       // Find exam schedule by credentials — support both internal and external students
       const result = await db.query(
@@ -265,6 +267,7 @@ router.post(
         role: "student",
         schoolId: schedule.school_id,
         studentId: effectiveStudentId,
+        isExternal: !!schedule.external_student_id
       });
 
       ApiResponseHandler.success(res, {
@@ -305,7 +308,9 @@ router.post(
   ],
   async (req, res, next) => {
     try {
-      const { username, password } = req.body;
+      const usernameInput = req.body.username || "";
+      const username = usernameInput.trim().toLowerCase();
+      const { password } = req.body;
 
       // Find student by username
       const result = await db.query(
@@ -346,7 +351,7 @@ router.post(
         role: "student",
         schoolId: student.school_id,
         studentId: student.id,
-        // scope: 'portal' // Optional: distinguish from exam access?
+        isExternal: false
       });
 
       // Log activity

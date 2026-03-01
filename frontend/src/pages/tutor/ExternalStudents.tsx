@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { UserPlus, Pencil, Trash2, Upload, FolderOpen, Download } from 'lucide-react';
+import { UserPlus, Pencil, Trash2, Upload, FolderOpen, Download, FileText, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import api, { externalStudentAPI, API_BASE_URL } from '@/services/api';
@@ -32,6 +33,7 @@ interface Category {
 }
 
 export default function ExternalStudents() {
+  const navigate = useNavigate();
   const [students, setStudents] = useState<ExternalStudent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -307,12 +309,12 @@ export default function ExternalStudents() {
               <Input type="file" accept=".csv" onChange={(e) => setBulkFile(e.target.files?.[0] || null)} />
             </div>
             <div className="flex items-center space-x-2 p-3 bg-indigo-50 rounded-lg">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 id="sendBulkEmail"
-                checked={sendBulkEmail} 
-                onChange={e => setSendBulkEmail(e.target.checked)} 
-                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" 
+                checked={sendBulkEmail}
+                onChange={e => setSendBulkEmail(e.target.checked)}
+                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
               />
               <Label htmlFor="sendBulkEmail" className="text-sm font-medium text-indigo-700 cursor-pointer">
                 Send Welcome Email with Portal Credentials (PAYG Credits)
@@ -373,12 +375,12 @@ export default function ExternalStudents() {
                 <div className="flex flex-col space-y-2 justify-center h-10">
                   {isCreating && (
                     <div className="flex items-center space-x-2 text-indigo-700">
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         id="sendEmail"
-                        checked={formData.sendEmail} 
-                        onChange={e => setFormData({...formData, sendEmail: e.target.checked})} 
-                        className="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" 
+                        checked={formData.sendEmail}
+                        onChange={e => setFormData({...formData, sendEmail: e.target.checked})}
+                        className="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
                       />
                       <Label htmlFor="sendEmail" className="text-sm font-medium cursor-pointer">
                         Send Welcome Email (PAYG)
@@ -387,12 +389,12 @@ export default function ExternalStudents() {
                   )}
                   {editingId && (
                     <div className="flex items-center space-x-2">
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         id="isActive"
-                        checked={formData.isActive} 
-                        onChange={e => setFormData({...formData, isActive: e.target.checked})} 
-                        className="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" 
+                        checked={formData.isActive}
+                        onChange={e => setFormData({...formData, isActive: e.target.checked})}
+                        className="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
                       />
                       <Label htmlFor="isActive" className="text-sm font-medium text-gray-700 cursor-pointer">
                         Account Active
@@ -458,6 +460,24 @@ export default function ExternalStudents() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                        onClick={() => navigate(`/advanced-report/${student.id}`)}
+                        title="Generate Advanced Report"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-gray-600 hover:text-gray-900"
+                        onClick={() => navigate(`/report-card/${student.id}`)}
+                        title="View Standard Report"
+                      >
+                        <FileText className="h-4 w-4" />
+                      </Button>
                       <Button variant="ghost" size="sm" onClick={() => handleEdit(student)}>
                         <Pencil className="w-4 h-4 text-indigo-600" />
                       </Button>

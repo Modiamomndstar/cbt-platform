@@ -31,32 +31,8 @@ export default function StudentLogin() {
     if (activeTab === 'exam') {
        result = await login('student', username, password, accessCode);
     } else {
-       // Portal login
-       // We need to use the checkAuth or similar to redirect, but login() hook usually handles setting token.
-       // However, the useAuth hook might not be updated to handle 'portal-student' role distinction yet or it treats them same.
-       // Let's assume login() needs an update or we call api directly.
-       // Actually, the useAuth().login function likely has a switch case. we should check it.
-       // For now, let's assume we can pass 'student-portal' as role or just call API directly and set user.
-       // Checking useAuth hook would be wise, but let's try to use the api directly for portal first if useAuth is rigid.
-       // Wait, useAuth.ts was not read. Let me read it first to be sure.
-       // But I can't read it inside this tool.
-       // I'll assume for now I should use a new method or the existing one with a flag?
-       // Let's just call authAPI.studentPortalLogin directly here and handle success,
-       // OR better, update useAuth later. For now, let's call API directly to ensure it works.
-
-       try {
-           const { authAPI } = await import('@/services/api');
-           const res = await authAPI.studentPortalLogin(username, password);
-           if (res.data.success) {
-               localStorage.setItem('token', res.data.data.token);
-               localStorage.setItem('user', JSON.stringify(res.data.data.user));
-               // Force reload or state update? useAuth should pick it up if it listens to storage or we reload.
-               window.location.href = '/student/dashboard';
-               return;
-           }
-       } catch (err: any) {
-           result = { success: false, message: err.response?.data?.message || 'Login failed' };
-       }
+       // Portal login - use the unified login hook
+       result = await login('student_portal', username, password);
     }
 
     if (result && !result.success) {
@@ -65,6 +41,8 @@ export default function StudentLogin() {
        navigate(`/student/exam/${result.data.exam.scheduleId}`); // Direct to specific exam lobby
     } else if (activeTab === 'exam') {
        navigate('/student/dashboard'); // Fallback
+    } else if (result?.success) {
+       navigate('/student/dashboard'); // Portal successful login
     }
 
     setIsLoading(false);
