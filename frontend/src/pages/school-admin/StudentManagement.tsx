@@ -698,7 +698,7 @@ export default function StudentManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   {tutors.map(tutor => (
-                    <SelectItem key={tutor.id} value={tutor.id}>{tutor.full_name}</SelectItem>
+                    <SelectItem key={tutor.id} value={tutor.id}>{tutor.fullName}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

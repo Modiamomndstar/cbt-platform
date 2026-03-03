@@ -9,9 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  ArrowLeft, Users, GraduationCap, BookOpen, Coins, ShieldAlert, ShieldCheck, 
-  Clock, Mail, Download, MoreVertical, MinusCircle, PlusCircle, ExternalLink,
+import {
+  ArrowLeft, Users, GraduationCap, BookOpen, Coins, ShieldAlert, ShieldCheck,
+  Mail, Download, ExternalLink,
   History, Settings, Activity, Info
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -22,7 +22,7 @@ export default function SchoolDetails() {
   const [data, setData] = useState<any>(null);
   const [featureFlags, setFeatureFlags] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // States for forms
   const [creditAmount, setCreditAmount] = useState('');
   const [creditReason, setCreditReason] = useState('');
@@ -42,7 +42,7 @@ export default function SchoolDetails() {
         superAdminAPI.getSchoolDetails(id),
         superAdminAPI.getFeatureFlags()
       ]);
-      
+
       if (res.data.success) {
         const d = res.data.data;
         setData(d);
@@ -70,10 +70,10 @@ export default function SchoolDetails() {
     setIsProcessing(true);
     try {
       const amount = parseInt(creditAmount);
-      const res = type === 'add' 
+      const res = type === 'add'
         ? await superAdminAPI.addCredits(id, amount, creditReason)
         : await superAdminAPI.deductCredits(id, amount, creditReason);
-      
+
       if (res.data.success) {
         toast.success(`Successfully ${type === 'add' ? 'added' : 'deducted'} ${amount} credits`);
         setCreditAmount('');
@@ -142,7 +142,7 @@ export default function SchoolDetails() {
     if (!details) return '-';
     // If it's a string, just return it
     if (typeof details === 'string') return details;
-    
+
     try {
       switch (action) {
         case 'credits_added':
@@ -303,7 +303,7 @@ export default function SchoolDetails() {
                   </Button>
                 </CardContent>
               </Card>
-              
+
               <Card className="border-none shadow-sm bg-amber-50/50 border border-amber-100">
                 <CardHeader className="pb-2">
                    <CardTitle className="text-lg flex items-center gap-2 text-amber-900"><Coins className="h-5 w-5" /> Quick Fund</CardTitle>
@@ -386,8 +386,8 @@ export default function SchoolDetails() {
                            <p className="text-sm font-semibold text-gray-900">{f.feature_name}</p>
                            <p className="text-[10px] text-gray-500">Normal: {f.min_plan.toUpperCase()}+</p>
                         </div>
-                        <Switch 
-                          checked={overrides[f.feature_key] || false} 
+                        <Switch
+                          checked={overrides[f.feature_key] || false}
                           onCheckedChange={(checked) => handleToggleFeature(f.feature_key, checked)}
                         />
                       </div>

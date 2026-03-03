@@ -32,6 +32,10 @@ interface Coupon {
   discount_type: string; discount_value: number;
   max_uses: number | null; uses_count: number;
   expires_at: string | null; is_active: boolean;
+  type?: string;
+  value?: number;
+  redemption_count?: number;
+  valid_until?: string | null;
 }
 
 interface MarketplaceItem {

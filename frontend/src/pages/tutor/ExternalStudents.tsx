@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { UserPlus, Pencil, Trash2, Upload, FolderOpen, Download, FileText, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import api, { externalStudentAPI, API_BASE_URL } from '@/services/api';
+import api, { API_BASE_URL } from '@/services/api';
 
 interface ExternalStudent {
   id: string;

@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/useAuth';
-import { GraduationCap, School, Users, Shield, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { GraduationCap, School, Users, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import type { UserRole } from '@/types';
 
 export default function LoginPage() {

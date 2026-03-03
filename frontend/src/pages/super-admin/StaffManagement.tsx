@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Shield, Plus, KeyRound, Clock, UserPlus, FileSignature, LogOut, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, UserPlus, FileSignature, CheckCircle, XCircle } from 'lucide-react';
 import { superAdminAPI } from '@/services/api';
 
 interface StaffAccount {

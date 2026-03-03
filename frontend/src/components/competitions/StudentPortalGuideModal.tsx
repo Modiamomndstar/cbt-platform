@@ -9,7 +9,6 @@ import {
 import { Button } from '@/components/ui/button';
 import {
   Key,
-  User,
   ExternalLink,
   ShieldCheck,
   ClipboardCheck,

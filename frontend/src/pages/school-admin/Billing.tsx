@@ -5,10 +5,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { billingAPI } from '@/services/api';
 import { toast } from 'sonner';
 import {
-  CreditCard, Users, GraduationCap, BookOpen, Brain,
-  TrendingUp, CheckCircle2, XCircle, Clock, Coins, ArrowUpRight,
-  Tag, RefreshCw, Wallet, ShoppingCart, Info, AlertTriangle,
-  History, Download, Zap, ShoppingBag, AlertCircle, ShieldCheck, Sparkles
+  Users, GraduationCap, BookOpen,
+  TrendingUp, CheckCircle2, XCircle, ArrowUpRight,
+  RefreshCw, Wallet, ShoppingCart, Info, AlertTriangle,
+  History, Zap, ShoppingBag, AlertCircle, ShieldCheck, Sparkles
 } from 'lucide-react';
 
 interface PlanStatus {
@@ -50,6 +50,7 @@ interface PlanStatus {
   };
   paygBalance: number;
   features: Record<string, boolean>;
+  referralCode?: string;
 }
 
 interface MarketplaceItem {
@@ -159,7 +160,7 @@ export default function BillingPage() {
 
     setPurchasing(item.feature_key);
     try {
-      const res = await billingAPI.purchaseMarketplaceItem(item.feature_key);
+      const res = await billingAPI.purchaseMarketplaceItem({ featureKey: item.feature_key });
       if (res.data.success) {
         toast.success(`Successfully purchased ${item.display_name}!`);
         await loadData();

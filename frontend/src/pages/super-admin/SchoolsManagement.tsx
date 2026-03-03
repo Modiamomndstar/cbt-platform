@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { superAdminAPI } from '@/services/api';
-import { Search, School, Mail, ShieldCheck, Filter, Globe } from 'lucide-react';
+import { Search, School, Mail, ShieldCheck, Globe } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -105,8 +105,8 @@ export default function SchoolsManagement() {
       {/* Schools Grid */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredSchools.map((school: any) => (
-          <Card 
-            key={school.id} 
+          <Card
+            key={school.id}
             className="hover:shadow-lg transition-all cursor-pointer hover:-translate-y-1"
             onClick={() => navigate(`/super-admin/schools/${school.id}`)}
           >

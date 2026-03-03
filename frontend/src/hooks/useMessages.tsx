@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react';
+import { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import type { ReactNode } from 'react';
 import { messagesAPI } from '@/services/api';
 import { useAuth } from './useAuth';
 

@@ -5,7 +5,6 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { analyticsAPI, schoolSettingsAPI } from '@/services/api';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import {
@@ -13,8 +12,6 @@ import {
   Printer,
   ArrowLeft,
   Settings2,
-  Filter,
-  CheckCircle2,
   Users,
   Layers,
   Download,

@@ -10,7 +10,6 @@ import {
 } from 'lucide-react';
 import { superAdminAPI } from '@/services/api';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
 
 export default function SuperAdminDashboard() {
   const [stats, setStats] = useState({
@@ -159,9 +158,9 @@ export default function SuperAdminDashboard() {
               <div className="p-4 flex-1">
                 <h3 className="font-bold text-gray-900">Platform Tutors CSV</h3>
                 <p className="text-xs text-gray-500">Full directory of all registered tutors</p>
-                <Button 
-                  variant="link" 
-                  size="sm" 
+                <Button
+                  variant="link"
+                  size="sm"
                   onClick={() => superAdminAPI.exportData('tutors')}
                   className="p-0 h-auto text-indigo-600 font-bold mt-2 hover:no-underline"
                 >
@@ -181,9 +180,9 @@ export default function SuperAdminDashboard() {
               <div className="p-4 flex-1">
                 <h3 className="font-bold text-gray-900">Platform Students CSV</h3>
                 <p className="text-xs text-gray-500">Complete internal student database</p>
-                <Button 
-                  variant="link" 
-                  size="sm" 
+                <Button
+                  variant="link"
+                  size="sm"
                   onClick={() => superAdminAPI.exportData('students')}
                   className="p-0 h-auto text-emerald-600 font-bold mt-2 hover:no-underline"
                 >
