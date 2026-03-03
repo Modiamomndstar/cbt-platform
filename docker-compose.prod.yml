@@ -16,6 +16,8 @@ services:
   backend:
     image: ghcr.io/__IMAGE_OWNER__/cbt-platform-backend:__IMAGE_TAG__
     restart: always
+    ports:
+      - "5000:5000"
     environment:
       PORT: 5000
       DB_HOST: db
