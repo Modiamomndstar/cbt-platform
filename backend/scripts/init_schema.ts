@@ -129,7 +129,28 @@ async function initSchema() {
       )
     `);
 
-    // 6. Exams table
+    // 6. External Students table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS external_students (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        tutor_id UUID NOT NULL REFERENCES tutors(id) ON DELETE CASCADE,
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        category_id UUID REFERENCES student_categories(id) ON DELETE SET NULL,
+        first_name VARCHAR(100),
+        last_name VARCHAR(100),
+        full_name VARCHAR(255) NOT NULL,
+        email VARCHAR(255),
+        username VARCHAR(100) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NOT NULL,
+        is_active BOOLEAN DEFAULT true,
+        last_login_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(tutor_id, username)
+      )
+    `);
+
+    // 7. Exams table
     await client.query(`
       CREATE TABLE IF NOT EXISTS exams (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -154,7 +175,7 @@ async function initSchema() {
       )
     `);
 
-    // 7. Questions table
+    // 8. Questions table
     await client.query(`
       CREATE TABLE IF NOT EXISTS questions (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -173,12 +194,13 @@ async function initSchema() {
       )
     `);
 
-    // 8. Exam schedules table
+    // 9. Exam schedules table
     await client.query(`
       CREATE TABLE IF NOT EXISTS exam_schedules (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
-        student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        student_id UUID REFERENCES students(id) ON DELETE CASCADE,
+        external_student_id UUID REFERENCES external_students(id) ON DELETE CASCADE,
         scheduled_date DATE NOT NULL,
         start_time VARCHAR(10) NOT NULL,
         end_time VARCHAR(10) NOT NULL,
@@ -192,11 +214,15 @@ async function initSchema() {
         auto_submitted BOOLEAN DEFAULT false,
         created_by UUID,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT check_student_or_external CHECK (
+          (student_id IS NOT NULL AND external_student_id IS NULL) OR
+          (student_id IS NULL AND external_student_id IS NOT NULL)
+        )
       )
     `);
 
-    // 9. Student exams (results) table
+    // 10. Student exams (results) table
     await client.query(`
       CREATE TABLE IF NOT EXISTS student_exams (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -226,7 +252,7 @@ async function initSchema() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_student_exams_schedule ON student_exams(exam_schedule_id)`);
 
 
-    // 10. Payments table
+    // 11. Payments table
     await client.query(`
       CREATE TABLE IF NOT EXISTS payments (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -244,7 +270,7 @@ async function initSchema() {
       )
     `);
 
-    // 11. Activity logs table
+    // 12. Activity logs table
     await client.query(`
       CREATE TABLE IF NOT EXISTS activity_logs (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -257,7 +283,7 @@ async function initSchema() {
       )
     `);
 
-    // 12. Migrations tracking table
+    // 13. Migrations tracking table
     await client.query(`
       CREATE TABLE IF NOT EXISTS migrations (
         id SERIAL PRIMARY KEY,
@@ -280,7 +306,8 @@ async function initSchema() {
       CREATE INDEX IF NOT EXISTS idx_payments_school_id ON payments(school_id);
       CREATE INDEX IF NOT EXISTS idx_student_exams_student_id ON student_exams(student_id);
       CREATE INDEX IF NOT EXISTS idx_student_exams_exam_id ON student_exams(exam_id);
-      CREATE INDEX IF NOT EXISTS idx_student_exams_schedule_id ON student_exams(schedule_id);
+      CREATE INDEX IF NOT EXISTS idx_student_exams_schedule_id ON student_exams(exam_schedule_id);
+      CREATE INDEX IF NOT EXISTS idx_student_exams_external_student_id ON student_exams(external_student_id);
       CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id);
       CREATE INDEX IF NOT EXISTS idx_student_categories_school_id ON student_categories(school_id);
     `);
