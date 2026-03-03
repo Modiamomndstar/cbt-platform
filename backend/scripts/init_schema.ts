@@ -249,6 +249,45 @@ async function initSchema() {
       )
     `);
 
+    // --- NORMALIZATION BLOCK (For existing tables with old schemas) ---
+    await client.query(`
+      DO $$
+      BEGIN
+        -- Normalizing student_exams
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'student_exams') THEN
+          -- Rename schedule_id to exam_schedule_id if it exists
+          IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'student_exams' AND column_name = 'schedule_id')
+             AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'student_exams' AND column_name = 'exam_schedule_id') THEN
+            ALTER TABLE student_exams RENAME COLUMN schedule_id TO exam_schedule_id;
+          END IF;
+
+          -- Add exam_schedule_id if missing entirely
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'student_exams' AND column_name = 'exam_schedule_id') THEN
+            ALTER TABLE student_exams ADD COLUMN exam_schedule_id UUID REFERENCES exam_schedules(id) ON DELETE SET NULL;
+          END IF;
+
+          -- Add external_student_id if missing
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'student_exams' AND column_name = 'external_student_id') THEN
+            ALTER TABLE student_exams ADD COLUMN external_student_id UUID REFERENCES external_students(id) ON DELETE CASCADE;
+          END IF;
+
+          -- Make student_id nullable for external students support
+          ALTER TABLE student_exams ALTER COLUMN student_id DROP NOT NULL;
+        END IF;
+
+        -- Normalizing exam_schedules
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'exam_schedules') THEN
+          -- Add external_student_id if missing
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'exam_schedules' AND column_name = 'external_student_id') THEN
+            ALTER TABLE exam_schedules ADD COLUMN external_student_id UUID REFERENCES external_students(id) ON DELETE CASCADE;
+          END IF;
+
+          -- Make student_id nullable
+          ALTER TABLE exam_schedules ALTER COLUMN student_id DROP NOT NULL;
+        END IF;
+      END $$;
+    `);
+
     await client.query(`CREATE INDEX IF NOT EXISTS idx_student_exams_schedule ON student_exams(exam_schedule_id)`);
 
 
