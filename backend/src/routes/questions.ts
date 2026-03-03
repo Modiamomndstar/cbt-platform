@@ -348,13 +348,13 @@ router.post(
 
       // 1. Check AI Limits
       const [plan, usage] = await Promise.all([
-        getSchoolPlan(user.schoolId),
-        getSchoolUsage(user.schoolId)
+        getSchoolPlan(user.schoolId!),
+        getSchoolUsage(user.schoolId!)
       ]);
 
       if (usage.aiQueriesThisMonth >= plan.aiQueriesPerMonth) {
         return ApiResponseHandler.error(
-          res, 
+          res,
           "AI Limit Reached. Your current plan allows for " + plan.aiQueriesPerMonth + " queries per month. Please upgrade your subscription or purchase an AI Query Pack from the Marketplace.",
           403,
           "LIMIT_REACHED"

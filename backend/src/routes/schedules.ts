@@ -1032,9 +1032,9 @@ router.post(
       }
 
       const success = await sendExamCredentials(
-        user.schoolId,
-        schedule.email,
-        studentName,
+        user.schoolId!,
+        schedule.email!,
+        studentName!,
         schedule.exam_title,
         {
           date: new Date(schedule.scheduled_date).toLocaleDateString(),
@@ -1101,9 +1101,9 @@ router.post(
         const studentName = schedule.student_display_name || "Student";
 
         const success = await sendExamCredentials(
-          user.schoolId,
-          schedule.email,
-          studentName,
+          user.schoolId!,
+          schedule.email!,
+          studentName!,
           schedule.exam_title,
           {
             date: new Date(schedule.scheduled_date).toLocaleDateString(),

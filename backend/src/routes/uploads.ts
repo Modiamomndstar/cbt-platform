@@ -568,7 +568,7 @@ router.post('/external-students', authenticate, requireRole(['tutor', 'school'])
     const totalToProcess = records.length;
 
     // ── Pre-check limits ──
-    const schoolId = user.schoolId;
+    const schoolId = user.schoolId!;
     const tutorId = user.tutorId || user.id;
     const canAdd = await canAddExternalStudent(schoolId, tutorId);
     if (!canAdd.allowed) {
@@ -670,7 +670,7 @@ router.post('/external-students', authenticate, requireRole(['tutor', 'school'])
           const schoolRes = await client.query("SELECT name FROM schools WHERE id = $1", [schoolId]);
           const schoolName = schoolRes.rows[0]?.name || "CBT Platform";
           sendStudentPortalCredentialsEmail(schoolId, email, fullNameRaw, schoolName, {
-              username: student.username,
+              username: student.username!,
               password
           }).catch(err => console.error("Failed to send bulk external student email:", err));
         }
