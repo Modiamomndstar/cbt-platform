@@ -43,21 +43,33 @@ async function initSchema() {
       )
     `);
 
-    // 2. Payment plans table
+    // 2. Plan Definitions table
     await client.query(`
-      CREATE TABLE IF NOT EXISTS payment_plans (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        name VARCHAR(100) NOT NULL,
-        description TEXT,
-        price DECIMAL(10,2) NOT NULL DEFAULT 0,
-        currency VARCHAR(10) DEFAULT 'USD',
-        duration_months INTEGER DEFAULT 1,
-        max_tutors INTEGER DEFAULT 2,
-        max_students INTEGER DEFAULT 50,
-        features JSONB DEFAULT '[]',
-        is_active BOOLEAN DEFAULT true,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      CREATE TABLE IF NOT EXISTS plan_definitions (
+        plan_type          VARCHAR(50) PRIMARY KEY,
+        display_name       VARCHAR(100) NOT NULL,
+        price_usd          DECIMAL(10,2) DEFAULT 0,
+        price_ngn          DECIMAL(10,2) DEFAULT 0,
+        trial_days         INTEGER DEFAULT 0,
+        max_tutors         INTEGER,
+        max_internal_students INTEGER,
+        max_external_per_tutor INTEGER DEFAULT 0,
+        max_active_exams   INTEGER,
+        ai_queries_per_month INTEGER DEFAULT 0,
+        allow_student_portal        BOOLEAN DEFAULT false,
+        allow_external_students     BOOLEAN DEFAULT false,
+        allow_bulk_import           BOOLEAN DEFAULT false,
+        allow_email_notifications   BOOLEAN DEFAULT false,
+        allow_sms_notifications     BOOLEAN DEFAULT false,
+        allow_advanced_analytics    BOOLEAN DEFAULT false,
+        allow_custom_branding       BOOLEAN DEFAULT false,
+        allow_api_access            BOOLEAN DEFAULT false,
+        allow_result_pdf            BOOLEAN DEFAULT false,
+        allow_result_export         BOOLEAN DEFAULT false,
+        extra_internal_student_price_usd DECIMAL(10,4) DEFAULT 0,
+        extra_external_student_price_usd DECIMAL(10,4) DEFAULT 0,
+        is_active          BOOLEAN DEFAULT true,
+        updated_at         TIMESTAMPTZ DEFAULT NOW()
       )
     `);
 
@@ -296,7 +308,7 @@ async function initSchema() {
       CREATE TABLE IF NOT EXISTS payments (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
-        plan_id UUID REFERENCES payment_plans(id),
+        plan_type VARCHAR(50) REFERENCES plan_definitions(plan_type),
         amount DECIMAL(10,2) NOT NULL,
         currency VARCHAR(10) DEFAULT 'USD',
         payment_method VARCHAR(50),
@@ -309,7 +321,40 @@ async function initSchema() {
       )
     `);
 
-    // 12. Activity logs table
+    // 12. Subscriptions table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS school_subscriptions (
+        id                   UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        school_id            UUID UNIQUE REFERENCES schools(id) ON DELETE CASCADE,
+        plan_type            VARCHAR(50) NOT NULL DEFAULT 'freemium' REFERENCES plan_definitions(plan_type),
+        status               VARCHAR(50) DEFAULT 'active',
+        billing_cycle        VARCHAR(20) DEFAULT 'monthly',
+        currency             VARCHAR(10) DEFAULT 'NGN',
+        amount               DECIMAL(10,2) DEFAULT 0,
+        trial_start          TIMESTAMPTZ,
+        trial_end            TIMESTAMPTZ,
+        current_period_start TIMESTAMPTZ,
+        current_period_end   TIMESTAMPTZ,
+        created_at           TIMESTAMPTZ DEFAULT NOW(),
+        updated_at           TIMESTAMPTZ DEFAULT NOW(),
+        purchased_tutor_slots INTEGER DEFAULT 0,
+        purchased_student_slots INTEGER DEFAULT 0,
+        purchased_ai_queries INTEGER DEFAULT 0,
+        is_capacity_frozen BOOLEAN DEFAULT false
+      )
+    `);
+
+    // 13. Wallets table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS payg_wallets (
+        school_id            UUID PRIMARY KEY REFERENCES schools(id) ON DELETE CASCADE,
+        balance_credits      INTEGER DEFAULT 0,
+        currency             VARCHAR(10) DEFAULT 'NGN',
+        updated_at           TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    // 14. Activity logs table
     await client.query(`
       CREATE TABLE IF NOT EXISTS activity_logs (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

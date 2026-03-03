@@ -12,22 +12,22 @@ import {
 } from 'lucide-react';
 
 interface Plan {
-  plan_type: string;
-  display_name: string;
-  price_ngn: number;
-  price_usd: number;
-  max_tutors: number | null;
-  max_internal_students: number | null;
-  max_active_exams: number | null;
-  ai_queries_per_month: number;
-  allow_student_portal: boolean;
-  allow_external_students: boolean;
-  allow_bulk_import: boolean;
-  allow_email_notifications: boolean;
-  allow_advanced_analytics: boolean;
-  allow_custom_branding: boolean;
-  allow_result_pdf: boolean;
-  allow_api_access: boolean;
+  planType: string;
+  displayName: string;
+  priceNgn: number;
+  priceUsd: number;
+  maxTutors: number | null;
+  maxInternalStudents: number | null;
+  maxActiveExams: number | null;
+  aiQueriesPerMonth: number;
+  allowStudentPortal: boolean;
+  allowExternalStudents: boolean;
+  allowBulkImport: boolean;
+  allowEmailNotifications: boolean;
+  allowAdvancedAnalytics: boolean;
+  allowCustomBranding: boolean;
+  allowResultPdf: boolean;
+  allowApiAccess: boolean;
 }
 
 const DEFAULT_PLAN_ASSETS: Record<string, any> = {
@@ -167,13 +167,13 @@ export default function PricingPage() {
 
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
           {plans.map((plan) => {
-            const assets = DEFAULT_PLAN_ASSETS[plan.plan_type] || DEFAULT_PLAN_ASSETS.enterprise;
-            const monthlyPrice = currency === 'NGN' ? Number(plan.price_ngn) : Number(plan.price_usd);
+            const assets = DEFAULT_PLAN_ASSETS[plan.planType] || DEFAULT_PLAN_ASSETS.enterprise;
+            const monthlyPrice = currency === 'NGN' ? Number(plan.priceNgn) : Number(plan.priceUsd);
             const displayPrice = calculatePrice(monthlyPrice);
 
             return (
               <div
-                key={plan.plan_type}
+                key={plan.planType}
                 className={`relative bg-white rounded-2xl shadow-xl border border-slate-100 flex flex-col hover:scale-105 transition-all duration-300 ${assets.color}`}
               >
                 {assets.popular && (
@@ -184,7 +184,7 @@ export default function PricingPage() {
 
                 <div className="p-8 flex-1">
                   <h3 className="text-xl font-bold text-gray-900 uppercase tracking-wider">
-                    {plan.display_name}
+                    {plan.displayName}
                   </h3>
                   <div className="mt-4 flex items-baseline">
                     <span className="text-4xl font-extrabold tracking-tight text-gray-900">
@@ -203,44 +203,44 @@ export default function PricingPage() {
                   )}
 
                   <p className="mt-6 text-gray-500 text-sm">
-                    {plan.plan_type === 'freemium' ? 'Free forever' : '14-day free trial'}
+                    {plan.planType === 'freemium' ? 'Free forever' : '14-day free trial'}
                   </p>
 
                   <ul className="mt-8 space-y-4 text-sm">
                     <li className="flex items-center gap-3">
                       <Check className="h-5 w-5 text-green-500 shrink-0" />
                       <span className="text-gray-600">
-                        {plan.max_tutors ? `Up to ${plan.max_tutors} Tutors` : 'Unlimited Tutors'}
+                        {plan.maxTutors ? `Up to ${plan.maxTutors} Tutors` : 'Unlimited Tutors'}
                       </span>
                     </li>
                     <li className="flex items-center gap-3">
                       <Check className="h-5 w-5 text-green-500 shrink-0" />
                       <span className="text-gray-600">
-                        {plan.max_internal_students ? `Up to ${plan.max_internal_students} Students` : 'Unlimited Students'}
+                        {plan.maxInternalStudents ? `Up to ${plan.maxInternalStudents} Students` : 'Unlimited Students'}
                       </span>
                     </li>
                     <li className="flex items-center gap-3">
                       <Check className="h-5 w-5 text-green-500 shrink-0" />
                       <span className="text-gray-600">
-                        {plan.max_active_exams ? `${plan.max_active_exams} Active Exams` : 'Unlimited Active Exams'}
+                        {plan.maxActiveExams ? `${plan.maxActiveExams} Active Exams` : 'Unlimited Active Exams'}
                       </span>
                     </li>
                     <li className="flex items-center gap-3">
-                      <Check className={`h-5 w-5 shrink-0 ${plan.allow_advanced_analytics ? 'text-green-500' : 'text-gray-200'}`} />
-                      <span className={plan.allow_advanced_analytics ? 'text-gray-600' : 'text-gray-400'}>
+                      <Check className={`h-5 w-5 shrink-0 ${plan.allowAdvancedAnalytics ? 'text-green-500' : 'text-gray-200'}`} />
+                      <span className={plan.allowAdvancedAnalytics ? 'text-gray-600' : 'text-gray-400'}>
                         Advanced Analytics
                       </span>
                     </li>
                     <li className="flex items-center gap-3">
-                      <Check className={`h-5 w-5 shrink-0 ${plan.allow_custom_branding ? 'text-green-500' : 'text-gray-200'}`} />
-                      <span className={plan.allow_custom_branding ? 'text-gray-600' : 'text-gray-400'}>
+                      <Check className={`h-5 w-5 shrink-0 ${plan.allowCustomBranding ? 'text-green-500' : 'text-gray-200'}`} />
+                      <span className={plan.allowCustomBranding ? 'text-gray-600' : 'text-gray-400'}>
                         Custom Branding
                       </span>
                     </li>
                     <li className="flex items-center gap-3">
                       <Check className="h-5 w-5 text-green-500 shrink-0" />
                       <span className="text-gray-600">
-                        {plan.ai_queries_per_month} AI Queries/mo
+                        {plan.aiQueriesPerMonth} AI Queries/mo
                       </span>
                     </li>
                   </ul>

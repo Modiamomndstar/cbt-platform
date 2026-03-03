@@ -54,20 +54,20 @@ interface PlanStatus {
 }
 
 interface MarketplaceItem {
-  feature_key: string;
-  display_name: string;
-  credit_cost: number;
-  batch_size: number;
-  item_type: 'capacity' | 'consumption';
+  featureKey: string;
+  displayName: string;
+  creditCost: number;
+  batchSize: number;
+  itemType: 'capacity' | 'consumption';
 }
 
 interface PaygHistory {
   id: string;
   type: string;
   credits: number;
-  balance_after: number;
+  balanceAfter: number;
   description: string;
-  created_at: string;
+  createdAt: string;
 }
 
 const PLAN_COLORS: Record<string, string> = {
@@ -153,16 +153,16 @@ export default function BillingPage() {
 
   const handlePurchase = async (item: MarketplaceItem) => {
     if (!status) return;
-    if (status.paygBalance < item.credit_cost) {
+    if (status.paygBalance < item.creditCost) {
       toast.error('Insufficient PAYG credits. Please top up your wallet.');
       return;
     }
 
-    setPurchasing(item.feature_key);
+    setPurchasing(item.featureKey);
     try {
-      const res = await billingAPI.purchaseMarketplaceItem({ featureKey: item.feature_key });
+      const res = await billingAPI.purchaseMarketplaceItem({ featureKey: item.featureKey });
       if (res.data.success) {
-        toast.success(`Successfully purchased ${item.display_name}!`);
+        toast.success(`Successfully purchased ${item.displayName}!`);
         await loadData();
       }
     } catch (err: any) {
@@ -379,38 +379,38 @@ export default function BillingPage() {
         <TabsContent value="marketplace" className="mt-0">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {marketplace.map((item) => (
-              <Card key={item.feature_key} className="border-0 shadow-sm overflow-hidden flex flex-col hover:translate-y-[-2px] transition-all">
-                <div className={`h-1.5 ${item.item_type === 'capacity' ? 'bg-indigo-500' : 'bg-emerald-500'}`} />
+              <Card key={item.featureKey} className="border-0 shadow-sm overflow-hidden flex flex-col hover:translate-y-[-2px] transition-all">
+                <div className={`h-1.5 ${item.itemType === 'capacity' ? 'bg-indigo-500' : 'bg-emerald-500'}`} />
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start">
-                    <div className={`p-2 rounded-lg ${item.item_type === 'capacity' ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                      {item.item_type === 'capacity' ? <Users className="h-5 w-5" /> : <Zap className="h-5 w-5" />}
+                    <div className={`p-2 rounded-lg ${item.itemType === 'capacity' ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                      {item.itemType === 'capacity' ? <Users className="h-5 w-5" /> : <Zap className="h-5 w-5" />}
                     </div>
                     <div className="text-right">
-                       <span className="text-lg font-black text-gray-900">{item.credit_cost}</span>
+                       <span className="text-lg font-black text-gray-900">{item.creditCost}</span>
                        <span className="text-[10px] text-gray-500 block uppercase font-bold tracking-tighter">Credits</span>
                     </div>
                   </div>
-                  <CardTitle className="text-base mt-3 leading-tight font-bold">{item.display_name}</CardTitle>
+                  <CardTitle className="text-base mt-3 leading-tight font-bold">{item.displayName}</CardTitle>
                 </CardHeader>
                 <CardContent className="flex-1">
                   <p className="text-xs text-gray-500 leading-relaxed min-h-[40px]">
-                    {item.item_type === 'capacity'
+                    {item.itemType === 'capacity'
                       ? `Add permanent capacity to your portal. Active with paid subscription.`
-                      : `Consumable item. Use immediately for ${item.batch_size} actions.`}
+                      : `Consumable item. Use immediately for ${item.batchSize} actions.`}
                   </p>
 
                   <div className="mt-4 pt-4 border-t flex flex-col gap-3">
                      <div className="flex justify-between items-center text-[10px] font-bold text-indigo-500 uppercase tracking-widest">
                         <span>Benefit:</span>
-                        <span>+{item.batch_size} Slots</span>
+                        <span>+{item.batchSize} Slots</span>
                      </div>
                      <Button
-                       disabled={purchasing === item.feature_key}
+                       disabled={purchasing === item.featureKey}
                        onClick={() => handlePurchase(item)}
-                       className={`w-full font-bold ${item.item_type === 'capacity' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                       className={`w-full font-bold ${item.itemType === 'capacity' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
                       >
-                       {purchasing === item.feature_key ? 'Processing...' : 'Buy Now'}
+                       {purchasing === item.featureKey ? 'Processing...' : 'Buy Now'}
                      </Button>
                   </div>
                 </CardContent>
@@ -490,7 +490,7 @@ export default function BillingPage() {
                        history.map((tx) => (
                          <tr key={tx.id} className="hover:bg-gray-50/50">
                            <td className="px-6 py-4 whitespace-nowrap text-gray-500 tabular-nums">
-                              {new Date(tx.created_at).toLocaleDateString()}
+                              {new Date(tx.createdAt).toLocaleDateString()}
                            </td>
                            <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
@@ -507,7 +507,7 @@ export default function BillingPage() {
                               {tx.type === 'deduction' ? '-' : '+'}{Math.abs(tx.credits)}
                            </td>
                            <td className="px-6 py-4 text-right tabular-nums font-bold text-gray-900">
-                              {tx.balance_after}
+                              {tx.balanceAfter}
                            </td>
                          </tr>
                        ))

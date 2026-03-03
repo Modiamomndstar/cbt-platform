@@ -10,27 +10,48 @@ async function seed() {
 
     await client.query("BEGIN");
 
-    // Check if payment plans exist
+    // Check if plan definitions exist
     const plansResult = await client.query(
-      "SELECT COUNT(*) FROM payment_plans",
+      "SELECT COUNT(*) FROM plan_definitions",
     );
 
     if (parseInt(plansResult.rows[0].count) === 0) {
-      logger.info("Creating default payment plans...");
+      logger.info("Creating default plan definitions...");
 
-      // Insert default payment plans
+      // Insert default plan definitions
       await client.query(`
-        INSERT INTO payment_plans (name, description, price, currency, duration_months, max_tutors, max_students, features)
-        VALUES
-          ('Free Trial', 'Perfect for getting started', 0, 'USD', 1, 2, 50, '["Up to 2 tutors", "Up to 50 students", "Basic analytics", "Email support"]'),
-          ('Basic', 'For small schools', 29.99, 'USD', 1, 5, 200, '["Up to 5 tutors", "Up to 200 students", "Advanced analytics", "Priority support", "AI question generation"]'),
-          ('Professional', 'For growing institutions', 79.99, 'USD', 1, 15, 1000, '["Up to 15 tutors", "Up to 1000 students", "Full analytics", "24/7 support", "AI question generation", "Custom branding"]'),
-          ('Enterprise', 'For large organizations', 199.99, 'USD', 1, 50, 5000, '["Unlimited tutors", "Unlimited students", "Enterprise analytics", "Dedicated support", "AI question generation", "Custom branding", "API access"]')
+        INSERT INTO plan_definitions (
+          plan_type, display_name, price_usd, price_ngn, trial_days,
+          max_tutors, max_internal_students, max_external_per_tutor, max_active_exams, ai_queries_per_month,
+          allow_student_portal, allow_external_students, allow_bulk_import, allow_email_notifications,
+          allow_sms_notifications, allow_advanced_analytics, allow_custom_branding, allow_api_access,
+          allow_result_pdf, allow_result_export
+        ) VALUES
+        ('freemium', 'Free', 0, 0, 0,
+          2, 20, 5, 5, 0,
+          false, false, false, false,
+          false, false, false, false,
+          false, false),
+        ('basic', 'Basic Premium', 4.99, 8000, 14,
+          10, 300, 30, NULL, 30,
+          true, true, true, true,
+          false, false, false, false,
+          true, false),
+        ('advanced', 'Advanced Premium', 14.99, 24000, 14,
+          50, 2000, 200, NULL, 200,
+          true, true, true, true,
+          true, true, true, true,
+          true, true),
+        ('enterprise', 'Enterprise', 0, 0, 14,
+          NULL, NULL, NULL, NULL, NULL,
+          true, true, true, true,
+          true, true, true, true,
+          true, true)
       `);
 
-      logger.info("Payment plans created successfully");
+      logger.info("Plan definitions created successfully");
     } else {
-      logger.info("Payment plans already exist, skipping...");
+      logger.info("Plan definitions already exist, skipping...");
     }
 
     // Check if super admin exists
