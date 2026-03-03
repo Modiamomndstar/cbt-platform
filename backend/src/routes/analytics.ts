@@ -43,7 +43,7 @@ router.get(
 
       // Recent exams
       const recentExams = await client.query(
-        `SELECT e.*, t.first_name as tutor_first_name, t.last_name as tutor_last_name
+        `SELECT e.*, COALESCE(t.full_name, NULLIF(TRIM(CONCAT(t.first_name, ' ', t.last_name)), ''), t.username) as tutor_name
        FROM exams e
        JOIN tutors t ON e.tutor_id = t.id
        WHERE t.school_id = $1
@@ -55,7 +55,7 @@ router.get(
       // Recent results
       const recentResults = await client.query(
         `SELECT se.*, e.title as exam_title,
-              s.first_name, s.last_name
+              COALESCE(s.full_name, NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), '')) as student_name
        FROM student_exams se
        JOIN exams e ON se.exam_id = e.id
        JOIN tutors t ON e.tutor_id = t.id
@@ -102,14 +102,14 @@ router.get(
           recentExams: recentExams.rows.map((e) => ({
             id: e.id,
             title: e.title,
-            tutorName: `${e.tutor_first_name} ${e.tutor_last_name}`,
+            tutorName: e.tutor_name,
             isPublished: e.is_published,
             createdAt: e.created_at,
           })),
           recentResults: recentResults.rows.map((r) => ({
             id: r.id,
             examTitle: r.exam_title,
-            studentName: `${r.first_name} ${r.last_name}`,
+            studentName: r.student_name,
             score: r.score,
             percentage: r.percentage,
             status: r.status,
@@ -885,7 +885,7 @@ router.get(
 
       const result = await client.query(
         `SELECT ir.*,
-                COALESCE(s.name, t.full_name, sa.name, 'Administrator') as issued_by_name
+                COALESCE(s.name, t.full_name, NULLIF(TRIM(CONCAT(t.first_name, ' ', t.last_name)), ''), sa.name, 'Administrator') as issued_by_name
          FROM issued_reports ir
          LEFT JOIN schools s ON ir.staff_id = s.id
          LEFT JOIN tutors t ON ir.staff_id = t.id

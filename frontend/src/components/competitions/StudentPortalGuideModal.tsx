@@ -22,7 +22,7 @@ interface StudentPortalGuideModalProps {
 }
 
 export default function StudentPortalGuideModal({ isOpen, onClose }: StudentPortalGuideModalProps) {
-  const portalUrl = `${window.location.origin}/student/login`;
+  const portalUrl = import.meta.env.VITE_STUDENT_PORTAL_URL || `${window.location.origin}/student/login`;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

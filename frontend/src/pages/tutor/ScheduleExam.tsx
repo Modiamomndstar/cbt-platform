@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
-import { examAPI, scheduleAPI, categoryAPI, studentAPI, uploadAPI, API_BASE_URL, externalStudentAPI } from '@/services/api';
+import { examAPI, scheduleAPI, categoryAPI, API_BASE_URL, externalStudentAPI } from '@/services/api';
 import {
   Calendar,
   ArrowLeft,
@@ -50,6 +50,9 @@ export default function ScheduleExam() {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  const isSchoolAdmin = user?.role === 'school_admin';
+  const backPath = isSchoolAdmin ? '/school-admin/questions' : '/tutor/exams';
 
   const [exam, setExam] = useState<any>(null);
   const [students, setStudents] = useState<any[]>([]);
@@ -116,7 +119,7 @@ export default function ScheduleExam() {
       if (examRes.data.success) {
         setExam(examRes.data.data);
       } else {
-        navigate('/tutor/exams');
+        navigate(backPath);
         return;
       }
 
@@ -237,9 +240,9 @@ export default function ScheduleExam() {
   const handleReschedule = (schedule: any) => {
     setRescheduleData(schedule);
     setRescheduleForm({
-      date: schedule.scheduled_date ? new Date(schedule.scheduled_date).toISOString().split('T')[0] : (schedule.scheduledDate ? new Date(schedule.scheduledDate).toISOString().split('T')[0] : ''),
-      startTime: schedule.start_time || schedule.startTime || '',
-      endTime: schedule.end_time || schedule.endTime || '',
+      date: schedule.scheduledDate ? new Date(schedule.scheduledDate).toISOString().split('T')[0] : (schedule.scheduled_date ? new Date(schedule.scheduled_date).toISOString().split('T')[0] : ''),
+      startTime: schedule.startTime || schedule.start_time || '',
+      endTime: schedule.endTime || schedule.end_time || '',
     });
   };
 
@@ -323,7 +326,7 @@ export default function ScheduleExam() {
     try {
         const username = `ext${Date.now().toString().slice(-4)}`;
 
-        const createRes = await externalStudentAPI.create({
+        await externalStudentAPI.create({
             username,
             password: 'temp-password', // DB generates random if not used directly
             fullName: newStudentForm.fullName,
@@ -462,7 +465,7 @@ export default function ScheduleExam() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-4">
-          <Button variant="ghost" onClick={() => navigate('/tutor/exams')}>
+          <Button variant="ghost" onClick={() => navigate(backPath)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
@@ -486,147 +489,149 @@ export default function ScheduleExam() {
             </>
           )}
 
-        <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Schedule Students
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Schedule Students for Exam</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-               {/* Quick Add Student Action */}
-               <div className="flex justify-between items-center bg-blue-50 p-3 rounded-md border border-blue-100">
-                  <div className="text-sm text-blue-800">
-                    <span className="font-semibold">Need to add a student?</span>
-                    <p className="text-xs opacity-80">Create a temporary student account for this exam.</p>
-                  </div>
-                  <Button size="sm" variant="secondary" onClick={() => setIsAddStudentOpen(true)}>
-                    <Plus className="h-3 w-3 mr-1" /> Add External Student
-                  </Button>
-               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Date *</Label>
-                  <Input
-                    type="date"
-                    value={scheduleForm.date}
-                    onChange={(e) => setScheduleForm(prev => ({ ...prev, date: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Max Attempts</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={5}
-                    value={scheduleForm.maxAttempts}
-                    onChange={(e) => setScheduleForm(prev => ({ ...prev, maxAttempts: parseInt(e.target.value) || 1 }))}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Start Time *</Label>
-                  <Input
-                    type="time"
-                    value={scheduleForm.startTime}
-                    onChange={(e) => setScheduleForm(prev => ({ ...prev, startTime: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>End Time (optional)</Label>
-                  <Input
-                    type="time"
-                    value={scheduleForm.endTime}
-                    onChange={(e) => setScheduleForm(prev => ({ ...prev, endTime: e.target.value }))}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="space-y-3 mb-4">
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4 text-gray-500" />
-                    <Label className="text-gray-700">Filter by Category:</Label>
-                  </div>
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Categories" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">School Students (All)</SelectItem>
-                      <SelectItem value="external" className="text-indigo-600 font-medium">External Students</SelectItem>
-                      {categories.map((cat: any) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex justify-between items-center mb-2">
-                  <Label>Select Students ({selectedStudents.length} total selected)</Label>
-                  <Button variant="ghost" size="sm" onClick={handleSelectAll}>
-                    {displayStudents.length > 0 && displayStudents.every((s: any) => selectedStudents.includes(s.id))
-                      ? 'Deselect Visible' : 'Select All Visible'}
-                  </Button>
-                </div>
-                <div className="max-h-64 overflow-y-auto border rounded-lg">
-                  {displayStudents.length > 0 ? (
-                    displayStudents.map((student: any) => (
-                      <label
-                        key={student.id}
-                        className="flex items-center p-3 border-b last:border-b-0 hover:bg-gray-50 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedStudents.includes(student.id)}
-                          onChange={() => handleToggleStudent(student.id)}
-                          className="mr-3"
-                        />
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">
-                            {student.studentName || student.full_name || student.fullName}
-                          </p>
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <span>{student.registrationNumber || student.student_id || student.studentId || `@${student.username}`}</span>
-                            {student.categoryName && (
-                              <Badge variant="secondary" className="text-xs h-5 px-1.5 font-normal">
-                                {student.categoryName}
-                              </Badge>
-                            )}
-                            {selectedCategory === 'external' && (
-                              <Badge variant="outline" className="text-xs text-indigo-600 bg-indigo-50 border-indigo-200">
-                                External
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </label>
-                    ))
-                  ) : (
-                    <p className="p-4 text-gray-500 text-center">No students available</p>
-                  )}
-                </div>
-              </div>
-
-              <Button
-                className="w-full"
-                onClick={handleScheduleStudents}
-                disabled={selectedStudents.length === 0}
-              >
-                Schedule {selectedStudents.length} Student(s)
+        {!isSchoolAdmin && (
+          <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Schedule Students
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Schedule Students for Exam</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                 {/* Quick Add Student Action */}
+                 <div className="flex justify-between items-center bg-blue-50 p-3 rounded-md border border-blue-100">
+                    <div className="text-sm text-blue-800">
+                      <span className="font-semibold">Need to add a student?</span>
+                      <p className="text-xs opacity-80">Create a temporary student account for this exam.</p>
+                    </div>
+                    <Button size="sm" variant="secondary" onClick={() => setIsAddStudentOpen(true)}>
+                      <Plus className="h-3 w-3 mr-1" /> Add External Student
+                    </Button>
+                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Date *</Label>
+                    <Input
+                      type="date"
+                      value={scheduleForm.date}
+                      onChange={(e) => setScheduleForm(prev => ({ ...prev, date: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Max Attempts</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={5}
+                      value={scheduleForm.maxAttempts}
+                      onChange={(e) => setScheduleForm(prev => ({ ...prev, maxAttempts: parseInt(e.target.value) || 1 }))}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Start Time *</Label>
+                    <Input
+                      type="time"
+                      value={scheduleForm.startTime}
+                      onChange={(e) => setScheduleForm(prev => ({ ...prev, startTime: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>End Time (optional)</Label>
+                    <Input
+                      type="time"
+                      value={scheduleForm.endTime}
+                      onChange={(e) => setScheduleForm(prev => ({ ...prev, endTime: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="space-y-3 mb-4">
+                    <div className="flex items-center gap-2">
+                      <Filter className="h-4 w-4 text-gray-500" />
+                      <Label className="text-gray-700">Filter by Category:</Label>
+                    </div>
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Categories" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">School Students (All)</SelectItem>
+                        <SelectItem value="external" className="text-indigo-600 font-medium">External Students</SelectItem>
+                        {categories.map((cat: any) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex justify-between items-center mb-2">
+                    <Label>Select Students ({selectedStudents.length} total selected)</Label>
+                    <Button variant="ghost" size="sm" onClick={handleSelectAll}>
+                      {displayStudents.length > 0 && displayStudents.every((s: any) => selectedStudents.includes(s.id))
+                        ? 'Deselect Visible' : 'Select All Visible'}
+                    </Button>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto border rounded-lg">
+                    {displayStudents.length > 0 ? (
+                      displayStudents.map((student: any) => (
+                        <label
+                          key={student.id}
+                          className="flex items-center p-3 border-b last:border-b-0 hover:bg-gray-50 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedStudents.includes(student.id)}
+                            onChange={() => handleToggleStudent(student.id)}
+                            className="mr-3"
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900">
+                              {student.studentName || student.fullName || student.full_name}
+                            </p>
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <span>{student.registrationNumber || student.studentId || student.student_id || `@${student.username}`}</span>
+                              {student.categoryName && (
+                                <Badge variant="secondary" className="text-xs h-5 px-1.5 font-normal">
+                                  {student.categoryName}
+                                </Badge>
+                              )}
+                              {selectedCategory === 'external' && (
+                                <Badge variant="outline" className="text-xs text-indigo-600 bg-indigo-50 border-indigo-200">
+                                  External
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </label>
+                      ))
+                    ) : (
+                      <p className="p-4 text-gray-500 text-center">No students available</p>
+                    )}
+                  </div>
+                </div>
+
+                <Button
+                  className="w-full"
+                  onClick={handleScheduleStudents}
+                  disabled={selectedStudents.length === 0}
+                >
+                  Schedule {selectedStudents.length} Student(s)
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     </div>
 
@@ -648,8 +653,10 @@ export default function ScheduleExam() {
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Date/Time</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Results</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Details</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Actions</th>
+                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Details</th>
+                     {!isSchoolAdmin && (
+                       <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Actions</th>
+                     )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -658,7 +665,7 @@ export default function ScheduleExam() {
                       <td className="px-4 py-3">
                         <div>
                           <p className="font-medium text-gray-900">
-                            {schedule.studentName || schedule.firstName + ' ' + schedule.lastName || 'Unknown Student'}
+                            {schedule.studentName || `${schedule.firstName || schedule.first_name || ''} ${schedule.lastName || schedule.last_name || ''}`.trim() || 'Unknown Student'}
                           </p>
                           <p className="text-sm text-gray-500">
                             {schedule.registrationNumber || ''} {schedule.email ? `• ${schedule.email}` : ''}
@@ -729,44 +736,46 @@ export default function ScheduleExam() {
                           <span className="text-sm text-gray-400">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center space-x-1">
-                          {schedule.status === 'scheduled' && (
-                            <>
-                              <Button variant="ghost" size="sm" onClick={() => handlePrint(schedule)} title="Print Credentials">
-                                <Printer className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm" onClick={() => handleEmailCredentials(schedule.id)} title="Email Credentials">
-                                <Mail className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                          {(schedule.status === 'scheduled' || schedule.status === 'expired') && (
-                            <Button variant="ghost" size="sm" onClick={() => handleReschedule(schedule)} title="Reschedule">
-                              <RefreshCw className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {schedule.status === 'scheduled' && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                  <Copy className="h-4 w-4" />
+                      {!isSchoolAdmin && (
+                        <td className="px-4 py-3">
+                          <div className="flex items-center space-x-1">
+                            {schedule.status === 'scheduled' && (
+                              <>
+                                <Button variant="ghost" size="sm" onClick={() => handlePrint(schedule)} title="Print Credentials">
+                                  <Printer className="h-4 w-4" />
                                 </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent>
-                                <DropdownMenuItem onClick={() => handleCopyCredentials(schedule)}>
-                                  Copy Credentials
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-red-600" onClick={() => setScheduleToCancel(schedule.id)}>
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Cancel Schedule
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
-                        </div>
-                      </td>
+                                <Button variant="ghost" size="sm" onClick={() => handleEmailCredentials(schedule.id)} title="Email Credentials">
+                                  <Mail className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                            {(schedule.status === 'scheduled' || schedule.status === 'expired') && (
+                              <Button variant="ghost" size="sm" onClick={() => handleReschedule(schedule)} title="Reschedule">
+                                <RefreshCw className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {schedule.status === 'scheduled' && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <Copy className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  <DropdownMenuItem onClick={() => handleCopyCredentials(schedule)}>
+                                    Copy Credentials
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem className="text-red-600" onClick={() => setScheduleToCancel(schedule.id)}>
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Cancel Schedule
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -777,7 +786,7 @@ export default function ScheduleExam() {
               <Calendar className="h-12 w-12 mx-auto mb-3 text-gray-300" />
               <p className="text-gray-500">No students scheduled yet</p>
               <p className="text-sm text-gray-400 mt-1">
-                Click "Schedule Students" to assign this exam
+                {isSchoolAdmin ? 'Ask the tutor to assign this exam to students' : 'Click "Schedule Students" to assign this exam'}
               </p>
             </div>
           )}

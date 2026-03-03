@@ -110,6 +110,32 @@ jobs:
 
             echo "Deployment complete!"
 
+      - name: Verify Deployment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USER }}
+          key: ${{ secrets.OCI_SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            set -e
+            echo "Verifying deployment health..."
+            # Try to ping the backend directly within the docker network or via localhost
+            # Since Caddy maps backend:5000, we check if backend is responding
+            for i in {1..12}; do
+              if curl -s http://localhost:5000/health | grep -q 'ok'; then
+                echo "✅ Backend health check passed!"
+                exit 0
+              fi
+              echo "⏳ Waiting for backend to start... ($i/12)"
+              sleep 5
+            done
+
+            echo "❌ Backend health check failed! Fetching logs..."
+            cd ~/cbt-platform
+            docker compose -f docker-compose.prod.yml logs backend
+            exit 1
+
 # ============================================================
 # REQUIRED GitHub Repository Secrets:
 # OCI_HOST, OCI_USER, OCI_SSH_PRIVATE_KEY, GHCR_PAT

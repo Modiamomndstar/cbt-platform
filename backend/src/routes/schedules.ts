@@ -185,7 +185,7 @@ router.get(
             statusLabel,
             accessCode: row.login_username,
             examUsername: row.login_username,
-            examPassword: row.login_password,
+            examPassword: (row.login_password && row.login_password.startsWith('$2')) ? '********' : row.login_password,
             score: row.score !== null ? parseFloat(row.score) : null,
             totalMarks: actualTotalMarks,
             percentage:
@@ -207,6 +207,85 @@ router.get(
       client.release();
     }
   },
+);
+
+// ─── GET /school-schedules ───────────────────────────────────────────────────
+router.get(
+  "/school-schedules",
+  authenticate,
+  requireRole(["school", "tutor"]),
+  async (req: Request, res: Response) => {
+    const client = await pool.connect();
+    try {
+      const { search, status, examId } = req.query;
+      const user = req.user!;
+
+      let query = `
+        SELECT es.*,
+               e.title as exam_title,
+               s.full_name, s.first_name, s.last_name, s.student_id,
+               ext.full_name as ext_full_name,
+               t.full_name as tutor_name
+        FROM exam_schedules es
+        JOIN exams e ON es.exam_id = e.id
+        JOIN tutors t ON e.tutor_id = t.id
+        LEFT JOIN students s ON es.student_id = s.id
+        LEFT JOIN external_students ext ON es.external_student_id = ext.id
+        WHERE t.school_id = $1 AND es.status != 'cancelled'
+      `;
+
+      const params: any[] = [user.schoolId];
+      let paramIndex = 2;
+
+      if (examId && examId !== 'all') {
+        query += ` AND es.exam_id = $${paramIndex}`;
+        params.push(examId);
+        paramIndex++;
+      }
+
+      if (status && status !== 'all') {
+        query += ` AND es.status = $${paramIndex}`;
+        params.push(status);
+        paramIndex++;
+      }
+
+      if (search) {
+        query += ` AND (
+          s.full_name ILIKE $${paramIndex} OR
+          ext.full_name ILIKE $${paramIndex} OR
+          e.title ILIKE $${paramIndex}
+        )`;
+        params.push(`%${search}%`);
+        paramIndex++;
+      }
+
+      query += ` ORDER BY es.scheduled_date DESC, es.start_time DESC`;
+
+      const result = await client.query(query, params);
+
+      ApiResponseHandler.success(
+        res,
+        result.rows.map((row) => ({
+          id: row.id,
+          examId: row.exam_id,
+          examTitle: row.exam_title,
+          studentName: row.full_name || row.ext_full_name || `${row.first_name || ""} ${row.last_name || ""}`.trim() || "Unknown",
+          tutorName: row.tutor_name,
+          scheduledDate: row.scheduled_date,
+          startTime: row.start_time,
+          endTime: row.end_time,
+          status: row.status,
+          username: row.login_username,
+        })),
+        "School schedules retrieved"
+      );
+    } catch (error) {
+      console.error("Get school schedules error:", error);
+      ApiResponseHandler.serverError(res, "Failed to fetch school schedules");
+    } finally {
+      client.release();
+    }
+  }
 );
 
 // ─── POST / — Schedule students for exam ──────────────────────────────────────
@@ -723,7 +802,7 @@ router.post(
       const user = req.user!;
 
       const result = await client.query(
-        `SELECT es.*, e.duration, e.title, e.id as eid, e.total_questions, e.shuffle_questions, e.shuffle_options
+        `SELECT es.*, e.duration, e.title, e.id as eid, e.total_questions, e.shuffle_questions, e.shuffle_options, e.is_secure_mode, e.max_violations
           FROM exam_schedules es
           JOIN exams e ON es.exam_id = e.id
           WHERE es.id = $1 AND (es.student_id = $2 OR es.external_student_id = $2) AND es.status IN ('scheduled', 'in_progress')`,
@@ -925,10 +1004,13 @@ router.post(
       const user = req.user!;
 
       const result = await client.query(
-        `SELECT es.*, e.title as exam_title, s.email, s.full_name, s.first_name, s.last_name
+        `SELECT es.*, e.title as exam_title,
+                COALESCE(s.email, ext.email) as email,
+                COALESCE(s.full_name, ext.full_name, CONCAT(s.first_name, ' ', s.last_name)) as student_display_name
          FROM exam_schedules es
          JOIN exams e ON es.exam_id = e.id
-         JOIN students s ON es.student_id = s.id
+         LEFT JOIN students s ON es.student_id = s.id
+         LEFT JOIN external_students ext ON es.external_student_id = ext.id
          JOIN tutors t ON e.tutor_id = t.id
          WHERE es.id = $1 AND t.school_id = $2`,
         [id, user.schoolId],
@@ -941,17 +1023,13 @@ router.post(
       }
 
       const schedule = result.rows[0];
+      const studentName = schedule.student_display_name || "Student";
 
       if (!schedule.email) {
         return res
           .status(400)
           .json({ success: false, message: "Student has no email address" });
       }
-
-      const studentName =
-        schedule.full_name ||
-        `${schedule.first_name || ""} ${schedule.last_name || ""}`.trim() ||
-        "Student";
 
       const success = await sendExamCredentials(
         user.schoolId,
@@ -971,14 +1049,12 @@ router.post(
         ApiResponseHandler.success(res, null, "Email sent successfully");
       } else {
         res
-          .status(500)
-          .json({ success: false, message: "Failed to send email" });
+          .status(402)
+          .json({ success: false, message: "Failed to send email. Ensure you have enough PAYG credits." });
       }
     } catch (error) {
       console.error("Send email error:", error);
-      res
-        .status(500)
-        .json({ success: false, message: "Failed to process request" });
+      ApiResponseHandler.serverError(res, "Failed to process request");
     } finally {
       client.release();
     }
@@ -997,10 +1073,13 @@ router.post(
       const user = req.user!;
 
       const result = await client.query(
-        `SELECT es.*, e.title as exam_title, s.email, s.full_name, s.first_name, s.last_name
+        `SELECT es.*, e.title as exam_title,
+                COALESCE(s.email, ext.email) as email,
+                COALESCE(s.full_name, ext.full_name, CONCAT(s.first_name, ' ', s.last_name)) as student_display_name
          FROM exam_schedules es
          JOIN exams e ON es.exam_id = e.id
-         JOIN students s ON es.student_id = s.id
+         LEFT JOIN students s ON es.student_id = s.id
+         LEFT JOIN external_students ext ON es.external_student_id = ext.id
          JOIN tutors t ON e.tutor_id = t.id
          WHERE es.exam_id = $1 AND t.school_id = $2 AND es.status != 'cancelled'`,
         [examId, user.schoolId],
@@ -1019,11 +1098,7 @@ router.post(
 
       for (const schedule of result.rows) {
         if (!schedule.email) continue;
-
-        const studentName =
-          schedule.full_name ||
-          `${schedule.first_name || ""} ${schedule.last_name || ""}`.trim() ||
-          "Student";
+        const studentName = schedule.student_display_name || "Student";
 
         const success = await sendExamCredentials(
           user.schoolId,

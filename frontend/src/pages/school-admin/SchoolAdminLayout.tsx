@@ -6,25 +6,28 @@ import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard,
   Users,
-  UserCircle,
-  BarChart3,
   LogOut,
-  GraduationCap,
   Menu,
   X,
   BookOpen,
   CreditCard,
   Settings,
-  Trophy
+  Trophy,
+  MessageSquare,
+  Calendar,
+  FileText,
+  GraduationCap
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { schoolAPI } from '@/services/api';
+import { useMessages } from '@/hooks/useMessages';
 
 export default function SchoolAdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
   const { isFeatureAllowed } = usePlan();
+  const { unreadCount } = useMessages();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [lockModal, setLockModal] = useState<{ open: boolean; feature: string }>({ open: false, feature: '' });
   const [schoolName, setSchoolName] = useState<string>('');
@@ -53,15 +56,16 @@ export default function SchoolAdminLayout() {
 
   const navigation = [
     { name: 'Dashboard', href: '/school-admin/dashboard', icon: LayoutDashboard },
-    { name: 'School Profile', href: '/school-admin/profile', icon: UserCircle },
-    { name: 'Tutor Management', href: '/school-admin/tutors', icon: Users },
-    { name: 'Student Management', href: '/school-admin/students', icon: GraduationCap },
-    { name: 'Student Categories', href: '/school-admin/categories', icon: BookOpen },
-    { name: 'Analytics', href: '/school-admin/analytics', icon: BarChart3, feature: 'advanced_analytics' },
+    { name: 'Messages', href: '/school-admin/messages', icon: MessageSquare, badge: unreadCount },
+    { name: 'Tutors', href: '/school-admin/tutors', icon: Users },
+    { name: 'Internal Students', href: '/school-admin/students', icon: BookOpen },
+    { name: 'Question Bank', href: '/school-admin/questions', icon: BookOpen },
+    { name: 'Exam Schedules', href: '/school-admin/schedules', icon: Calendar },
     { name: 'Competition Hub', href: '/school-admin/competitions', icon: Trophy },
-    { name: 'Billing & Plan', href: '/school-admin/billing', icon: CreditCard },
+    { name: 'Exam Results', href: '/school-admin/results', icon: FileText },
+    { name: 'Billing & Plans', href: '/school-admin/billing', icon: CreditCard },
     { name: 'Settings', href: '/school-admin/settings', icon: Settings },
-  ];
+  ] as ({ name: string; href: string; icon: any; badge?: number; feature?: string })[];
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -104,7 +108,14 @@ export default function SchoolAdminLayout() {
                 <item.icon className="h-5 w-5" />
                 <span>{item.name}</span>
               </div>
-              {item.feature && !isFeatureAllowed(item.feature) && <FeatureLockBadge />}
+              <div className="flex items-center space-x-2">
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">
+                    {item.badge}
+                  </span>
+                )}
+                {item.feature && !isFeatureAllowed(item.feature) && <FeatureLockBadge />}
+              </div>
             </button>
           ))}
         </nav>
@@ -168,7 +179,14 @@ export default function SchoolAdminLayout() {
                     <item.icon className="h-5 w-5" />
                     <span>{item.name}</span>
                   </div>
-                  {item.feature && !isFeatureAllowed(item.feature) && <FeatureLockBadge />}
+                  <div className="flex items-center space-x-2">
+                    {item.badge !== undefined && item.badge > 0 && (
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">
+                        {item.badge}
+                      </span>
+                    )}
+                    {item.feature && !isFeatureAllowed(item.feature) && <FeatureLockBadge />}
+                  </div>
                 </button>
               ))}
             </nav>

@@ -12,8 +12,8 @@ export const ApiResponseHandler = {
     return res.status(200).json({
       success: true,
       message,
-      data: data,
-      ...(meta || {}),
+      data: data ? transformObject(data) : null,
+      ...(meta ? transformObject(meta) : {}),
     });
   },
 
@@ -24,8 +24,8 @@ export const ApiResponseHandler = {
     return res.status(201).json({
       success: true,
       message,
-      data: data,
-      ...(meta || {}),
+      data: data ? transformObject(data) : null,
+      ...(meta ? transformObject(meta) : {}),
     });
   },
 

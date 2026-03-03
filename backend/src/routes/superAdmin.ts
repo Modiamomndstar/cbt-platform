@@ -705,4 +705,48 @@ router.get('/finance/logs', requireFinanceAccess, async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+// ================================================================
+//  GLOBAL SETTINGS
+// ================================================================
+
+// GET /api/super-admin/settings
+router.get('/settings', async (req, res, next) => {
+  try {
+    const { category } = req.query;
+    let query = 'SELECT * FROM settings';
+    let params: any[] = [];
+
+    if (category) {
+      query += ' WHERE category = $1';
+      params.push(category);
+    }
+
+    query += ' ORDER BY key ASC';
+    const result = await db.query(query, params);
+    ApiResponseHandler.success(res, result.rows, 'Settings retrieved');
+  } catch (error) { next(error); }
+});
+
+// PUT /api/super-admin/settings/:key
+router.put('/settings/:key', [
+  param('key').notEmpty(),
+  body('value').notEmpty(),
+  validate
+], async (req: any, res: any, next: any) => {
+  try {
+    const { key } = req.params;
+    const { value } = req.body;
+
+    const result = await db.query(
+      `UPDATE settings SET value = $1, updated_at = NOW() WHERE key = $2 RETURNING *`,
+      [value, key]
+    );
+
+    if (result.rows.length === 0) return ApiResponseHandler.notFound(res, 'Setting not found');
+
+    await logAudit(req, 'setting_updated', 'system_setting', undefined, key, { value });
+    ApiResponseHandler.success(res, result.rows[0], 'Setting updated');
+  } catch (error) { next(error); }
+});
+
 export default router;

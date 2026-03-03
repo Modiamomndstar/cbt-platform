@@ -194,4 +194,7 @@ async function migrate() {
   }
 }
 
-migrate().catch(console.error);
+migrate().catch((err) => {
+  console.error('Fatal migration error:', err);
+  process.exit(1);
+});

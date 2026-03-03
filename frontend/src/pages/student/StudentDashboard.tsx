@@ -59,7 +59,7 @@ export default function StudentDashboard() {
 
         // Identify awards
         const possibleAwards = history.filter((r: any) =>
-          r.percentage >= 70 || r.rank <= 3 || r.is_competition // Include all competition results for participation certs
+          r.percentage >= 70 || r.rank <= 3 || r.isCompetition || r.is_competition // Include all competition results for participation certs
         );
         setAwards(possibleAwards);
       }
@@ -154,8 +154,8 @@ export default function StudentDashboard() {
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="flex-1 min-w-0 pr-4">
                     <h3 className="font-bold text-indigo-900 truncate">{report.title}</h3>
-                    <p className="text-xs text-indigo-600 font-medium truncate">Issued by {report.issued_by_name || 'School Admin'}</p>
-                    <p className="text-[10px] text-gray-400 mt-1">{new Date(report.created_at).toLocaleDateString()}</p>
+                    <p className="text-xs text-indigo-600 font-medium truncate">Issued by {report.issuedByName || report.issued_by_name || 'School Admin'}</p>
+                    <p className="text-[10px] text-gray-400 mt-1">{new Date(report.createdAt || report.created_at).toLocaleDateString()}</p>
                   </div>
                   <Button size="sm" variant="ghost" className="text-indigo-600 shrink-0 hover:text-indigo-700 hover:bg-indigo-100">
                     View <ArrowRight className="ml-1 h-3 w-3" />
@@ -270,8 +270,8 @@ export default function StudentDashboard() {
                       {award.percentage >= 70 || award.rank <= 3 ? 'Excellence' : 'Participation'}
                     </Badge>
                   </div>
-                  <h3 className="font-bold text-slate-900 mb-1">{award.exam_title || 'Competition Award'}</h3>
-                  <p className="text-xs text-slate-500 mb-4">Issued on {new Date(award.submitted_at).toLocaleDateString()}</p>
+                  <h3 className="font-bold text-slate-900 mb-1">{award.examTitle || award.exam_title || 'Competition Award'}</h3>
+                  <p className="text-xs text-slate-500 mb-4">Issued on {new Date(award.submittedAt || award.submitted_at || award.createdAt || award.created_at).toLocaleDateString()}</p>
                   <Button
                     variant="outline"
                     className="w-full border-amber-200 text-amber-700 hover:bg-amber-50"
@@ -312,7 +312,7 @@ export default function StudentDashboard() {
 
                 <div>
                   <p className="text-xl text-slate-600 mb-4">For outstanding performance in the competition</p>
-                  <h3 className="text-3xl font-bold text-indigo-900 mb-10">{printingAward.exam_title}</h3>
+                  <h3 className="text-3xl font-bold text-indigo-900 mb-10">{printingAward.examTitle || printingAward.exam_title}</h3>
 
                   <div className="flex justify-around items-end mt-12 px-20">
                     <div className="text-center border-t-2 border-slate-300 pt-2 w-48">
@@ -398,7 +398,7 @@ export default function StudentDashboard() {
                   </div>
                   <div className="text-right">
                     <p className="font-medium text-gray-900">
-                      {result.score || 0} / {result.total_marks || result.totalMarks || 0}
+                      {result.score || 0} / {result.totalMarks || result.total_marks || 0}
                     </p>
                   </div>
                 </div>
@@ -414,7 +414,7 @@ export default function StudentDashboard() {
       </Card>
 
       {/* Assigned Tutors */}
-      {(user as any)?.assigned_tutors && (user as any).assigned_tutors.filter((t: any) => t && t.id).length > 0 && (
+      {(user as any)?.assignedTutors && (user as any).assignedTutors.filter((t: any) => t && t.id).length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center">
@@ -424,7 +424,7 @@ export default function StudentDashboard() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {(user as any).assigned_tutors.filter((t: any) => t && t.id).map((tutor: any) => (
+              {(user as any).assignedTutors.filter((t: any) => t && t.id).map((tutor: any) => (
                 <div key={tutor.id} className="flex items-center p-4 border rounded-lg bg-gray-50">
                   <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold mr-4">
                     {tutor.name.charAt(0)}

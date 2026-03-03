@@ -11,16 +11,19 @@ import {
   TrendingUp,
   Award,
   BookOpen,
-  FileText
+  FileText,
+  MessageSquare
 } from 'lucide-react';
 import { useState } from 'react';
 import { usePlan } from '@/hooks/usePlan';
+import { useMessages } from '@/hooks/useMessages';
 import { FeatureLockedModal, FeatureLockBadge } from '@/components/common/FeatureLock';
 
 export default function StudentLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { isFeatureAllowed } = usePlan();
+  const { unreadCount } = useMessages();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showLockModal, setShowLockModal] = useState(false);
   const [lockedFeature, setLockedFeature] = useState('');
@@ -34,12 +37,13 @@ export default function StudentLayout() {
 
   const navItems = [
     { name: 'Dashboard', href: '/student/dashboard', icon: LayoutDashboard },
+    { name: 'Messages', href: '/student/messages', icon: MessageSquare, badge: unreadCount },
     { name: 'My Performance', href: '/student/performance', icon: TrendingUp, feature: 'advanced_analytics' },
     { name: 'Competitions', href: '/student/competitions', icon: Award },
     { name: 'Exam Results', href: '/student/results', icon: BookOpen },
     { name: 'Report Card', href: '/student/report-card', icon: FileText, feature: 'advanced_analytics' },
     { name: 'My Profile', href: '/student/profile', icon: User },
-  ];
+  ] as ({ name: string; href: string; icon: any; badge?: number; feature?: string })[];
 
   const handleNavClick = (item: any) => {
     if (item.feature && !isFeatureAllowed(item.feature)) {
@@ -75,7 +79,14 @@ export default function StudentLayout() {
                 <item.icon className="h-5 w-5" />
                 <span>{item.name}</span>
               </div>
-              {item.feature && !isFeatureAllowed(item.feature) && <FeatureLockBadge />}
+              <div className="flex items-center space-x-2">
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">
+                    {item.badge}
+                  </span>
+                )}
+                {item.feature && !isFeatureAllowed(item.feature) && <FeatureLockBadge />}
+              </div>
             </button>
           ))}
         </nav>
@@ -128,7 +139,14 @@ export default function StudentLayout() {
                     <item.icon className="h-5 w-5" />
                     <span>{item.name}</span>
                   </div>
-                  {item.feature && !isFeatureAllowed(item.feature) && <FeatureLockBadge />}
+                  <div className="flex items-center space-x-2">
+                    {item.badge !== undefined && item.badge > 0 && (
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">
+                        {item.badge}
+                      </span>
+                    )}
+                    {item.feature && !isFeatureAllowed(item.feature) && <FeatureLockBadge />}
+                  </div>
                 </button>
               ))}
             </nav>

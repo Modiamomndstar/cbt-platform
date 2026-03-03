@@ -173,6 +173,9 @@ export const scheduleAPI = {
   // Get scheduled students for an exam
   getByExam: (examId: string) => api.get(`/schedules/exam/${examId}`),
 
+  // Get all schedules for school
+  getSchoolSchedules: (params?: any) => api.get("/schedules/school-schedules", { params }),
+
   // Schedule students for exam
   schedule: (data: any) => api.post("/schedules", data),
 
@@ -438,7 +441,11 @@ export const superAdminAPI = {
       link.click();
       link.remove();
     });
-  }
+  },
+
+  // Settings
+  getSettings: (params?: { category?: string }) => api.get("/super-admin/settings", { params }),
+  updateSetting: (key: string, value: string) => api.put(`/super-admin/settings/${key}`, { value }),
 };
 
 // Competition API
@@ -460,6 +467,18 @@ export const competitionAPI = {
 
   // Get hub statistics for super admin
   getHubStats: () => api.get("/competitions/hub-stats"),
+};
+
+// ── Messages & Notifications API ──────────────────────────
+export const messagesAPI = {
+  getInbox: () => api.get("/messages/inbox"),
+  getUnreadCount: () => api.get("/messages/unread-count"),
+  getRecipients: () => api.get("/messages/recipients"),
+  sendMessage: (data: { receiverId: string; receiverRole: string; content: string }) =>
+    api.post("/messages/send", data),
+  markAsRead: (id: string) => api.patch(`/messages/read/${id}`),
+  broadcast: (data: { role: string; title: string; content: string }) =>
+    api.post("/messages/broadcast", data),
 };
 
 export default api;

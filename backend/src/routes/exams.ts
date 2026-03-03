@@ -13,29 +13,48 @@ const router = Router();
 
 router.use(authenticate);
 
-// Get all exams for tutor
-router.get('/', authorize('tutor'), async (req, res, next) => {
+// Get all exams for tutor or school
+router.get('/', authorize('tutor', 'school'), async (req, res, next) => {
   try {
-    const tutorId = req.user!.tutorId;
+    const { role, tutorId, schoolId } = req.user!;
     const pagination = getPaginationOptions(req);
 
-    const result = await db.query(
-      `SELECT e.id, e.title, e.description, e.category_id, e.duration, e.total_questions,
+    let query = `
+      SELECT e.id, e.title, e.description, e.category_id, e.duration, e.total_questions,
               e.passing_score, e.shuffle_questions, e.shuffle_options, e.show_result_immediately,
               e.is_published, e.created_at,
               (SELECT COUNT(*) FROM questions WHERE exam_id = e.id) as question_count,
               (SELECT COUNT(*) FROM exam_schedules WHERE exam_id = e.id) as schedule_count
        FROM exams e
-       WHERE e.tutor_id = $1
-       ORDER BY e.created_at DESC
-       LIMIT $2 OFFSET $3`,
-      [tutorId, pagination.limit, pagination.offset]
-    );
+       WHERE 1=1`;
 
-    const countResult = await db.query(
-      "SELECT COUNT(*) FROM exams WHERE tutor_id = $1",
-      [tutorId]
-    );
+    const params: any[] = [];
+
+    if (role === 'tutor') {
+      query += ` AND e.tutor_id = $1`;
+      params.push(tutorId);
+    } else if (role === 'school') {
+      query += ` AND e.school_id = $1`;
+      params.push(schoolId);
+    }
+
+    query += ` ORDER BY e.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    params.push(pagination.limit, pagination.offset);
+
+    const result = await db.query(query, params);
+
+    let countQuery = "SELECT COUNT(*) FROM exams WHERE 1=1";
+    const countParams: any[] = [];
+
+    if (role === 'tutor') {
+      countQuery += " AND tutor_id = $1";
+      countParams.push(tutorId);
+    } else if (role === 'school') {
+      countQuery += " AND school_id = $1";
+      countParams.push(schoolId);
+    }
+
+    const countResult = await db.query(countQuery, countParams);
 
     ApiResponseHandler.success(
       res,
@@ -94,7 +113,8 @@ router.post('/', authorize('tutor'), [
   try {
     const {
       title, description, categoryId, duration, totalQuestions,
-      passingScore, shuffleQuestions, shuffleOptions, showResultImmediately
+      passingScore, shuffleQuestions, shuffleOptions, showResultImmediately,
+      isSecureMode, maxViolations
     } = req.body;
 
     const tutorId = req.user!.tutorId;
@@ -102,11 +122,13 @@ router.post('/', authorize('tutor'), [
 
     const result = await db.query(
       `INSERT INTO exams (school_id, tutor_id, title, description, category_id, duration, total_questions,
-                          passing_score, shuffle_questions, shuffle_options, show_result_immediately)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                          passing_score, shuffle_questions, shuffle_options, show_result_immediately,
+                          is_secure_mode, max_violations)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [schoolId, tutorId, title, description, categoryId || null, duration, totalQuestions,
-       passingScore || 50, shuffleQuestions ?? true, shuffleOptions ?? true, showResultImmediately ?? true]
+       passingScore || 50, shuffleQuestions ?? true, shuffleOptions ?? true, showResultImmediately ?? true,
+       isSecureMode ?? false, maxViolations ?? 3]
     );
 
     const exam = result.rows[0];
@@ -135,7 +157,7 @@ router.put('/:id', [
     const updates = req.body;
     const { role, tutorId } = req.user!;
 
-    const allowedFields = ['title', 'description', 'categoryId', 'duration', 'totalQuestions', 'passingScore', 'shuffleQuestions', 'shuffleOptions', 'showResultImmediately', 'isPublished'];
+    const allowedFields = ['title', 'description', 'categoryId', 'duration', 'totalQuestions', 'passingScore', 'shuffleQuestions', 'shuffleOptions', 'showResultImmediately', 'isPublished', 'isSecureMode', 'maxViolations'];
     const setClauses: string[] = [];
     const values: any[] = [];
     let paramIndex = 1;

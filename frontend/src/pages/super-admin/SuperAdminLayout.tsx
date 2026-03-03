@@ -1,5 +1,6 @@
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useMessages } from '@/hooks/useMessages';
 import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard,
@@ -14,13 +15,15 @@ import {
   Users,
   ShoppingBag,
   History,
-  Trophy
+  Trophy,
+  MessageSquare
 } from 'lucide-react';
 import { useState } from 'react';
 
 export default function SuperAdminLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { unreadCount } = useMessages();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = () => {
@@ -30,6 +33,7 @@ export default function SuperAdminLayout() {
 
   const navigation = [
     { name: 'Dashboard', href: '/super-admin/dashboard', icon: LayoutDashboard },
+    { name: 'Messages', href: '/super-admin/messages', icon: MessageSquare, badge: unreadCount },
     { name: 'Schools', href: '/super-admin/schools', icon: School },
     { name: 'School Overrides', href: '/super-admin/school-overrides', icon: Gift },
     { name: 'Staff Management', href: '/super-admin/staff', icon: Users },
@@ -56,10 +60,17 @@ export default function SuperAdminLayout() {
             <button
               key={item.name}
               onClick={() => navigate(item.href)}
-              className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-slate-300 hover:bg-slate-800 hover:text-white"
+              className="w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-slate-300 hover:bg-slate-800 hover:text-white group"
             >
-              <item.icon className="h-5 w-5" />
-              <span>{item.name}</span>
+              <div className="flex items-center space-x-3">
+                <item.icon className="h-5 w-5" />
+                <span>{item.name}</span>
+              </div>
+              {item.badge !== undefined && item.badge > 0 && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                  {item.badge}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -107,10 +118,17 @@ export default function SuperAdminLayout() {
                     navigate(item.href);
                     setSidebarOpen(false);
                   }}
-                  className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-slate-300 hover:bg-slate-800 hover:text-white"
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-slate-300 hover:bg-slate-800 hover:text-white"
                 >
-                  <item.icon className="h-5 w-5" />
-                  <span>{item.name}</span>
+                  <div className="flex items-center space-x-3">
+                    <item.icon className="h-5 w-5" />
+                    <span>{item.name}</span>
+                  </div>
+                  {item.badge !== undefined && item.badge > 0 && (
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                      {item.badge}
+                    </span>
+                  )}
                 </button>
               ))}
             </nav>

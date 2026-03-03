@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { billingAPI } from '@/services/api';
 import { toast } from 'sonner';
@@ -9,7 +8,7 @@ import {
   CreditCard, Users, GraduationCap, BookOpen, Brain,
   TrendingUp, CheckCircle2, XCircle, Clock, Coins, ArrowUpRight,
   Tag, RefreshCw, Wallet, ShoppingCart, Info, AlertTriangle,
-  History, Download, Zap, ShoppingBag, AlertCircle, ShieldCheck
+  History, Download, Zap, ShoppingBag, AlertCircle, ShieldCheck, Sparkles
 } from 'lucide-react';
 
 interface PlanStatus {
@@ -50,6 +49,7 @@ interface PlanStatus {
     purchasedAiQueries: number;
   };
   paygBalance: number;
+  features: Record<string, boolean>;
 }
 
 interface MarketplaceItem {
@@ -308,13 +308,13 @@ export default function BillingPage() {
 
                    <div className="pt-6 border-t mt-6">
                      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Plan Features</p>
-                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                        <FeatureItem label="Student Portal" active={plan.allowStudentPortal} />
-                        <FeatureItem label="Bulk Upload" active={plan.allowBulkImport} />
-                        <FeatureItem label="Email Alerts" active={plan.allowEmailNotifications} />
-                        <FeatureItem label="Analytics" active={plan.allowAdvancedAnalytics} />
-                        <FeatureItem label="Branding" active={plan.allowCustomBranding} />
-                        <FeatureItem label="Result Export" active={plan.allowResultPdf} />
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        <FeatureItem label="Student Portal" active={status.features?.student_portal} />
+                        <FeatureItem label="Bulk Upload" active={status.features?.bulk_import} />
+                        <FeatureItem label="Email Alerts" active={status.features?.email_notifications} />
+                        <FeatureItem label="Analytics" active={status.features?.advanced_analytics} />
+                        <FeatureItem label="Branding" active={status.features?.custom_branding} />
+                        <FeatureItem label="Result Export" active={status.features?.result_export} />
                      </div>
                    </div>
                 </div>
@@ -419,7 +419,51 @@ export default function BillingPage() {
         </TabsContent>
 
         <TabsContent value="credits" className="mt-0">
-          <Card className="border-0 shadow-sm overflow-hidden">
+            {/* Referral System */}
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-indigo-600 to-purple-700 text-white overflow-hidden rounded-[32px] mb-6">
+                <CardContent className="p-8 relative">
+                    <div className="absolute top-0 right-0 p-8 opacity-10">
+                        <Zap className="h-32 w-32" />
+                    </div>
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md">
+                                <Sparkles className="h-6 w-6 text-yellow-300" />
+                            </div>
+                            <h3 className="text-xl font-black tracking-tight">Refer & Earn PAYG Credits</h3>
+                        </div>
+                        <p className="text-indigo-100 font-medium max-w-lg leading-relaxed mb-8">
+                            Share your referral code with other schools. When they upgrade to any premium plan, you'll receive <span className="text-white font-bold">50 PAYG Credits</span> automatically!
+                        </p>
+
+                        <div className="flex flex-col sm:flex-row gap-4">
+                            <div className="flex-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 flex items-center justify-between">
+                                <div>
+                                    <p className="text-[10px] uppercase font-black tracking-widest text-indigo-200">Your Referral Code</p>
+                                    <p className="text-2xl font-black tracking-tighter mt-1">{status?.referralCode || 'REF-SCHOOL-001'}</p>
+                                </div>
+                                <Button
+                                    variant="secondary"
+                                    className="rounded-xl font-bold bg-white text-indigo-600 hover:bg-indigo-50"
+                                    onClick={() => {
+                                        const code = status?.referralCode || '';
+                                        navigator.clipboard.writeText(code);
+                                        toast.success("Referral code copied!");
+                                    }}
+                                >
+                                    Copy Link
+                                </Button>
+                            </div>
+                            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-center px-8 min-w-[120px]">
+                                <p className="text-[10px] uppercase font-black tracking-widest text-indigo-200">Reward</p>
+                                <p className="text-2xl font-black tracking-tighter mt-1">50 <span className="text-sm">Pts</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-xl overflow-hidden rounded-[32px] bg-white">
             <CardHeader className="border-b bg-gray-50/50">
                <CardTitle className="text-base font-bold">Transaction History</CardTitle>
                <CardDescription>Records of credit purchases and micro-transaction consumptions</CardDescription>

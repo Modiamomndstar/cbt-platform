@@ -73,10 +73,11 @@ export default function TakeExam() {
             category: mySchedule.examCategory || mySchedule.exam_category || '',
             isCompetition: !!mySchedule.competition_id,
             rules: mySchedule.competition_rules || '',
-            maxViolations: mySchedule.max_violations ?? 3
+            isSecureMode: !!mySchedule.isSecureMode,
+            maxViolations: mySchedule.maxViolations ?? 3
           });
 
-          setMaxViolations(mySchedule.max_violations ?? 3);
+          setMaxViolations(mySchedule.maxViolations ?? 3);
           setTimeRemaining(dur * 60);
 
           if (mySchedule.accessCode || mySchedule.access_code) {
@@ -94,7 +95,7 @@ export default function TakeExam() {
 
   // Anti-cheating listeners
   useEffect(() => {
-    if (!isStarted || !exam?.isCompetition || maxViolations === 0) return;
+    if (!isStarted || (!exam?.isCompetition && !exam?.isSecureMode) || maxViolations === 0) return;
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
@@ -107,7 +108,7 @@ export default function TakeExam() {
     };
 
     const handleFullscreenChange = () => {
-      if (!document.fullscreenElement && isStarted && exam?.isCompetition) {
+      if (!document.fullscreenElement && isStarted && (exam?.isCompetition || exam?.isSecureMode)) {
         setIsFullscreen(false);
         recordViolation('fullscreen_exit', 'User exited fullscreen mode');
       } else if (document.fullscreenElement) {
@@ -116,7 +117,7 @@ export default function TakeExam() {
     };
 
     const recordViolation = (type: string, description: string) => {
-      setViolations(prev => {
+      setViolations((prev: any[]) => {
         const newViolation = {
           type,
           timestamp: new Date().toISOString(),
@@ -176,13 +177,13 @@ export default function TakeExam() {
   const handleStartExam = async () => {
     if (!scheduleId) return;
 
-    if (exam?.isCompetition && !showRules) {
+    if ((exam?.isCompetition || exam?.isSecureMode) && !showRules) {
       setShowRules(true);
       return;
     }
 
     // Try to enter fullscreen
-    if (exam?.isCompetition) {
+    if (exam?.isCompetition || exam?.isSecureMode) {
       try {
         await document.documentElement.requestFullscreen();
         setIsFullscreen(true);

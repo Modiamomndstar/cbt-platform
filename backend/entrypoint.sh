@@ -10,24 +10,29 @@ done
 # Create initial schema (tables) first
 echo "Creating database schema..."
 if [ -f dist/scripts/init_schema.js ]; then
-  node dist/scripts/init_schema.js || true
+  node dist/scripts/init_schema.js
 else
-  echo "init_schema.js not found, skipping..."
+  echo "init_schema.js not found, skipping initial schema creation..."
 fi
 
-# Run migrations and seed using compiled JS if available (ignore failures)
+# Run migrations and seed using compiled JS if available
 echo "Running migrations..."
 if [ -f dist/scripts/migrate.js ]; then
-  node dist/scripts/migrate.js || true
+  node dist/scripts/migrate.js
 else
-  npm run db:migrate || true
+  npm run db:migrate
 fi
 
 echo "Seeding DB (if seed script exists)..."
 if [ -f dist/scripts/seed.js ]; then
-  node dist/scripts/seed.js || true
+  node dist/scripts/seed.js
 else
-  npm run db:seed || true
+  # Only run npm run db:seed if the seed script actually exists to avoid npm error
+  if [ -f scripts/seed.ts ]; then
+    npm run db:seed
+  else
+    echo "No seed script found, skipping seeding."
+  fi
 fi
 
 # Start the server

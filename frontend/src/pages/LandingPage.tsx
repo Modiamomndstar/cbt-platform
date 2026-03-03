@@ -1,12 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { 
-  GraduationCap, 
-  Users, 
-  Calendar, 
-  FileText, 
-  Shield, 
+import {
+  GraduationCap,
+  Users,
+  Calendar,
+  FileText,
+  Shield,
   Clock,
   CheckCircle,
   ArrowRight,
@@ -90,6 +90,9 @@ export default function LandingPage() {
               <span className="text-xl font-bold text-gray-900">CBT Platform</span>
             </div>
             <div className="flex items-center space-x-4">
+              <Button variant="ghost" onClick={() => navigate('/pricing')}>
+                Pricing
+              </Button>
               <Button variant="ghost" onClick={() => navigate('/login')}>
                 Login
               </Button>
@@ -110,12 +113,12 @@ export default function LandingPage() {
                 Modern Computer-Based Testing Platform
               </h1>
               <p className="text-xl text-indigo-100 mb-8">
-                Streamline your school's examination process with our comprehensive CBT solution. 
+                Streamline your school's examination process with our comprehensive CBT solution.
                 Create, schedule, and manage exams with ease.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button 
-                  size="lg" 
+                <Button
+                  size="lg"
                   variant="secondary"
                   onClick={() => navigate('/register-school')}
                   className="bg-white text-indigo-600 hover:bg-gray-100"
@@ -123,8 +126,8 @@ export default function LandingPage() {
                   Get Started
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
-                <Button 
-                  size="lg" 
+                <Button
+                  size="lg"
                   variant="outline"
                   onClick={() => navigate('/login')}
                   className="border-white text-white hover:bg-white/10"
@@ -167,7 +170,7 @@ export default function LandingPage() {
               Everything You Need for Online Exams
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Our platform provides all the tools you need to create, manage, and conduct 
+              Our platform provides all the tools you need to create, manage, and conduct
               computer-based tests efficiently.
             </p>
           </div>
@@ -217,20 +220,20 @@ export default function LandingPage() {
             Ready to Transform Your Examination Process?
           </h2>
           <p className="text-xl text-indigo-100 mb-8 max-w-2xl mx-auto">
-            Join schools already using our platform to conduct efficient, secure, and 
+            Join schools already using our platform to conduct efficient, secure, and
             scalable computer-based tests.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               variant="secondary"
               onClick={() => navigate('/register-school')}
               className="bg-white text-indigo-600 hover:bg-gray-100"
             >
               Register Your School
             </Button>
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               variant="outline"
               onClick={() => navigate('/login')}
               className="border-white text-white hover:bg-white/10"
@@ -258,6 +261,7 @@ export default function LandingPage() {
               <h4 className="text-white font-semibold mb-4">Quick Links</h4>
               <ul className="space-y-2 text-sm">
                 <li><button onClick={() => navigate('/')} className="hover:text-white">Home</button></li>
+                <li><button onClick={() => navigate('/pricing')} className="hover:text-white">Pricing</button></li>
                 <li><button onClick={() => navigate('/login')} className="hover:text-white">Login</button></li>
                 <li><button onClick={() => navigate('/register-school')} className="hover:text-white">Register School</button></li>
               </ul>

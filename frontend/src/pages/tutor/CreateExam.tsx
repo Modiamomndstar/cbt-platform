@@ -29,6 +29,8 @@ export default function CreateExam() {
     shuffleQuestions: true,
     shuffleOptions: true,
     showResultImmediately: true,
+    isSecureMode: false,
+    maxViolations: 3,
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -72,6 +74,8 @@ export default function CreateExam() {
         shuffleQuestions: formData.shuffleQuestions,
         shuffleOptions: formData.shuffleOptions,
         showResultImmediately: formData.showResultImmediately,
+        isSecureMode: formData.isSecureMode,
+        maxViolations: formData.maxViolations,
       };
 
       if (formData.categoryId !== 'none') {
@@ -243,7 +247,40 @@ export default function CreateExam() {
                 />
                 <Label htmlFor="showResultImmediately">Show Results to Students</Label>
               </div>
+
+              <div className="border-t pt-4 mt-4 space-y-4">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="isSecureMode"
+                    checked={formData.isSecureMode}
+                    onChange={(e) => setFormData(prev => ({ ...prev, isSecureMode: e.target.checked }))}
+                    className="rounded"
+                  />
+                  <Label htmlFor="isSecureMode" className="text-indigo-600 font-bold flex items-center gap-1">
+                    Secure Mode (Anti-Cheat)
+                  </Label>
+                </div>
+
+                {formData.isSecureMode && (
+                  <div className="space-y-2 pl-6 animate-in slide-in-from-left-2 duration-200">
+                    <Label htmlFor="maxViolations" className="text-xs">Max Alt-Tab Violations</Label>
+                    <Input
+                      id="maxViolations"
+                      name="maxViolations"
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={formData.maxViolations}
+                      onChange={handleInputChange}
+                      className="h-8 text-xs"
+                    />
+                    <p className="text-[10px] text-gray-400">Student will be auto-submitted if they switch tabs more than this.</p>
+                  </div>
+                )}
+              </div>
             </CardContent>
+
           </Card>
         </div>
 

@@ -46,10 +46,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const session: UserSession = {
           id: userData.id,
           role,
-          username: userData.username || userData.email || `${userData.first_name || userData.firstName || ''}${(userData.last_name || userData.lastName) ? ' ' + (userData.last_name || userData.lastName) : ''}`.trim(),
+          username: userData.username || userData.email || `${userData.firstName || userData.first_name || ''}${(userData.lastName || userData.last_name) ? ' ' + (userData.lastName || userData.last_name) : ''}`.trim(),
           email: userData.email,
-          name: userData.name || userData.full_name || `${userData.first_name || userData.firstName || ''} ${userData.last_name || userData.lastName || ''}`.trim() || userData.fullName || userData.username || '',
-          schoolId: userData.school_id || userData.schoolId,
+          name: userData.name || userData.fullName || userData.full_name || `${userData.firstName || userData.first_name || ''} ${userData.lastName || userData.last_name || ''}`.trim() || userData.username || '',
+          schoolId: userData.schoolId || userData.school_id,
           tutorId: role === 'tutor' ? userData.id : undefined,
           studentId: role === 'student' ? userData.id : undefined,
           isExternal: !!userData.isExternal,

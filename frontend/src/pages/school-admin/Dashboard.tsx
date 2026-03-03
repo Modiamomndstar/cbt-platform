@@ -17,6 +17,7 @@ import {
   Trophy
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import OnboardingWizard from '@/components/common/OnboardingWizard';
 
 export default function SchoolAdminDashboard() {
   const navigate = useNavigate();
@@ -27,6 +28,7 @@ export default function SchoolAdminDashboard() {
   const [exams, setExams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showLockModal, setShowLockModal] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -38,7 +40,11 @@ export default function SchoolAdminDashboard() {
         ]);
 
         if (dashRes?.data?.success) {
-          setStats(dashRes.data.data);
+          const data = dashRes.data.data;
+          setStats(data);
+          if ((data.tutorCount || data.tutor_count) === 0) {
+            setShowOnboarding(true);
+          }
         }
         if (tutorRes?.data?.success) {
           setTutors((tutorRes.data.data || []).slice(0, 5));
@@ -58,42 +64,42 @@ export default function SchoolAdminDashboard() {
   const statCards = [
     {
       title: 'Total Tutors',
-      value: stats?.tutor_count || 0,
+      value: stats?.tutorCount || stats?.tutor_count || 0,
       icon: Users,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50'
     },
     {
       title: 'Total Students',
-      value: stats?.student_count || 0,
+      value: stats?.studentCount || stats?.student_count || 0,
       icon: Users,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-50'
     },
     {
       title: 'Total Exams',
-      value: stats?.exam_count || 0,
+      value: stats?.examCount || stats?.exam_count || 0,
       icon: BookOpen,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50'
     },
     {
       title: 'Total Questions',
-      value: stats?.question_count || 0,
+      value: stats?.questionCount || stats?.question_count || 0,
       icon: FileQuestion,
       color: 'text-amber-600',
       bgColor: 'bg-amber-50'
     },
     {
       title: 'Completed Exams',
-      value: stats?.completed_exams || 0,
+      value: stats?.completedExams || stats?.completed_exams || 0,
       icon: CheckCircle,
       color: 'text-rose-600',
       bgColor: 'bg-rose-50'
     },
     {
       title: 'Average Score',
-      value: `${Math.round(stats?.average_score || 0)}%`,
+      value: `${Math.round(stats?.averageScore || stats?.average_score || 0)}%`,
       icon: TrendingUp,
       color: 'text-cyan-600',
       bgColor: 'bg-cyan-50'
@@ -164,20 +170,20 @@ export default function SchoolAdminDashboard() {
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
                         <span className="text-indigo-700 font-semibold">
-                          {(tutor.full_name || tutor.fullName || '?').charAt(0)}
+                          {(tutor.fullName || tutor.full_name || '?').charAt(0)}
                         </span>
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{tutor.full_name || tutor.fullName}</p>
+                        <p className="font-medium text-gray-900">{tutor.fullName || tutor.full_name}</p>
                         <p className="text-sm text-gray-500">{(tutor.subjects || []).join(', ') || 'No subjects'}</p>
                       </div>
                     </div>
                     <span className={`px-2 py-1 text-xs rounded-full ${
-                      tutor.is_active !== false
+                      (tutor.isActive ?? tutor.is_active) !== false
                         ? 'bg-emerald-100 text-emerald-700'
                         : 'bg-gray-100 text-gray-700'
                     }`}>
-                      {tutor.is_active !== false ? 'Active' : 'Inactive'}
+                      {(tutor.isActive ?? tutor.is_active) !== false ? 'Active' : 'Inactive'}
                     </span>
                   </div>
                 ))}
@@ -217,11 +223,11 @@ export default function SchoolAdminDashboard() {
                       </div>
                       <div>
                         <p className="font-medium text-gray-900">{exam.title}</p>
-                        <p className="text-sm text-gray-500">{exam.category || exam.category_name || ''} • {exam.duration} mins</p>
+                        <p className="text-sm text-gray-500">{exam.categoryName || exam.category_name || exam.category || ''} • {exam.duration} mins</p>
                       </div>
                     </div>
                     <span className="text-sm text-gray-500">
-                      {exam.total_questions || exam.question_count || 0} Qs
+                      {exam.questionCount || exam.question_count || exam.total_questions || 0} Qs
                     </span>
                   </div>
                 ))}
@@ -297,6 +303,11 @@ export default function SchoolAdminDashboard() {
         isOpen={showLockModal}
         onClose={() => setShowLockModal(false)}
         featureName="Advanced Analytics"
+      />
+
+      <OnboardingWizard
+        isOpen={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
       />
     </div>
   );

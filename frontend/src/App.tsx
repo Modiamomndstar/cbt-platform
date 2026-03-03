@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth, RequireAuth } from '@/hooks/useAuth';
 import { PlanProvider } from '@/hooks/usePlan';
+import { MessagesProvider } from '@/hooks/useMessages';
 import { initializeDemoData } from '@/lib/dataStore';
 import { Toaster } from '@/components/ui/sonner';
 
@@ -11,6 +12,7 @@ import LoginPage from '@/pages/LoginPage';
 import AdminLogin from '@/pages/auth/AdminLogin';
 import SchoolRegistrationPage from '@/pages/SchoolRegistrationPage';
 import PublicLeaderboard from '@/pages/public/PublicLeaderboard';
+import PricingPage from '@/pages/PricingPage';
 
 // School Admin Pages
 import SchoolAdminLayout from '@/pages/school-admin/SchoolAdminLayout';
@@ -23,6 +25,9 @@ import SchoolStudentManagement from '@/pages/school-admin/StudentManagement';
 import SchoolCompetitionHub from '@/pages/school-admin/SchoolCompetitionHub';
 import BillingPage from '@/pages/school-admin/Billing';
 import SchoolSettingsPage from '@/pages/school-admin/SchoolSettings';
+import SchoolQuestions from '@/pages/school-admin/Questions';
+import SchoolSchedules from '@/pages/school-admin/Schedules';
+import SchoolResults from '@/pages/school-admin/Results';
 
 // Tutor Pages
 import TutorLayout from '@/pages/tutor/TutorLayout';
@@ -49,6 +54,7 @@ import StudentCompetitionHub from '@/pages/student/StudentCompetitionHub';
 // Common Pages
 import StudentReportCard from './pages/common/StudentReportCard';
 import AdvancedReportCard from './pages/common/AdvancedReportCard';
+import MessagesPage from './pages/common/Messages';
 
 // Super Admin Pages
 import SuperAdminLayout from '@/pages/super-admin/SuperAdminLayout';
@@ -88,6 +94,7 @@ function AppRoutes() {
       <Route path="/register-school" element={<SchoolRegistrationPage />} />
       <Route path="/student/login" element={<StudentLogin />} />
       <Route path="/leaderboard/:competitionId" element={<PublicLeaderboard />} />
+      <Route path="/pricing" element={<PricingPage />} />
 
       {/* School Admin Routes */}
       <Route
@@ -108,6 +115,14 @@ function AppRoutes() {
         <Route path="categories" element={<CategoryManagement />} />
         <Route path="billing" element={<BillingPage />} />
         <Route path="settings" element={<SchoolSettingsPage />} />
+        <Route path="messages" element={<MessagesPage />} />
+
+        {/* Exam Management for School Admin */}
+        <Route path="questions" element={<SchoolQuestions />} />
+        <Route path="questions/:examId/manage" element={<QuestionBank />} />
+        <Route path="schedules" element={<SchoolSchedules />} />
+        <Route path="schedules-by-exam/:examId" element={<ScheduleExam />} />
+        <Route path="results" element={<SchoolResults />} />
       </Route>
 
       {/* Tutor Routes */}
@@ -130,6 +145,7 @@ function AppRoutes() {
         <Route path="external-students" element={<ExternalStudents />} />
         <Route path="results" element={<ExamResults />} />
         <Route path="analytics" element={<TutorAnalytics />} />
+        <Route path="messages" element={<MessagesPage />} />
       </Route>
 
       {/* Student Routes */}
@@ -148,6 +164,7 @@ function AppRoutes() {
         <Route path="results" element={<StudentResults />} />
         <Route path="performance" element={<StudentPerformance />} />
         <Route path="competitions" element={<StudentCompetitionHub />} />
+        <Route path="messages" element={<MessagesPage />} />
         <Route path="report-card" element={<StudentReportCard />} />
       </Route>
 
@@ -171,6 +188,7 @@ function AppRoutes() {
         <Route path="marketplace" element={<MarketplaceManagement />} />
         <Route path="finance" element={<FinancialAnalytics />} />
         <Route path="competitions" element={<CompetitionManagement />} />
+        <Route path="messages" element={<MessagesPage />} />
       </Route>
 
       {/* Common Protected Routes (not nested under a specific layout) */}
@@ -188,10 +206,12 @@ function App() {
   return (
     <AuthProvider>
       <PlanProvider>
-        <BrowserRouter>
-          <AppRoutes />
-          <Toaster position="top-right" />
-        </BrowserRouter>
+        <MessagesProvider>
+          <BrowserRouter>
+            <AppRoutes />
+            <Toaster position="top-right" />
+          </BrowserRouter>
+        </MessagesProvider>
       </PlanProvider>
     </AuthProvider>
   );

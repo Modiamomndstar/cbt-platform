@@ -13,16 +13,16 @@ import api, { externalStudentAPI, API_BASE_URL } from '@/services/api';
 
 interface ExternalStudent {
   id: string;
-  full_name: string;
+  fullName: string;
   email: string | null;
   phone: string | null;
   username: string;
-  is_active: boolean;
-  created_at: string;
-  category_id?: string;
-  category_name?: string;
-  category_color?: string;
-  level_class?: string;
+  isActive: boolean;
+  createdAt: string;
+  categoryId?: string;
+  categoryName?: string;
+  categoryColor?: string;
+  levelClass?: string;
 }
 
 interface Category {
@@ -102,12 +102,12 @@ export default function ExternalStudents() {
     setIsCreating(false);
     setEditingId(student.id);
     setFormData({
-      fullName: student.full_name,
+      fullName: student.fullName || (student as any).full_name,
       email: student.email || '',
       phone: student.phone || '',
-      levelClass: student.level_class || '',
-      categoryId: student.category_id || 'none',
-      isActive: student.is_active,
+      levelClass: student.levelClass || (student as any).level_class || '',
+      categoryId: student.categoryId || (student as any).category_id || 'none',
+      isActive: student.isActive !== undefined ? student.isActive : (student as any).is_active,
       sendEmail: false
     });
   };
@@ -432,17 +432,17 @@ export default function ExternalStudents() {
               {students.map((student) => (
                 <tr key={student.id} className="border-b bg-white hover:bg-gray-50">
                    <td className="px-6 py-4">
-                    <div className="font-medium text-gray-900">{student.full_name}</div>
+                    <div className="font-medium text-gray-900">{student.fullName}</div>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs text-indigo-600 font-medium">@{student.username}</span>
-                      {student.category_name && (
-                         <Badge style={{ backgroundColor: student.category_color || '#4F46E5', color: 'white' }} className="text-[10px] h-4 px-1 pb-0 shadow-sm border-none leading-none items-center">{student.category_name}</Badge>
+                      {student.categoryName && (
+                         <Badge style={{ backgroundColor: student.categoryColor || '#4F46E5', color: 'white' }} className="text-[10px] h-4 px-1 pb-0 shadow-sm border-none leading-none items-center">{student.categoryName}</Badge>
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                   <td className="px-6 py-4">
                     <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      {student.level_class || 'General'}
+                      {student.levelClass || 'General'}
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -450,13 +450,13 @@ export default function ExternalStudents() {
                     <div className="text-xs text-gray-500">{student.phone || '—'}</div>
                   </td>
                   <td className="px-6 py-4">
-                    {student.is_active ?
+                    {student.isActive ?
                       <Badge variant="secondary" className="bg-green-100 text-green-700 border-none">Active</Badge> :
                       <Badge variant="secondary" className="bg-red-100 text-red-700 border-none">Suspended</Badge>
                     }
                   </td>
                   <td className="px-6 py-4">
-                    {new Date(student.created_at).toLocaleDateString()}
+                    {new Date(student.createdAt).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end space-x-2">
@@ -481,7 +481,7 @@ export default function ExternalStudents() {
                       <Button variant="ghost" size="sm" onClick={() => handleEdit(student)}>
                         <Pencil className="w-4 h-4 text-indigo-600" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(student.id, student.full_name)}>
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(student.id, student.fullName)}>
                         <Trash2 className="w-4 h-4 text-red-600" />
                       </Button>
                     </div>

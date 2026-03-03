@@ -9,12 +9,14 @@ import { getPaginationOptions, formatPaginationResponse } from '../utils/paginat
 import { canAddExternalStudent } from '../services/planService';
 import { paygService } from '../services/paygService';
 import { sendStudentPortalCredentialsEmail } from '../services/email';
+import { splitFullName, generateUniqueUsername } from '../utils/userUtils';
 
 const router = Router();
 
 
-// All routes require tutor authentication
-router.use(authenticate, authorize('tutor'));
+
+// All routes require authentication
+router.use(authenticate);
 
 // Helper to check if external students are allowed by school
 async function checkExternalEnabled(schoolId: string): Promise<boolean> {
@@ -28,7 +30,7 @@ async function checkExternalEnabled(schoolId: string): Promise<boolean> {
 // -----------------------------------------------------------
 // GET /api/tutor/external-students/categories
 // -----------------------------------------------------------
-router.get('/categories', async (req: any, res: any, next: any) => {
+router.get('/categories', authorize('tutor', 'school'), async (req: any, res: any, next: any) => {
   try {
     const tutorId = req.user.tutorId;
     const result = await db.query(
@@ -44,7 +46,7 @@ router.get('/categories', async (req: any, res: any, next: any) => {
 // -----------------------------------------------------------
 // POST /api/tutor/external-students/categories
 // -----------------------------------------------------------
-router.post('/categories', [
+router.post('/categories', authorize('tutor'), [
   body('name').trim().notEmpty().withMessage('Category name is required'),
   body('color').optional().trim(),
   body('description').optional().trim(),
@@ -70,7 +72,7 @@ router.post('/categories', [
 // -----------------------------------------------------------
 // PUT /api/tutor/external-students/categories/:id
 // -----------------------------------------------------------
-router.put('/categories/:id', [
+router.put('/categories/:id', authorize('tutor'), [
   body('name').trim().notEmpty().withMessage('Category name is required'),
   body('color').optional().trim(),
   validate
@@ -93,7 +95,7 @@ router.put('/categories/:id', [
 // -----------------------------------------------------------
 // DELETE /api/tutor/external-students/categories/:id
 // -----------------------------------------------------------
-router.delete('/categories/:id', async (req: any, res: any, next: any) => {
+router.delete('/categories/:id', authorize('tutor'), async (req: any, res: any, next: any) => {
   try {
     const tutorId = req.user.tutorId;
     const { id } = req.params;
@@ -109,10 +111,11 @@ router.delete('/categories/:id', async (req: any, res: any, next: any) => {
 });
 
 // -----------------------------------------------------------
-// GET /api/tutor/external-students — list tutor's own private students
+// GET /api/tutor/external-students — list students
 // -----------------------------------------------------------
-router.get('/', async (req: any, res: any, next: any) => {
+router.get('/', authorize('tutor', 'school'), async (req: any, res: any, next: any) => {
   try {
+    const isSchool = req.user.role === 'school';
     const tutorId = req.user.tutorId;
     const schoolId = req.user.schoolId;
     const { categoryId } = req.query as any;
@@ -123,9 +126,9 @@ router.get('/', async (req: any, res: any, next: any) => {
                c.name as category_name, c.color as category_color
         FROM external_students s
         LEFT JOIN student_categories c ON s.category_id = c.id
-        WHERE s.tutor_id = $1
+        WHERE ${isSchool ? 's.school_id = $1' : 's.tutor_id = $1'}
      `;
-    const params: any[] = [tutorId];
+    const params: any[] = [isSchool ? schoolId : tutorId];
 
     if (categoryId && categoryId !== "all") {
        if (categoryId === 'uncategorized') {
@@ -142,8 +145,8 @@ router.get('/', async (req: any, res: any, next: any) => {
     const result = await db.query(query, params);
 
     // Get total count for pagination
-    const countParams = [tutorId];
-    let countQuery = `SELECT COUNT(*) FROM external_students WHERE tutor_id = $1`;
+    const countParams = [isSchool ? schoolId : tutorId];
+    let countQuery = `SELECT COUNT(*) FROM external_students WHERE ${isSchool ? 'school_id = $1' : 'tutor_id = $1'}`;
     if (categoryId && categoryId !== "all") {
       if (categoryId === 'uncategorized') {
         countQuery += ` AND category_id IS NULL`;
@@ -169,7 +172,7 @@ router.get('/', async (req: any, res: any, next: any) => {
 // -----------------------------------------------------------
 // POST /api/tutor/external-students — add a private student
 // -----------------------------------------------------------
-router.post('/', [
+router.post('/', authorize('tutor'), [
   body('fullName').trim().notEmpty().withMessage('Full name is required'),
   body('email').optional({ checkFalsy: true }).isEmail(),
    body('phone').optional().trim(),
@@ -192,25 +195,15 @@ router.post('/', [
       return ApiResponseHandler.badRequest(res, canAdd.reason || 'Student limit reached', { code: 'PLAN_LIMIT_EXCEEDED' });
     }
 
-    // Generate unique username
-    let base = fullName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().substring(0, 8);
-    if (!base) base = 'extuser';
-    let username = `${base}${Math.floor(Math.random() * 10000)}`;
-
-    const usernameCheck = await db.query('SELECT username FROM external_students WHERE username = $1', [username]);
-    if (usernameCheck.rows.length > 0) {
-       username = `${base}${Date.now().toString().slice(-4)}`;
-    }
+    const username = await generateUniqueUsername(db, fullName, 'external_students');
 
     const password = Math.random().toString(36).slice(-8);
     const passwordHash = await bcrypt.hash(password, 10);
 
     // Parse name parts
-    const nameParts = fullName.trim().split(' ');
-    const firstName = nameParts[0];
-    const lastName = nameParts.slice(1).join(' ') || '.';
+    const { firstName, lastName } = splitFullName(fullName);
 
-     const result = await db.query(
+    const result = await db.query(
       `INSERT INTO external_students (tutor_id, school_id, first_name, last_name, full_name, username, password_hash, email, phone, category_id, level_class)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING id, first_name, last_name, full_name, email, phone, username, is_active, created_at, category_id, level_class`,
@@ -225,7 +218,7 @@ router.post('/', [
       if (allowed) {
         const schoolRes = await db.query("SELECT name FROM schools WHERE id = $1", [schoolId]);
         const schoolName = schoolRes.rows[0]?.name || "CBT Platform";
-        
+
         sendStudentPortalCredentialsEmail(schoolId, email, fullName, schoolName, {
           username: student.username,
           password
@@ -242,7 +235,7 @@ router.post('/', [
 // -----------------------------------------------------------
 // PATCH /api/tutor/external-students/:id
 // -----------------------------------------------------------
-router.patch('/:id', [
+router.patch('/:id', authorize('tutor'), [
   param('id').isUUID(),
   body('fullName').optional().trim().notEmpty(),
   body('email').optional({ checkFalsy: true }).isEmail(),
@@ -269,9 +262,7 @@ router.patch('/:id', [
         const val = req.body[key];
 
         if (key === 'fullName' && typeof val === 'string') {
-          const nameParts = val.trim().split(' ');
-          const firstName = nameParts[0];
-          const lastName = nameParts.slice(1).join(' ') || '.';
+          const { firstName, lastName } = splitFullName(val);
 
           updates.push(`first_name = $${p++}`);
           values.push(firstName);
@@ -309,7 +300,7 @@ router.patch('/:id', [
 // -----------------------------------------------------------
 // DELETE /api/tutor/external-students/:id
 // -----------------------------------------------------------
-router.delete('/:id', param('id').isUUID(), validate, async (req: any, res: any, next: any) => {
+router.delete('/:id', authorize('tutor'), param('id').isUUID(), validate, async (req: any, res: any, next: any) => {
   try {
     const { id } = req.params;
     const tutorId = req.user.tutorId;

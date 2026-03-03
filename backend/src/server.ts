@@ -20,6 +20,7 @@ import questionRoutes from "./routes/questions";
 import scheduleRoutes from "./routes/schedules";
 import resultRoutes from "./routes/results";
 import paymentRoutes from "./routes/payments";
+import messagesRoutes from "./routes/messages";
 import categoryRoutes from "./routes/categories";
 import analyticsRoutes from "./routes/analytics";
 import uploadRoutes from "./routes/uploads";
@@ -48,10 +49,16 @@ app.use(
     origin: (origin, callback) => {
       const allowed = [
         process.env.FRONTEND_URL,
-        "http://localhost",
-        "http://localhost:5173",
-        "http://localhost:80",
       ].filter(Boolean);
+
+      // Allow localhost in development
+      if (process.env.NODE_ENV === "development") {
+        if (!origin || origin.startsWith("http://localhost:")) {
+          return callback(null, true);
+        }
+        allowed.push("http://localhost", "http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:80");
+      }
+
       if (!origin || allowed.indexOf(origin) !== -1) {
         return callback(null, true);
       }
@@ -126,6 +133,7 @@ app.use("/api/questions", questionRoutes);
 app.use("/api/schedules", scheduleRoutes);
 app.use("/api/results", resultRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/messages", messagesRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/uploads", uploadRoutes);

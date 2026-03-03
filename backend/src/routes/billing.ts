@@ -222,10 +222,27 @@ router.get('/payg/history', authenticate, authorize('school'), async (req, res, 
 // -----------------------------------------------------------
 router.get('/plans', async (req, res, next) => {
   try {
-    const result = await db.query(
+    const plansPromise = db.query(
       'SELECT * FROM plan_definitions WHERE is_active = true ORDER BY price_usd ASC'
     );
-    ApiResponseHandler.success(res, result.rows, 'Plans retrieved');
+    const settingsPromise = db.query(
+      "SELECT key, value FROM settings WHERE key IN ('yearly_discount_percentage', 'yearly_discount_active')"
+    );
+
+    const [plansResult, settingsResult] = await Promise.all([plansPromise, settingsPromise]);
+
+    const settings: Record<string, any> = {};
+    settingsResult.rows.forEach(row => {
+      settings[row.key] = row.value;
+    });
+
+    ApiResponseHandler.success(res, {
+      plans: plansResult.rows,
+      yearlyDiscount: {
+        percentage: parseInt(settings.yearly_discount_percentage || '0'),
+        isActive: settings.yearly_discount_active === 'true'
+      }
+    }, 'Plans retrieved');
   } catch (error) {
     next(error);
   }

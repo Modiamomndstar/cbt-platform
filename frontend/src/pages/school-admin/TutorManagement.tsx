@@ -102,13 +102,13 @@ export default function TutorManagement() {
     }
   };
 
-  const [tutorToToggle, setTutorToToggle] = useState<{ id: string; name: string; is_active: boolean } | null>(null);
+  const [tutorToToggle, setTutorToToggle] = useState<{ id: string; name: string; is_active?: boolean; isActive?: boolean } | null>(null);
 
   const confirmToggleStatus = async () => {
     if (!tutorToToggle) return;
     try {
-      await tutorAPI.toggleStatus(tutorToToggle.id, !tutorToToggle.is_active);
-      toast.success(`Tutor ${tutorToToggle.is_active ? 'paused' : 'unpaused'} successfully`);
+      await tutorAPI.toggleStatus(tutorToToggle.id, !(tutorToToggle.isActive ?? tutorToToggle.is_active));
+      toast.success(`Tutor ${(tutorToToggle.isActive ?? tutorToToggle.is_active) ? 'paused' : 'unpaused'} successfully`);
       loadTutors();
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to toggle status');
@@ -271,7 +271,7 @@ export default function TutorManagement() {
                               {(tutor.full_name || tutor.fullName || '?').charAt(0)}
                             </span>
                           </div>
-                          <span className="font-medium text-gray-900">{tutor.full_name || tutor.fullName}</span>
+                          <span className="font-medium text-gray-900">{tutor.fullName || tutor.full_name}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-600">{tutor.username}</td>
@@ -290,11 +290,11 @@ export default function TutorManagement() {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 text-xs rounded-full ${
-                          tutor.is_active !== false
+                          (tutor.isActive ?? tutor.is_active) !== false
                             ? 'bg-emerald-100 text-emerald-700'
                             : 'bg-gray-100 text-gray-700'
                         }`}>
-                          {tutor.is_active !== false ? 'Active' : 'Inactive'}
+                          {(tutor.isActive ?? tutor.is_active) !== false ? 'Active' : 'Inactive'}
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -302,16 +302,16 @@ export default function TutorManagement() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setTutorToToggle({ id: tutor.id, name: tutor.full_name || tutor.fullName, is_active: tutor.is_active !== false })}
-                            className={tutor.is_active !== false ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"}
-                            title={tutor.is_active !== false ? "Pause Tutor" : "Unpause Tutor"}
+                            onClick={() => setTutorToToggle({ id: tutor.id, name: tutor.fullName || tutor.full_name, isActive: (tutor.isActive ?? tutor.is_active) !== false })}
+                            className={(tutor.isActive ?? tutor.is_active) !== false ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"}
+                            title={(tutor.isActive ?? tutor.is_active) !== false ? "Pause Tutor" : "Unpause Tutor"}
                           >
-                            {tutor.is_active !== false ? <Ban className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                            {(tutor.isActive ?? tutor.is_active) !== false ? <Ban className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setTutorToDelete({ id: tutor.id, name: tutor.full_name || tutor.fullName })}
+                            onClick={() => setTutorToDelete({ id: tutor.id, name: tutor.fullName || tutor.full_name })}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50"
                             title="Delete Tutor"
                           >
@@ -367,9 +367,9 @@ export default function TutorManagement() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmToggleStatus}
-              className={tutorToToggle?.is_active ? "bg-amber-600 hover:bg-amber-700" : "bg-emerald-600 hover:bg-emerald-700"}
+              className={(tutorToToggle as any)?.isActive ?? tutorToToggle?.is_active ? "bg-amber-600 hover:bg-amber-700" : "bg-emerald-600 hover:bg-emerald-700"}
             >
-              {tutorToToggle?.is_active ? 'Pause Tutor' : 'Unpause Tutor'}
+              {(tutorToToggle as any)?.isActive ?? tutorToToggle?.is_active ? 'Pause Tutor' : 'Unpause Tutor'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

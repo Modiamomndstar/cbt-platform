@@ -69,16 +69,16 @@ import { studentAPI, categoryAPI, tutorAPI, uploadAPI, API_BASE_URL } from '@/se
 
 interface Student {
   id: string;
-  student_id: string;
-  full_name: string;
+  studentId: string;
+  fullName: string;
   email?: string;
   phone?: string;
-  category_id?: string;
-  category_name?: string;
-  category_color?: string;
-  is_active: boolean;
-  assigned_tutors?: Array<{ id: string; name: string; subjects?: string }>;
-  username?: string; // Optional because legacy students might not have it immediately in UI
+  categoryId?: string;
+  categoryName?: string;
+  categoryColor?: string;
+  isActive: boolean;
+  assignedTutors?: Array<{ id: string; name: string; subjects?: string }>;
+  username?: string;
 }
 
 interface Category {
@@ -88,7 +88,7 @@ interface Category {
 
 interface Tutor {
   id: string;
-  full_name: string;
+  fullName: string;
 }
 
 export default function StudentManagement() {
@@ -336,7 +336,7 @@ export default function StudentManagement() {
     if (!bulkResults?.success?.length) return;
     let csvContent = "data:text/csv;charset=utf-8,Student Name,Student ID,Username,Password\n";
     bulkResults.success.forEach(s => {
-      csvContent += `"${s.full_name}","${s.student_id}","${s.username}","${s.generatedPassword || ''}"\n`;
+      csvContent += `"${s.fullName}","${s.studentId}","${s.username}","${s.generatedPassword || ''}"\n`;
     });
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -362,9 +362,9 @@ export default function StudentManagement() {
 
   const filteredStudents = students.filter(student => {
     const matchesSearch =
-      student.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.student_id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === 'all' || student.category_id === categoryFilter;
+      (student.fullName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (student.studentId || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = categoryFilter === 'all' || student.categoryId === categoryFilter;
     return matchesSearch && matchesCategory;
   });
 
@@ -474,17 +474,17 @@ export default function StudentManagement() {
                   </TableCell>
                   <TableCell>
                     <div>
-                      <div className="font-medium">{student.full_name}</div>
-                      <div className="text-xs text-muted-foreground">ID: {student.student_id}</div>
+                      <div className="font-medium">{student.fullName}</div>
+                      <div className="text-xs text-muted-foreground">ID: {student.studentId}</div>
                     </div>
                   </TableCell>
                   <TableCell>
-                    {student.category_name ? (
+                    {student.categoryName ? (
                       <Badge
                         variant="secondary"
-                        style={{ backgroundColor: student.category_color + '20', color: student.category_color }}
+                        style={{ backgroundColor: student.categoryColor + '20', color: student.categoryColor }}
                       >
-                        {student.category_name}
+                        {student.categoryName}
                       </Badge>
                     ) : (
                       <span className="text-muted-foreground text-sm">-</span>
@@ -498,8 +498,8 @@ export default function StudentManagement() {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {student.assigned_tutors && student.assigned_tutors.filter(t => t.id).length > 0 ? (
-                        student.assigned_tutors.filter(t => t.id).map(t => (
+                      {student.assignedTutors && student.assignedTutors.filter(t => t.id).length > 0 ? (
+                        student.assignedTutors.filter(t => t.id).map(t => (
                           <Badge key={t.id} variant="outline" className="flex gap-1 items-center">
                             {t.name} {t.subjects && <span className="opacity-70 text-[10px] ml-1 font-normal select-none">({t.subjects})</span>}
                             <button
@@ -552,11 +552,11 @@ export default function StudentManagement() {
                         <DropdownMenuItem onClick={() => {
                           setSelectedStudent(student);
                           setFormData({
-                            fullName: student.full_name,
-                            studentId: student.student_id,
+                            fullName: student.fullName,
+                            studentId: student.studentId,
                             email: student.email || '',
                             phone: student.phone || '',
-                            categoryId: student.category_id || '',
+                            categoryId: student.categoryId || '',
                             password: '',
                             sendEmail: !!student.email
                           });
@@ -567,8 +567,8 @@ export default function StudentManagement() {
                         <DropdownMenuItem onClick={() => {
                           setResetOptions({
                             id: student.id,
-                            name: student.full_name,
-                            username: student.username || student.student_id,
+                            name: student.fullName,
+                            username: student.username || student.studentId,
                             email: student.email || null,
                             sendEmail: !!student.email
                           });
@@ -687,7 +687,7 @@ export default function StudentManagement() {
       <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Assign Tutor to {selectedStudent?.full_name}</DialogTitle>
+            <DialogTitle>Assign Tutor to {selectedStudent?.fullName}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -732,7 +732,7 @@ export default function StudentManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   {tutors.map(tutor => (
-                    <SelectItem key={tutor.id} value={tutor.id}>{tutor.full_name}</SelectItem>
+                    <SelectItem key={tutor.id} value={tutor.id}>{tutor.fullName}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1059,7 +1059,7 @@ export default function StudentManagement() {
                   <TableBody>
                     {bulkResults.success.slice(0, 10).map((s, i) => (
                       <TableRow key={i}>
-                        <TableCell className="py-2">{s.full_name}</TableCell>
+                        <TableCell className="py-2">{s.fullName}</TableCell>
                         <TableCell className="py-2 font-mono text-xs">{s.username}</TableCell>
                         <TableCell className="py-2 font-mono text-xs">{s.generatedPassword}</TableCell>
                       </TableRow>

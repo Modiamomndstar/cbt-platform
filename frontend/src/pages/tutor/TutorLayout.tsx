@@ -13,34 +13,38 @@ import {
   Menu,
   X,
   UserPlus,
-  TrendingUp
+  TrendingUp,
+  MessageSquare
 } from 'lucide-react';
 import { useState } from 'react';
+import { useMessages } from '@/hooks/useMessages';
 
 export default function TutorLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
   const { isFeatureAllowed } = usePlan();
+  const { unreadCount } = useMessages();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [lockModal, setLockModal] = useState<{ open: boolean; feature: string }>({ open: false, feature: '' });
-
-  const tutorName = user?.name || 'Tutor';
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
+  const tutorName = user?.name || 'Tutor';
+
   const navigation = [
     { name: 'Dashboard', href: '/tutor/dashboard', icon: LayoutDashboard },
+    { name: 'Messages', href: '/tutor/messages', icon: MessageSquare, badge: unreadCount },
     { name: 'Exams', href: '/tutor/exams', icon: BookOpen },
     { name: 'Student Categories', href: '/tutor/categories', icon: GraduationCap },
     { name: 'School Students', href: '/tutor/students', icon: Users },
     { name: 'External Students', href: '/tutor/external-students', icon: UserPlus },
     { name: 'Results', href: '/tutor/results', icon: BarChart3 },
     { name: 'Advanced Analytics', href: '/tutor/analytics', icon: TrendingUp, feature: 'advanced_analytics' },
-  ];
+  ] as ({ name: string; href: string; icon: any; badge?: number; feature?: string })[];
 
   const isActive = (path: string) => {
     if (path === '/tutor/exams') {
@@ -81,7 +85,7 @@ export default function TutorLayout() {
               }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
                 isActive(item.href)
-                  ? 'bg-indigo-50 text-indigo-700'
+                  ? 'bg-amber-50 text-amber-700'
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
@@ -89,7 +93,14 @@ export default function TutorLayout() {
                 <item.icon className="h-5 w-5" />
                 <span>{item.name}</span>
               </div>
-              {item.feature && !isFeatureAllowed(item.feature) && <FeatureLockBadge />}
+              <div className="flex items-center space-x-2">
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-600 text-[10px] font-bold text-white">
+                    {item.badge}
+                  </span>
+                )}
+                {item.feature && !isFeatureAllowed(item.feature) && <FeatureLockBadge />}
+              </div>
             </button>
           ))}
         </nav>
@@ -145,7 +156,7 @@ export default function TutorLayout() {
                   }}
                   className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
                     isActive(item.href)
-                      ? 'bg-indigo-50 text-indigo-700'
+                      ? 'bg-amber-50 text-amber-700'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
@@ -153,7 +164,14 @@ export default function TutorLayout() {
                     <item.icon className="h-5 w-5" />
                     <span>{item.name}</span>
                   </div>
-                  {item.feature && !isFeatureAllowed(item.feature) && <FeatureLockBadge />}
+                  <div className="flex items-center space-x-2">
+                    {item.badge !== undefined && item.badge > 0 && (
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-600 text-[10px] font-bold text-white">
+                        {item.badge}
+                      </span>
+                    )}
+                    {item.feature && !isFeatureAllowed(item.feature) && <FeatureLockBadge />}
+                  </div>
                 </button>
               ))}
             </nav>

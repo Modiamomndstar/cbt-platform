@@ -13,6 +13,7 @@ interface PlanStatus {
   usage: Record<string, number>;
   subscription: Record<string, any>;
   paygBalance: number;
+  features: Record<string, boolean>;
 }
 
 interface PlanContextType {
@@ -32,7 +33,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshPlan = async () => {
-    if (!user || user.isExternal) {
+    if (!user || user.role === 'super_admin') {
       setIsLoading(false);
       return;
     }
@@ -57,7 +58,10 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     if (user?.role === 'super_admin') return true;
     if (!plan || !plan.plan) return false;
 
-    // Mapping of feature keys to backend boolean flags
+    // Use the optimized features object from backend first
+    if (plan.features && plan.features[featureKey]) return true;
+
+    // Mapping of feature keys to backend boolean flags (fallback)
     const featureMap: Record<string, string> = {
       student_portal:      'allowStudentPortal',
       bulk_import:         'allowBulkImport',
@@ -72,9 +76,14 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     };
 
     const planKey = featureMap[featureKey];
+    if (planKey && (plan.plan as any)[planKey]) return true;
+
+    // Check features object again if explicitly false in fallback
+    if (plan.features && plan.features[featureKey] === false) return false;
+
     if (!planKey) return true; // unknown feature usually means platform default
 
-    return !!(plan.plan as any)[planKey];
+    return false;
   };
 
   const getLimit = (limitKey: string): number => {

@@ -34,9 +34,9 @@ interface ExamResult {
   id: string;
   title: string;
   category: string;
-  category_id: string;
+  categoryId: string;
   tutor: string;
-  tutor_id: string;
+  tutorId: string;
   score: string;
   totalMarks: string;
   percentage: string;
@@ -59,6 +59,7 @@ interface AdvancedReportData {
       address: string;
       email: string;
       phone: string;
+      logoUrl?: string;
       logo_url?: string;
     };
   };
@@ -97,7 +98,7 @@ export default function AdvancedReportCard() {
 
     data.progression.forEach(level => {
       level.exams.forEach(exam => {
-        tutors.set(exam.tutor_id, exam.tutor);
+        tutors.set(exam.tutorId || (exam as any).tutor_id, exam.tutor);
         categories.set(exam.category, exam.category); // Using category name as key since category_id might be missing
       });
     });
@@ -123,15 +124,15 @@ export default function AdvancedReportCard() {
       if (res.data.success) {
         const report = res.data.data;
         // First fetch the actual data for that student
-        const reportRes = await analyticsAPI.getAdvancedReportCard(report.student_id, report.config.timeframe);
+        const reportRes = await analyticsAPI.getAdvancedReportCard(report.studentId || report.student_id, report.config.timeframe);
         if (reportRes.data.success) {
           setData(reportRes.data.data);
           // Apply saved config
           setTimeframe(report.config.timeframe || 'all');
           setSelectedCategories(new Set(report.config.categories || []));
           setSelectedTutors(new Set(report.config.tutors || []));
-          setSignatureTitle(report.config.signature_title || 'Principal');
-          setSignatureName(report.config.signature_name || '');
+          setSignatureTitle(report.config.signatureTitle || report.config.signature_title || 'Principal');
+          setSignatureName(report.config.signatureName || report.config.signature_name || '');
         }
       }
     } catch (error) {
@@ -162,7 +163,7 @@ export default function AdvancedReportCard() {
         const uniqueCats = new Set<string>();
         result.progression.forEach((level: any) => {
           level.exams.forEach((exam: any) => {
-            uniqueTutors.add(exam.tutor_id);
+            uniqueTutors.add(exam.tutorId || exam.tutor_id);
             uniqueCats.add(exam.category);
           });
         });
@@ -172,13 +173,13 @@ export default function AdvancedReportCard() {
 
       if (settingsRes.data.success) {
         const settings = settingsRes.data.data;
-        if (settings.report_signature_title) {
-          setSignatureTitle(settings.report_signature_title);
+        if (settings.reportSignatureTitle || settings.report_signature_title) {
+          setSignatureTitle(settings.reportSignatureTitle || settings.report_signature_title);
         } else {
           setSignatureTitle('Principal'); // fallback
         }
-        if (settings.report_signature_name) {
-          setSignatureName(settings.report_signature_name);
+        if (settings.reportSignatureName || settings.report_signature_name) {
+          setSignatureName(settings.reportSignatureName || settings.report_signature_name);
         }
       }
     } catch (error) {
@@ -194,7 +195,7 @@ export default function AdvancedReportCard() {
     return data.progression.map(level => ({
       ...level,
       exams: level.exams.filter(exam =>
-        selectedTutors.has(exam.tutor_id) &&
+        selectedTutors.has(exam.tutorId || (exam as any).tutor_id) &&
         selectedCategories.has(exam.category)
       )
     })).filter(level => level.exams.length > 0);
@@ -246,8 +247,8 @@ export default function AdvancedReportCard() {
         timeframe,
         categories: Array.from(selectedCategories),
         tutors: Array.from(selectedTutors),
-        signature_title: signatureTitle,
-        signature_name: signatureName
+        signatureTitle: signatureTitle,
+        signatureName: signatureName
       };
 
       const res = await analyticsAPI.issueReport({

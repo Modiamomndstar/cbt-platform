@@ -9,41 +9,10 @@ import { ApiResponseHandler } from "../utils/apiResponse";
 import { validate } from "../middleware/validation";
 import { getPaginationOptions, formatPaginationResponse } from "../utils/pagination";
 import { logUserActivity } from "../utils/auditLogger";
+import { generateUniqueUsername, splitFullName } from "../utils/userUtils";
 
 const router = Router();
 
-// Helper to generate unique username
-const generateUniqueUsername = async (client: any, fullName: string, schoolId: string, existingInBatch: Set<string> = new Set()) => {
-  // Normalize: lower case, remove spaces/special chars
-  let base = fullName.toLowerCase().replace(/[^a-z0-9]/g, "");
-  if (base.length < 3) base = base.padEnd(3, 'x'); // Ensure min length
-
-  let username = base;
-  let counter = 1;
-
-  // Check against DB and Batch
-  while (true) {
-    if (existingInBatch.has(username)) {
-       username = `${base}${counter}`;
-       counter++;
-       continue;
-    }
-
-    const result = await client.query(
-      "SELECT 1 FROM students WHERE username = $1", // Global uniqueness check
-      [username]
-    );
-
-    if (result.rows.length === 0) {
-      break;
-    }
-
-    username = `${base}${counter}`;
-    counter++;
-  }
-
-  return username;
-};
 
 
 

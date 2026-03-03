@@ -11,8 +11,10 @@ import {
   formatPaginationResponse,
 } from "../utils/pagination";
 import { logUserActivity } from "../utils/auditLogger";
+import { splitFullName } from "../utils/userUtils";
 
 const router = Router();
+
 
 router.use(authenticate);
 

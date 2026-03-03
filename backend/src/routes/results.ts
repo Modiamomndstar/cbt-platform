@@ -235,7 +235,7 @@ router.get(
       let query = `
         SELECT
           se.score, se.percentage, se.time_spent_minutes, se.completed_at,
-          COALESCE(s.full_name, ext_s.full_name) as student_name,
+          COALESCE(s.full_name, NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), ''), ext_s.full_name, NULLIF(TRIM(CONCAT(ext_s.first_name, ' ', ext_s.last_name)), '')) as student_name,
           sch.name as school_name, sch.state as school_state, sch.country as school_country,
           cc.name as category_name,
           cs.stage_number, cs.title as stage_title
@@ -349,7 +349,7 @@ router.get(
       const result = await client.query(
         `SELECT se.*,
               e.title as exam_title, e.duration, e.total_questions as exam_total_marks, e.passing_score,
-              COALESCE(s.full_name, ext_s.full_name, (s.first_name || ' ' || s.last_name)) as student_full_name,
+               COALESCE(s.full_name, NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), ''), ext_s.full_name, NULLIF(TRIM(CONCAT(ext_s.first_name, ' ', ext_s.last_name)), '')) as student_full_name,
               COALESCE(s.student_id, ext_s.username) as reg_number,
               COALESCE(s.email, ext_s.email) as student_email
          FROM student_exams se
@@ -440,7 +440,8 @@ router.get(
 
       let query = `
       SELECT se.*,
-             s.full_name, s.first_name, s.last_name, s.email, s.student_id,
+             COALESCE(s.full_name, NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), ''), s.email, s.student_id, 'Unknown Student') as full_name,
+             s.first_name, s.last_name, s.email, s.student_id,
              sc.name as category_name,
              es.scheduled_date, es.start_time as schedule_started_at, es.completed_at, es.auto_submitted as schedule_auto_submitted,
              e.passing_score
@@ -525,7 +526,7 @@ router.get(
         `SELECT se.*,
               e.title as exam_title, e.description, e.duration, e.passing_score,
               es.scheduled_date, se.started_at, se.completed_at,
-             t.full_name as tutor_full_name, t.first_name as tutor_first_name, t.last_name as tutor_last_name
+             COALESCE(t.full_name, NULLIF(TRIM(CONCAT(t.first_name, ' ', t.last_name)), ''), t.username) as tutor_name
       FROM student_exams se
        JOIN exams e ON se.exam_id = e.id
        JOIN exam_schedules es ON se.exam_schedule_id = es.id
@@ -549,7 +550,7 @@ router.get(
           id: row.id,
           examTitle: row.exam_title,
           description: row.description,
-          tutorName: row.tutor_full_name || `${row.tutor_first_name || ''} ${row.tutor_last_name || ''}`.trim() || 'Tutor',
+          tutorName: row.tutor_name || 'Tutor',
           score: row.score,
           totalMarks: row.total_marks,
           percentage: row.percentage,

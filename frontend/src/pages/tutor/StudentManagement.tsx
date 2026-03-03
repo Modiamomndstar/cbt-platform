@@ -87,8 +87,8 @@ export default function StudentManagement() {
         if (searchQuery) {
           const lowerQ = searchQuery.toLowerCase();
           iData = iData.filter((s: any) =>
-            (s.full_name || '').toLowerCase().includes(lowerQ) ||
-            (s.student_id || '').toLowerCase().includes(lowerQ)
+            ((s.fullName || s.full_name) || '').toLowerCase().includes(lowerQ) ||
+            ((s.studentId || s.student_id) || '').toLowerCase().includes(lowerQ)
           );
         }
         setInternalStudents(iData);
@@ -99,17 +99,17 @@ export default function StudentManagement() {
         if (searchQuery) {
           const lowerQ = searchQuery.toLowerCase();
           eData = eData.filter((s: any) =>
-            (s.full_name || '').toLowerCase().includes(lowerQ) ||
-            (s.username || '').toLowerCase().includes(lowerQ) ||
-            (s.email || '').toLowerCase().includes(lowerQ)
+            ((s.fullName || s.full_name) || '').toLowerCase().includes(lowerQ) ||
+            ((s.username || s.username) || '').toLowerCase().includes(lowerQ) ||
+            ((s.email || s.email) || '').toLowerCase().includes(lowerQ)
           );
         }
         // Filter by category if needed
         if (selectedCategory && selectedCategory !== 'all') {
             if (selectedCategory === 'uncategorized') {
-                eData = eData.filter((s: any) => !s.category_id);
+                eData = eData.filter((s: any) => !(s.categoryId || s.category_id));
             } else {
-                eData = eData.filter((s: any) => s.category_id === selectedCategory);
+                eData = eData.filter((s: any) => (s.categoryId || s.category_id) === selectedCategory);
             }
         }
         setExternalStudents(eData);
@@ -207,8 +207,8 @@ export default function StudentManagement() {
               <SelectItem value="all">All Categories</SelectItem>
               <SelectItem value="uncategorized">Uncategorized</SelectItem>
               {categories.map((cat: any) => (
-                <SelectItem key={cat.id || cat.category_id} value={cat.id || cat.category_id}>
-                  {cat.name || cat.category_name}
+                <SelectItem key={cat.id || cat.categoryId} value={cat.id || cat.categoryId}>
+                  {cat.name || cat.categoryName}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -319,13 +319,13 @@ export default function StudentManagement() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold shrink-0 ${selectedType === 'internal' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                            {student.full_name?.charAt(0) || student.username?.charAt(0) || '?'}
+                            {student.fullName?.charAt(0) || student.username?.charAt(0) || '?'}
                           </div>
                           <div>
-                            <div className="font-medium text-gray-900">{student.full_name}</div>
+                            <div className="font-medium text-gray-900">{student.fullName}</div>
                             <div className="text-sm text-gray-500">
                               {selectedType === 'internal' ? (
-                                <span>ID: {student.student_id}</span>
+                                <span>ID: {student.studentId}</span>
                               ) : (
                                 <span className="text-emerald-600">@{student.username}</span>
                               )}
@@ -335,17 +335,17 @@ export default function StudentManagement() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-col gap-1 items-start">
-                           {student.category_name ? (
+                           {student.categoryName ? (
                             <Badge
                               variant="outline"
                               className="font-normal"
                               style={{
-                                borderColor: student.category_color,
-                                color: student.category_color,
-                                backgroundColor: student.category_color ? `${student.category_color}10` : 'transparent'
+                                borderColor: student.categoryColor,
+                                color: student.categoryColor,
+                                backgroundColor: student.categoryColor ? `${student.categoryColor}10` : 'transparent'
                               }}
                             >
-                              {student.category_name}
+                              {student.categoryName}
                             </Badge>
                           ) : (
                             <span className="text-xs text-gray-400">Uncategorized</span>
@@ -437,8 +437,8 @@ export default function StudentManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((cat: any) => (
-                    <SelectItem key={cat.id || cat.category_id} value={cat.id || cat.category_id}>
-                      {cat.name || cat.category_name}
+                    <SelectItem key={cat.id || cat.categoryId} value={cat.id || cat.categoryId}>
+                      {cat.name || cat.categoryName}
                     </SelectItem>
                   ))}
                 </SelectContent>

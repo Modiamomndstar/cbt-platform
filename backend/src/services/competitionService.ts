@@ -115,6 +115,26 @@ export const competitionService = {
 
   updateCompetitionStatus: async (id: string, status: string): Promise<void> => {
     await db.query('UPDATE competitions SET status = $1, updated_at = NOW() WHERE id = $2', [status, id]);
+
+    // Send automated broadcast if status is meaningful
+    if (status === 'registration_open' || status === 'exam_in_progress') {
+      const compRes = await db.query('SELECT title FROM competitions WHERE id = $1', [id]);
+      const title = compRes.rows[0]?.title || 'Competition';
+
+      const broadcastTitle = status === 'registration_open'
+        ? `Registration Open: ${title}`
+        : `Competition Started: ${title}`;
+
+      const broadcastContent = status === 'registration_open'
+        ? `Registration is now open for the ${title} competition. Visit the Competition Hub to register your students.`
+        : `The ${title} competition has officially started. Best of luck to all participating students!`;
+
+      await db.query(
+        `INSERT INTO inbox_broadcasts (sender_id, sender_role, target_role, title, content)
+         VALUES ($1, $2, $3, $4, $5)`,
+        ['00000000-0000-0000-0000-000000000000', 'super_admin', 'school', broadcastTitle, broadcastContent]
+      );
+    }
   },
 
   updatePromotion: async (id: string, data: {

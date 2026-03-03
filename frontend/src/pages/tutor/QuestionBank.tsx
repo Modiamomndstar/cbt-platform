@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +44,10 @@ import { toast } from 'sonner';
 export default function QuestionBank() {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const isSchoolAdmin = user?.role === 'school_admin';
+  const backPath = isSchoolAdmin ? '/school-admin/questions' : '/tutor/exams';
 
   const [exam, setExam] = useState<any>(null);
   const [questions, setQuestions] = useState<any[]>([]);
@@ -102,7 +107,7 @@ export default function QuestionBank() {
       if (examRes.data.success) {
         setExam(examRes.data.data);
       } else {
-        navigate('/tutor/exams');
+        navigate(backPath);
         return;
       }
       if (questionsRes.data.success) {
@@ -110,7 +115,7 @@ export default function QuestionBank() {
       }
     } catch (err) {
       console.error('Failed to load exam:', err);
-      navigate('/tutor/exams');
+      navigate(backPath);
     } finally {
       setLoading(false);
     }
@@ -376,7 +381,7 @@ export default function QuestionBank() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-4">
-          <Button variant="ghost" onClick={() => navigate('/tutor/exams')}>
+          <Button variant="ghost" onClick={() => navigate(backPath)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
@@ -386,410 +391,414 @@ export default function QuestionBank() {
           </div>
         </div>
         <div className="flex space-x-2">
-          {/* AI Generate Dialog */}
-          <Dialog open={isAIDialogOpen} onOpenChange={setIsAIDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200 text-purple-700 hover:from-purple-100 hover:to-blue-100">
-                <Sparkles className="h-4 w-4 mr-2" />
-                AI Generate
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="flex items-center">
-                  <Sparkles className="h-5 w-5 mr-2 text-purple-600" />
-                  AI Question Generator
-                </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                {/* Mode selector */}
-                <div className="flex rounded-lg border overflow-hidden">
-                  <button
-                    onClick={() => setAiMode('topic')}
-                    className={`flex-1 py-2 px-4 text-sm font-medium transition-colors ${
-                      aiMode === 'topic'
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    📝 From Topic
-                  </button>
-                  <button
-                    onClick={() => setAiMode('content')}
-                    className={`flex-1 py-2 px-4 text-sm font-medium transition-colors ${
-                      aiMode === 'content'
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    📖 From Content
-                  </button>
-                </div>
-
-                {aiMode === 'topic' ? (
-                  <>
-                    <div className="space-y-2">
-                      <Label>Topic *</Label>
-                      <Input
-                        placeholder="e.g., Photosynthesis, World War II, Quadratic Equations"
-                        value={aiForm.topic}
-                        onChange={(e) => setAiForm(prev => ({ ...prev, topic: e.target.value }))}
-                      />
+          {!isSchoolAdmin && (
+            <>
+              {/* AI Generate Dialog */}
+              <Dialog open={isAIDialogOpen} onOpenChange={setIsAIDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200 text-purple-700 hover:from-purple-100 hover:to-blue-100">
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    AI Generate
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center">
+                      <Sparkles className="h-5 w-5 mr-2 text-purple-600" />
+                      AI Question Generator
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    {/* Mode selector */}
+                    <div className="flex rounded-lg border overflow-hidden">
+                      <button
+                        onClick={() => setAiMode('topic')}
+                        className={`flex-1 py-2 px-4 text-sm font-medium transition-colors ${
+                          aiMode === 'topic'
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        📝 From Topic
+                      </button>
+                      <button
+                        onClick={() => setAiMode('content')}
+                        className={`flex-1 py-2 px-4 text-sm font-medium transition-colors ${
+                          aiMode === 'content'
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        📖 From Content
+                      </button>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Subject</Label>
-                      <Input
-                        placeholder="e.g., Biology, History, Mathematics"
-                        value={aiForm.subject}
-                        onChange={(e) => setAiForm(prev => ({ ...prev, subject: e.target.value }))}
-                      />
+
+                    {aiMode === 'topic' ? (
+                      <>
+                        <div className="space-y-2">
+                          <Label>Topic *</Label>
+                          <Input
+                            placeholder="e.g., Photosynthesis, World War II, Quadratic Equations"
+                            value={aiForm.topic}
+                            onChange={(e) => setAiForm(prev => ({ ...prev, topic: e.target.value }))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Subject</Label>
+                          <Input
+                            placeholder="e.g., Biology, History, Mathematics"
+                            value={aiForm.subject}
+                            onChange={(e) => setAiForm(prev => ({ ...prev, subject: e.target.value }))}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="space-y-2">
+                        <Label>Learning Content / Context *</Label>
+                        <Textarea
+                          placeholder="Paste your lecture notes, textbook content, or any learning material here. The AI will generate questions based on this content..."
+                          value={aiForm.content}
+                          onChange={(e) => setAiForm(prev => ({ ...prev, content: e.target.value }))}
+                          rows={8}
+                        />
+                        <p className="text-xs text-gray-500">
+                          The AI will analyze this content and create questions directly from it.
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>Number of Questions</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={20}
+                          value={aiForm.numQuestions}
+                          onChange={(e) => setAiForm(prev => ({ ...prev, numQuestions: parseInt(e.target.value) || 5 }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Difficulty</Label>
+                        <select
+                          className="w-full border rounded-md p-2 text-sm"
+                          value={aiForm.difficulty}
+                          onChange={(e) => setAiForm(prev => ({ ...prev, difficulty: e.target.value }))}
+                        >
+                          <option value="easy">Easy</option>
+                          <option value="medium">Medium</option>
+                          <option value="hard">Hard</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Question Type</Label>
+                        <select
+                          className="w-full border rounded-md p-2 text-sm"
+                          value={aiForm.questionType}
+                          onChange={(e) => setAiForm(prev => ({ ...prev, questionType: e.target.value }))}
+                        >
+                          <option value="multiple_choice">Multiple Choice</option>
+                          <option value="true_false">True/False</option>
+                          <option value="fill_blank">Fill in Blank</option>
+                        </select>
+                      </div>
                     </div>
-                  </>
-                ) : (
-                  <div className="space-y-2">
-                    <Label>Learning Content / Context *</Label>
-                    <Textarea
-                      placeholder="Paste your lecture notes, textbook content, or any learning material here. The AI will generate questions based on this content..."
-                      value={aiForm.content}
-                      onChange={(e) => setAiForm(prev => ({ ...prev, content: e.target.value }))}
-                      rows={8}
-                    />
-                    <p className="text-xs text-gray-500">
-                      The AI will analyze this content and create questions directly from it.
-                    </p>
-                  </div>
-                )}
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>Number of Questions</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={20}
-                      value={aiForm.numQuestions}
-                      onChange={(e) => setAiForm(prev => ({ ...prev, numQuestions: parseInt(e.target.value) || 5 }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Difficulty</Label>
-                    <select
-                      className="w-full border rounded-md p-2 text-sm"
-                      value={aiForm.difficulty}
-                      onChange={(e) => setAiForm(prev => ({ ...prev, difficulty: e.target.value }))}
+                    <Button
+                      className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                      onClick={handleAIGenerate}
+                      disabled={aiGenerating}
                     >
-                      <option value="easy">Easy</option>
-                      <option value="medium">Medium</option>
-                      <option value="hard">Hard</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Question Type</Label>
-                    <select
-                      className="w-full border rounded-md p-2 text-sm"
-                      value={aiForm.questionType}
-                      onChange={(e) => setAiForm(prev => ({ ...prev, questionType: e.target.value }))}
-                    >
-                      <option value="multiple_choice">Multiple Choice</option>
-                      <option value="true_false">True/False</option>
-                      <option value="fill_blank">Fill in Blank</option>
-                    </select>
-                  </div>
-                </div>
+                      {aiGenerating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Generating Questions...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4 mr-2" />
+                          Generate Questions
+                        </>
+                      )}
+                    </Button>
 
-                <Button
-                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                  onClick={handleAIGenerate}
-                  disabled={aiGenerating}
-                >
-                  {aiGenerating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Generating Questions...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      Generate Questions
-                    </>
-                  )}
-                </Button>
-
-                {/* AI Preview */}
-                {aiPreview.length > 0 && (
-                  <div className="space-y-3">
-                    <p className="text-sm font-medium text-green-700">
-                      ✅ {aiPreview.length} questions generated! Review and save:
-                    </p>
-                    <div className="max-h-64 overflow-auto border rounded-lg divide-y">
-                      {aiPreview.map((q, i) => (
-                        <div key={i} className="p-3">
-                          <p className="text-sm font-medium mb-1">Q{i + 1}: {q.questionText}</p>
-                          {q.options && q.options.length > 0 && (
-                            <div className="ml-4 space-y-0.5">
-                              {q.options.map((opt: string, j: number) => (
-                                <p
-                                  key={j}
-                                  className={`text-xs ${opt === q.correctAnswer ? 'text-green-600 font-medium' : 'text-gray-600'}`}
-                                >
-                                  {String.fromCharCode(65 + j)}. {opt}
-                                  {opt === q.correctAnswer && ' ✓'}
-                                </p>
-                              ))}
+                    {/* AI Preview */}
+                    {aiPreview.length > 0 && (
+                      <div className="space-y-3">
+                        <p className="text-sm font-medium text-green-700">
+                          ✅ {aiPreview.length} questions generated! Review and save:
+                        </p>
+                        <div className="max-h-64 overflow-auto border rounded-lg divide-y">
+                          {aiPreview.map((q, i) => (
+                            <div key={i} className="p-3">
+                              <p className="text-sm font-medium mb-1">Q{i + 1}: {q.questionText}</p>
+                              {q.options && q.options.length > 0 && (
+                                <div className="ml-4 space-y-0.5">
+                                  {q.options.map((opt: string, j: number) => (
+                                    <p
+                                      key={j}
+                                      className={`text-xs ${opt === q.correctAnswer ? 'text-green-600 font-medium' : 'text-gray-600'}`}
+                                    >
+                                      {String.fromCharCode(65 + j)}. {opt}
+                                      {opt === q.correctAnswer && ' ✓'}
+                                    </p>
+                                  ))}
+                                </div>
+                              )}
                             </div>
+                          ))}
+                        </div>
+                        <Button
+                          className="w-full"
+                          onClick={handleSaveAIQuestions}
+                        >
+                          Save All {aiPreview.length} Questions to Exam
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* CSV Upload Dialog */}
+              <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Upload className="h-4 w-4 mr-2" />
+                    CSV Upload
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Bulk Upload Questions via CSV</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-500">
+                      Download the CSV template, fill in your questions, then upload to add them in bulk.
+                    </p>
+                    <div className="flex justify-between items-center">
+                      <Button
+                        variant="outline"
+                        onClick={() => downloadTemplate('questions')}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download Template
+                      </Button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".csv"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                      <Button onClick={() => fileInputRef.current?.click()}>
+                        <FileSpreadsheet className="h-4 w-4 mr-2" />
+                        Select File
+                      </Button>
+                    </div>
+
+                    {/* Template info */}
+                    <div className="bg-blue-50 p-3 rounded-lg text-sm">
+                      <p className="font-medium text-blue-800 mb-1">CSV Template Columns:</p>
+                      <p className="text-blue-700 text-xs">
+                        <code className="bg-blue-100 px-1 rounded">questionText</code>,{' '}
+                        <code className="bg-blue-100 px-1 rounded">questionType</code> (multiple_choice/true_false/fill_blank),{' '}
+                        <code className="bg-blue-100 px-1 rounded">option1-4</code>,{' '}
+                        <code className="bg-blue-100 px-1 rounded">correctAnswer</code> (index for MC, text for fill),{' '}
+                        <code className="bg-blue-100 px-1 rounded">marks</code>,{' '}
+                        <code className="bg-blue-100 px-1 rounded">difficulty</code>
+                      </p>
+                    </div>
+
+                    {uploadErrors.length > 0 && (
+                      <Alert variant="destructive">
+                        <AlertDescription>
+                          <p className="font-medium">Validation Errors:</p>
+                          <ul className="list-disc list-inside text-sm mt-2 max-h-32 overflow-auto">
+                            {uploadErrors.map((error, i) => (
+                              <li key={i}>{error}</li>
+                            ))}
+                          </ul>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {uploadPreview.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium mb-2">
+                          Preview ({uploadPreview.length} questions):
+                        </p>
+                        <div className="max-h-64 overflow-auto border rounded-lg">
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-4 py-2 text-left">Question</th>
+                                <th className="px-4 py-2 text-left">Type</th>
+                                <th className="px-4 py-2 text-left">Marks</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {uploadPreview.slice(0, 5).map((row, i) => (
+                                <tr key={i} className="border-t">
+                                  <td className="px-4 py-2 truncate max-w-xs">{row.questionText}</td>
+                                  <td className="px-4 py-2">{row.questionType}</td>
+                                  <td className="px-4 py-2">{row.marks}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {uploadPreview.length > 5 && (
+                            <p className="text-center text-sm text-gray-500 py-2">
+                              ...and {uploadPreview.length - 5} more
+                            </p>
                           )}
                         </div>
-                      ))}
-                    </div>
-                    <Button
-                      className="w-full"
-                      onClick={handleSaveAIQuestions}
-                    >
-                      Save All {aiPreview.length} Questions to Exam
-                    </Button>
+                        <Button
+                          className="w-full mt-4"
+                          onClick={handleBulkUpload}
+                          disabled={uploadErrors.length > 0}
+                        >
+                          Upload {uploadPreview.length} Questions
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </DialogContent>
-          </Dialog>
+                </DialogContent>
+              </Dialog>
 
-          {/* CSV Upload Dialog */}
-          <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <Upload className="h-4 w-4 mr-2" />
-                CSV Upload
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Bulk Upload Questions via CSV</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <p className="text-sm text-gray-500">
-                  Download the CSV template, fill in your questions, then upload to add them in bulk.
-                </p>
-                <div className="flex justify-between items-center">
-                  <Button
-                    variant="outline"
-                    onClick={() => downloadTemplate('questions')}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download Template
+              {/* Manual Add Dialog */}
+              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Question
                   </Button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".csv"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                  <Button onClick={() => fileInputRef.current?.click()}>
-                    <FileSpreadsheet className="h-4 w-4 mr-2" />
-                    Select File
-                  </Button>
-                </div>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Add New Question</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleAddQuestion} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="questionText">Question Text *</Label>
+                      <Textarea
+                        id="questionText"
+                        placeholder="Enter your question"
+                        value={newQuestion.questionText}
+                        onChange={(e) => setNewQuestion(prev => ({ ...prev, questionText: e.target.value }))}
+                        rows={3}
+                        required
+                      />
+                    </div>
 
-                {/* Template info */}
-                <div className="bg-blue-50 p-3 rounded-lg text-sm">
-                  <p className="font-medium text-blue-800 mb-1">CSV Template Columns:</p>
-                  <p className="text-blue-700 text-xs">
-                    <code className="bg-blue-100 px-1 rounded">questionText</code>,{' '}
-                    <code className="bg-blue-100 px-1 rounded">questionType</code> (multiple_choice/true_false/fill_blank),{' '}
-                    <code className="bg-blue-100 px-1 rounded">option1-4</code>,{' '}
-                    <code className="bg-blue-100 px-1 rounded">correctAnswer</code> (index for MC, text for fill),{' '}
-                    <code className="bg-blue-100 px-1 rounded">marks</code>,{' '}
-                    <code className="bg-blue-100 px-1 rounded">difficulty</code>
-                  </p>
-                </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Question Type</Label>
+                        <Select
+                          value={newQuestion.questionType}
+                          onValueChange={(v: any) => setNewQuestion(prev => ({ ...prev, questionType: v }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
+                            <SelectItem value="true_false">True/False</SelectItem>
+                            <SelectItem value="fill_blank">Fill in the Blank</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Difficulty</Label>
+                        <Select
+                          value={newQuestion.difficulty}
+                          onValueChange={(v: any) => setNewQuestion(prev => ({ ...prev, difficulty: v }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="easy">Easy</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="hard">Hard</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
 
-                {uploadErrors.length > 0 && (
-                  <Alert variant="destructive">
-                    <AlertDescription>
-                      <p className="font-medium">Validation Errors:</p>
-                      <ul className="list-disc list-inside text-sm mt-2 max-h-32 overflow-auto">
-                        {uploadErrors.map((error, i) => (
-                          <li key={i}>{error}</li>
+                    {newQuestion.questionType === 'multiple_choice' && (
+                      <div className="space-y-2">
+                        <Label>Options</Label>
+                        {newQuestion.options.map((option, index) => (
+                          <Input
+                            key={index}
+                            placeholder={`Option ${index + 1}`}
+                            value={option}
+                            onChange={(e) => updateOption(index, e.target.value)}
+                          />
                         ))}
-                      </ul>
-                    </AlertDescription>
-                  </Alert>
-                )}
+                      </div>
+                    )}
 
-                {uploadPreview.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">
-                      Preview ({uploadPreview.length} questions):
-                    </p>
-                    <div className="max-h-64 overflow-auto border rounded-lg">
-                      <table className="w-full text-sm">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-4 py-2 text-left">Question</th>
-                            <th className="px-4 py-2 text-left">Type</th>
-                            <th className="px-4 py-2 text-left">Marks</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {uploadPreview.slice(0, 5).map((row, i) => (
-                            <tr key={i} className="border-t">
-                              <td className="px-4 py-2 truncate max-w-xs">{row.questionText}</td>
-                              <td className="px-4 py-2">{row.questionType}</td>
-                              <td className="px-4 py-2">{row.marks}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      {uploadPreview.length > 5 && (
-                        <p className="text-center text-sm text-gray-500 py-2">
-                          ...and {uploadPreview.length - 5} more
-                        </p>
+                    <div className="space-y-2">
+                      <Label>Correct Answer</Label>
+                      {newQuestion.questionType === 'multiple_choice' ? (
+                        <Select
+                          value={newQuestion.correctAnswer}
+                          onValueChange={(v) => setNewQuestion(prev => ({ ...prev, correctAnswer: v }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select correct option" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {newQuestion.options.map((_, index) => (
+                              <SelectItem key={index} value={index.toString()}>
+                                Option {index + 1}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : newQuestion.questionType === 'true_false' ? (
+                        <Select
+                          value={newQuestion.correctAnswer}
+                          onValueChange={(v) => setNewQuestion(prev => ({ ...prev, correctAnswer: v }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="0">True</SelectItem>
+                            <SelectItem value="1">False</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input
+                          placeholder="Enter the correct answer"
+                          value={newQuestion.correctAnswer}
+                          onChange={(e) => setNewQuestion(prev => ({ ...prev, correctAnswer: e.target.value }))}
+                        />
                       )}
                     </div>
-                    <Button
-                      className="w-full mt-4"
-                      onClick={handleBulkUpload}
-                      disabled={uploadErrors.length > 0}
-                    >
-                      Upload {uploadPreview.length} Questions
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </DialogContent>
-          </Dialog>
 
-          {/* Manual Add Dialog */}
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Question
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Add New Question</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleAddQuestion} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="questionText">Question Text *</Label>
-                  <Textarea
-                    id="questionText"
-                    placeholder="Enter your question"
-                    value={newQuestion.questionText}
-                    onChange={(e) => setNewQuestion(prev => ({ ...prev, questionText: e.target.value }))}
-                    rows={3}
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Question Type</Label>
-                    <Select
-                      value={newQuestion.questionType}
-                      onValueChange={(v: any) => setNewQuestion(prev => ({ ...prev, questionType: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
-                        <SelectItem value="true_false">True/False</SelectItem>
-                        <SelectItem value="fill_blank">Fill in the Blank</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Difficulty</Label>
-                    <Select
-                      value={newQuestion.difficulty}
-                      onValueChange={(v: any) => setNewQuestion(prev => ({ ...prev, difficulty: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="easy">Easy</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="hard">Hard</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {newQuestion.questionType === 'multiple_choice' && (
-                  <div className="space-y-2">
-                    <Label>Options</Label>
-                    {newQuestion.options.map((option, index) => (
+                    <div className="space-y-2">
+                      <Label htmlFor="marks">Marks</Label>
                       <Input
-                        key={index}
-                        placeholder={`Option ${index + 1}`}
-                        value={option}
-                        onChange={(e) => updateOption(index, e.target.value)}
+                        id="marks"
+                        type="number"
+                        min={1}
+                        value={newQuestion.marks}
+                        onChange={(e) => setNewQuestion(prev => ({ ...prev, marks: parseInt(e.target.value) || 5 }))}
                       />
-                    ))}
-                  </div>
-                )}
+                    </div>
 
-                <div className="space-y-2">
-                  <Label>Correct Answer</Label>
-                  {newQuestion.questionType === 'multiple_choice' ? (
-                    <Select
-                      value={newQuestion.correctAnswer}
-                      onValueChange={(v) => setNewQuestion(prev => ({ ...prev, correctAnswer: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select correct option" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {newQuestion.options.map((_, index) => (
-                          <SelectItem key={index} value={index.toString()}>
-                            Option {index + 1}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : newQuestion.questionType === 'true_false' ? (
-                    <Select
-                      value={newQuestion.correctAnswer}
-                      onValueChange={(v) => setNewQuestion(prev => ({ ...prev, correctAnswer: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0">True</SelectItem>
-                        <SelectItem value="1">False</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input
-                      placeholder="Enter the correct answer"
-                      value={newQuestion.correctAnswer}
-                      onChange={(e) => setNewQuestion(prev => ({ ...prev, correctAnswer: e.target.value }))}
-                    />
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="marks">Marks</Label>
-                  <Input
-                    id="marks"
-                    type="number"
-                    min={1}
-                    value={newQuestion.marks}
-                    onChange={(e) => setNewQuestion(prev => ({ ...prev, marks: parseInt(e.target.value) || 5 }))}
-                  />
-                </div>
-
-                <Button type="submit" className="w-full">
-                  Add Question
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
+                    <Button type="submit" className="w-full">
+                      Add Question
+                    </Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </>
+          )}
         </div>
       </div>
 
@@ -842,14 +851,16 @@ export default function QuestionBank() {
                       </p>
                     )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setQuestionToDelete(question.id)}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {!isSchoolAdmin && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setQuestionToDelete(question.id)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -859,21 +870,23 @@ export default function QuestionBank() {
             <CardContent className="py-12 text-center">
               <BookOpen className="h-16 w-16 mx-auto mb-4 text-gray-300" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No questions yet</h3>
-              <p className="text-gray-500 mb-4">Add questions manually, upload via CSV, or generate with AI</p>
-              <div className="flex justify-center space-x-2">
-                <Button variant="outline" onClick={() => setIsAIDialogOpen(true)}>
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  AI Generate
-                </Button>
-                <Button variant="outline" onClick={() => setIsUploadDialogOpen(true)}>
-                  <Upload className="h-4 w-4 mr-2" />
-                  CSV Upload
-                </Button>
-                <Button onClick={() => setIsAddDialogOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Question
-                </Button>
-              </div>
+              <p className="text-gray-500 mb-4">{isSchoolAdmin ? 'Wait for the tutor to add questions' : 'Add questions manually, upload via CSV, or generate with AI'}</p>
+              {!isSchoolAdmin && (
+                <div className="flex justify-center space-x-2">
+                  <Button variant="outline" onClick={() => setIsAIDialogOpen(true)}>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    AI Generate
+                  </Button>
+                  <Button variant="outline" onClick={() => setIsUploadDialogOpen(true)}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    CSV Upload
+                  </Button>
+                  <Button onClick={() => setIsAddDialogOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Question
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

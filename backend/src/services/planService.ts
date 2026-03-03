@@ -256,7 +256,7 @@ export const canAddStudent = async (schoolId: string): Promise<{ allowed: boolea
  * Respects plan limits, school admin settings, and marketplace capacity.
  */
 export const canAddExternalStudent = async (schoolId: string, tutorId: string): Promise<{ allowed: boolean; reason?: string }> => {
-  const [subRes, settingsRes, usageRes] = await Promise.all([
+  const [subRes, settingsRes, usageRes, schoolUsageRes] = await Promise.all([
     db.query(
       `SELECT ss.plan_type, ss.status, ss.is_capacity_frozen, ss.purchased_student_slots,
               p.max_external_per_tutor
@@ -266,26 +266,35 @@ export const canAddExternalStudent = async (schoolId: string, tutorId: string): 
       [schoolId]
     ),
     db.query('SELECT max_external_per_tutor FROM school_settings WHERE school_id = $1', [schoolId]),
-    db.query('SELECT COUNT(*) as count FROM external_students WHERE tutor_id = $1', [tutorId])
+    db.query('SELECT COUNT(*) as count FROM external_students WHERE tutor_id = $1', [tutorId]),
+    db.query('SELECT COUNT(*) as count FROM external_students WHERE school_id = $1', [schoolId])
   ]);
 
   const sub = subRes.rows[0];
   if (!sub) return { allowed: false, reason: "School subscription not found." };
 
   const isFrozen = sub.is_capacity_frozen;
-  const planBase = sub.max_external_per_tutor ?? 5;
+  const tutorBaseLimit = sub.max_external_per_tutor ?? 5;
   const purchasedExtra = !isFrozen ? (sub.purchased_student_slots || 0) : 0;
 
-  const planCap = planBase + purchasedExtra;
-  const adminLimit = settingsRes.rows[0]?.max_external_per_tutor ?? planCap;
+  // 1. Check Tutor's Base Limit (Private Capacity)
+  const currentTutorCount = parseInt(usageRes.rows[0].count);
+  if (currentTutorCount < tutorBaseLimit) return { allowed: true };
 
-  const effectiveMax = Math.min(adminLimit, planCap);
-  const currentCount = parseInt(usageRes.rows[0].count);
+  // 2. If base limit exceeded, use the School-Wide Purchased Pool
+  // We check how many "excess" external students exist across the whole school
+  const totalExternalCount = parseInt(schoolUsageRes.rows[0].count);
+  // Total tutors * tutorBaseLimit is the "free" external capacity of the school
+  const tutorCountRes = await db.query('SELECT COUNT(*) as count FROM tutors WHERE school_id = $1', [schoolId]);
+  const totalTutors = parseInt(tutorCountRes.rows[0].count);
 
-  if (currentCount >= effectiveMax) {
+  const schoolBaseCapacity = totalTutors * tutorBaseLimit;
+  const usedExtra = Math.max(0, totalExternalCount - schoolBaseCapacity);
+
+  if (usedExtra >= purchasedExtra) {
     return {
       allowed: false,
-      reason: `You have reached your limit of ${effectiveMax} external students. ${isFrozen ? '(Purchased extra slots are currently frozen due to inactive subscription)' : 'Purchase more student packs in the Marketplace.'}`
+      reason: `Tutor limit (${tutorBaseLimit}) reached and no spare school-wide purchased slots available.${isFrozen ? ' (Purchased slots are currently frozen)' : ''}`
     };
   }
 
@@ -323,6 +332,17 @@ export const getSchoolBillingStatus = async (schoolId: string) => {
     db.query('SELECT balance_credits FROM payg_wallets WHERE school_id = $1', [schoolId]),
   ]);
 
+  const featureKeys = [
+    'student_portal', 'bulk_import', 'email_notifications', 'sms_notifications',
+    'advanced_analytics', 'custom_branding', 'api_access', 'result_pdf',
+    'result_export', 'external_students', 'ai_question_gen'
+  ];
+
+  const features: Record<string, boolean> = {};
+  await Promise.all(featureKeys.map(async (key) => {
+    features[key] = await isFeatureAllowed(schoolId, key);
+  }));
+
   const subscription = sub.rows[0];
   const paygBalance = wallet.rows[0]?.balance_credits ?? 0;
   const isFrozen = plan.isCapacityFrozen;
@@ -340,6 +360,7 @@ export const getSchoolBillingStatus = async (schoolId: string) => {
       isFreemium: plan.planType === 'freemium',
     },
     paygBalance,
+    features,
     limits: {
       tutorsUsed: usage.tutorCount,
       tutorsMax: (plan.maxTutors ?? 0) + plan.purchasedTutors,

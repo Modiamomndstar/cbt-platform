@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import {
   DollarSign, Zap, Tag,
   RefreshCw, Save, Plus, ToggleLeft, ToggleRight,
-  Pencil, Check, X, ShoppingBag
+  Pencil, Check, X, ShoppingBag, Settings as SettingsIcon
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -484,6 +484,99 @@ function MarketplacePricingPanel({ items, onUpdate }: { items: MarketplaceItem[]
   );
 }
 
+// ─── Subscription Settings Panel ────────────────────────────────
+function SubscriptionSettings() {
+  const [settings, setSettings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
+
+  useEffect(() => { loadSettings(); }, []);
+
+  const loadSettings = async () => {
+    try {
+      const res = await superAdminAPI.getSettings({ category: 'billing' });
+      if (res.data.success) setSettings(res.data.data);
+    } catch {
+      toast.error('Failed to load settings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdate = async (key: string, value: string) => {
+    setSaving(key);
+    try {
+      await superAdminAPI.updateSetting(key, value);
+      toast.success('Setting updated');
+      setSettings(prev => prev.map(s => s.key === key ? { ...s, value } : s));
+    } catch {
+      toast.error('Failed to update setting');
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  if (loading) return <div className="h-32 flex items-center justify-center"><RefreshCw className="animate-spin text-gray-400" /></div>;
+
+  const discountPercent = settings.find(s => s.key === 'yearly_discount_percentage');
+  const discountActive = settings.find(s => s.key === 'yearly_discount_active');
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <SettingsIcon className="h-4 w-4 text-gray-500" />
+          Subscription Settings
+        </CardTitle>
+        <p className="text-xs text-gray-500">Configure global subscription rules and discounts.</p>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+          <div>
+            <p className="text-sm font-semibold text-gray-800">Yearly Discount Active</p>
+            <p className="text-xs text-gray-500">Enable or disable discounts for annual billing across all plans.</p>
+          </div>
+          <button
+            onClick={() => handleUpdate('yearly_discount_active', discountActive?.value === 'true' ? 'false' : 'true')}
+            disabled={saving === 'yearly_discount_active'}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${
+              discountActive?.value === 'true' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'
+            }`}
+          >
+            {saving === 'yearly_discount_active' ? <RefreshCw className="h-4 w-4 animate-spin" /> :
+             discountActive?.value === 'true' ? <><ToggleRight className="h-5 w-5" /> ACTIVE</> : <><ToggleLeft className="h-5 w-5" /> INACTIVE</>}
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+          <div>
+            <p className="text-sm font-semibold text-gray-800">Yearly Discount Percentage (%)</p>
+            <p className="text-xs text-gray-500">The percentage value to subtract from the total annual price.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              className="w-24 text-center font-bold"
+              value={discountPercent?.value || ''}
+              min="0"
+              max="100"
+              onChange={(e) => setSettings(prev => prev.map(s => s.key === 'yearly_discount_percentage' ? { ...s, value: e.target.value } : s))}
+            />
+            <Button
+              size="sm"
+              className="bg-indigo-600 hover:bg-indigo-700"
+              onClick={() => handleUpdate('yearly_discount_percentage', discountPercent?.value)}
+              disabled={saving === 'yearly_discount_percentage'}
+            >
+              {saving === 'yearly_discount_percentage' ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : 'Apply'}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────
 export default function MonetizationPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -491,7 +584,7 @@ export default function MonetizationPage() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [marketplace, setMarketplace] = useState<MarketplaceItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'plans' | 'features' | 'coupons' | 'marketplace'>('plans');
+  const [activeTab, setActiveTab] = useState<'plans' | 'features' | 'coupons' | 'marketplace' | 'settings'>('plans');
 
   useEffect(() => { loadAll(); }, []);
 
@@ -530,6 +623,7 @@ export default function MonetizationPage() {
     { key: 'features', label: 'Feature Flags', icon: Zap },
     { key: 'marketplace', label: 'Marketplace', icon: ShoppingBag },
     { key: 'coupons', label: 'Coupons', icon: Tag },
+    { key: 'settings', label: 'Settings', icon: SettingsIcon },
   ] as const;
 
   return (
@@ -580,6 +674,10 @@ export default function MonetizationPage() {
 
       {activeTab === 'coupons' && (
         <CouponManager coupons={coupons} onRefresh={loadAll} />
+      )}
+
+      {activeTab === 'settings' && (
+        <SubscriptionSettings />
       )}
     </div>
   );
