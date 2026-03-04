@@ -104,7 +104,7 @@ export default function FinancialAnalytics() {
             <div className="mt-4">
               <p className="text-sm font-medium text-gray-400 uppercase tracking-wider">Revenue ({m.currency})</p>
               <h3 className="text-3xl font-black text-gray-900 mt-1">
-                {getCurrencySymbol(m.currency)}{parseFloat(m.total_earned).toLocaleString()}
+                {getCurrencySymbol(m.currency)}{(parseFloat(m.total_earned) || 0).toLocaleString()}
               </h3>
             </div>
             <div className="mt-4 flex items-center gap-2">
@@ -129,7 +129,7 @@ export default function FinancialAnalytics() {
             <div className="mt-4">
               <p className="text-sm font-medium text-gray-400 uppercase tracking-wider">Unearned ({m.currency})</p>
               <h3 className="text-3xl font-black text-gray-900 mt-1">
-                {getCurrencySymbol(m.currency)}{parseFloat(m.total_liability).toLocaleString()}
+                {getCurrencySymbol(m.currency)}{(parseFloat(m.total_liability) || 0).toLocaleString()}
               </h3>
             </div>
             <div className="mt-4">
@@ -249,7 +249,7 @@ export default function FinancialAnalytics() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <span className={`font-bold ${parseFloat(log.amount_paid) > 0 ? 'text-green-600' : 'text-gray-400'}`}>
-                        {getCurrencySymbol(log.currency)}{parseFloat(log.amount_paid).toLocaleString()}
+                        {getCurrencySymbol(log.currency)}{(parseFloat(log.amount_paid) || 0).toLocaleString()}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -340,7 +340,7 @@ export default function FinancialAnalytics() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-black text-indigo-700 group-hover:scale-110 transition-transform">
-                        {getCurrencySymbol(h.currency)}{parseFloat(h.amount).toLocaleString()}
+                        {getCurrencySymbol(h.currency)}{(parseFloat(h.amount) || 0).toLocaleString()}
                       </p>
                     </div>
                   </div>
@@ -372,7 +372,7 @@ export default function FinancialAnalytics() {
                     </div>
                   </div>
                   <div className="text-right text-sm font-black text-indigo-700">
-                    {getCurrencySymbol(s.currency)}{parseInt(s.total_contribution).toLocaleString()}
+                    {getCurrencySymbol(s.currency)}{(parseInt(s.total_contribution) || 0).toLocaleString()}
                   </div>
                 </div>
               ))}

@@ -267,7 +267,7 @@ export default function StaffManagement() {
                 {logs.map((log) => (
                   <tr key={log.id} className="border-b bg-white hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                      {new Date(log.created_at).toLocaleString()}
+                      {log.created_at ? new Date(log.created_at).toLocaleString() : 'N/A'}
                     </td>
                     <td className="px-6 py-4 font-medium">
                       {log.actor_name}

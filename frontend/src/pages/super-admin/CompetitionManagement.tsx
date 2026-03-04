@@ -168,10 +168,10 @@ export default function CompetitionManagement() {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <StatCard title="Total Events" value={hubStats.total_events} icon={Layout} color="text-blue-600" />
-        <StatCard title="Active Participants" value={(hubStats.active_participants || 0).toLocaleString()} icon={Users} color="text-indigo-600" />
-        <StatCard title="Regional Scope" value={`${hubStats.regional_scope || 0} ${(hubStats.regional_scope || 0) === 1 ? 'Country' : 'Countries'}`} icon={Globe} color="text-emerald-600" />
-        <StatCard title="Awards Issued" value={(hubStats.awards_issued || 0).toLocaleString()} icon={Flag} color="text-purple-600" />
+        <StatCard title="Total Events" value={hubStats?.total_events || 0} icon={Layout} color="text-blue-600" />
+        <StatCard title="Active Participants" value={(hubStats?.active_participants || 0).toLocaleString()} icon={Users} color="text-indigo-600" />
+        <StatCard title="Regional Scope" value={`${hubStats?.regional_scope || 0} ${(hubStats?.regional_scope || 0) === 1 ? 'Country' : 'Countries'}`} icon={Globe} color="text-emerald-600" />
+        <StatCard title="Awards Issued" value={(hubStats?.awards_issued || 0).toLocaleString()} icon={Flag} color="text-purple-600" />
 
       </div>
 
