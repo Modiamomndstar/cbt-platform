@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { authenticate, authorize, requireFinanceAccess } from '../middleware/auth';
 import { db } from '../config/database';
+import { logger } from '../utils/logger';
 import { ApiResponseHandler } from '../utils/apiResponse';
 import { sendWelcomeEmail, sendTrialStartEmail } from '../services/email';
 import { financeService } from '../services/financeService';
