@@ -177,7 +177,7 @@ export default function SchoolDetails() {
     </div>
   );
 
-  const { school, stats, tutorBreakdown, logs } = data;
+  const school = data?.school || {}; const stats = data?.stats || { tutors: 0, internal_students: 0, external_students: 0 }; const tutorBreakdown = data?.tutorBreakdown || []; const logs = data?.logs || [];
 
   return (
     <div className="space-y-6 pb-20">
@@ -227,7 +227,7 @@ export default function SchoolDetails() {
                 <CardContent className="p-4 flex items-center justify-between">
                   <div>
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{item.label}</p>
-                    <h3 className="text-2xl font-bold text-gray-900 mt-1">{item.value.toLocaleString()}</h3>
+                    <h3 className="text-2xl font-bold text-gray-900 mt-1">{(item.value || 0).toLocaleString()}</h3>
                   </div>
                   <div className={`${item.bg} p-3 rounded-2xl`}>
                     <item.icon className={`h-6 w-6 ${item.color}`} />
