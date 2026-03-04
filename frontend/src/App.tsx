@@ -11,6 +11,7 @@ import LandingPage from '@/pages/LandingPage';
 import LoginPage from '@/pages/LoginPage';
 import AdminLogin from '@/pages/auth/AdminLogin';
 import SchoolRegistrationPage from '@/pages/SchoolRegistrationPage';
+import VerifyEmailPage from '@/pages/VerifyEmailPage';
 import PublicLeaderboard from '@/pages/public/PublicLeaderboard';
 import PricingPage from '@/pages/PricingPage';
 
