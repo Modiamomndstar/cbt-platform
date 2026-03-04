@@ -77,6 +77,8 @@ export const authAPI = {
 
   changePassword: (currentPassword: string, newPassword: string) =>
     api.post("/auth/change-password", { currentPassword, newPassword }),
+
+  verifyEmail: (token: string) => api.post("/auth/verify-email", { token }),
 };
 
 // School API

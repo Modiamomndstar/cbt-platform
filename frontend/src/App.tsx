@@ -93,6 +93,7 @@ function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/register-school" element={<SchoolRegistrationPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/student/login" element={<StudentLogin />} />
       <Route path="/leaderboard/:competitionId" element={<PublicLeaderboard />} />
       <Route path="/pricing" element={<PricingPage />} />

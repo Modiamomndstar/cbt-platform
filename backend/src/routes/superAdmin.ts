@@ -327,20 +327,36 @@ router.post('/schools/:id/suspend', [
     const { id } = req.params;
     const { suspended, reason } = req.body;
 
-    await db.query(
-      `UPDATE school_subscriptions SET status = $1, updated_at = NOW() WHERE school_id = $2`,
-      [suspended ? 'suspended' : 'active', id]
-    );
+    await db.transaction(async (client) => {
+        // 1. Update subscription status
+        // If unsuspending, we try to see if they were trialing or just set to active
+        // A better way would be to check the trial_end date
+        const subCheck = await client.query('SELECT trial_end FROM school_subscriptions WHERE school_id = $1', [id]);
+        let newSubStatus = suspended ? 'suspended' : 'active';
 
-    await db.query(
-      `UPDATE schools SET is_active = $1 WHERE id = $2`,
-      [!suspended, id]
-    );
+        if (!suspended && subCheck.rows.length > 0) {
+            const trialEnd = subCheck.rows[0].trial_end;
+            if (trialEnd && new Date(trialEnd) > new Date()) {
+                newSubStatus = 'trialing';
+            }
+        }
+
+        await client.query(
+            `UPDATE school_subscriptions SET status = $1, updated_at = NOW() WHERE school_id = $2`,
+            [newSubStatus, id]
+        );
+
+        // 2. Update master active switch
+        await client.query(
+            `UPDATE schools SET is_active = $1, updated_at = NOW() WHERE id = $2`,
+            [!suspended, id]
+        );
+    });
 
     const school = await db.query('SELECT name FROM schools WHERE id = $1', [id]);
     await logAudit(req, suspended ? 'school_suspended' : 'school_unsuspended', 'school', id, school.rows[0]?.name, { reason });
 
-    ApiResponseHandler.success(res, null, `School ${suspended ? 'suspended' : 'unsuspended'}`);
+    ApiResponseHandler.success(res, null, `School ${suspended ? 'suspended' : 'activated'}`);
   } catch (error) { next(error); }
 });
 

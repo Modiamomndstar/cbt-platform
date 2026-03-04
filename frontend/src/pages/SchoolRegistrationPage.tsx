@@ -20,6 +20,7 @@ export default function SchoolRegistrationPage() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -32,6 +33,7 @@ export default function SchoolRegistrationPage() {
     address: '',
     description: '',
     logo: '',
+    referralCode: '',
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -136,14 +138,11 @@ export default function SchoolRegistrationPage() {
         phone: formData.phone,
         address: formData.address,
         description: formData.description,
+        referralCode: formData.referralCode,
       });
 
-      toast.success('School registered successfully!');
-
-      // Show success message and redirect to login
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
+      toast.success('Registration successful! Please check your email.');
+      setIsSuccess(true);
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'An error occurred during registration. Please try again.';
       setError(msg);
@@ -201,7 +200,6 @@ export default function SchoolRegistrationPage() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="confirmPassword">Confirm Password *</Label>
         <Input
           id="confirmPassword"
           name="confirmPassword"
@@ -209,6 +207,18 @@ export default function SchoolRegistrationPage() {
           placeholder="Confirm your password"
           value={formData.confirmPassword}
           onChange={handleInputChange}
+        />
+      </div>
+
+      <div className="space-y-2 pt-2">
+        <Label htmlFor="referralCode">Referral Code (Optional)</Label>
+        <Input
+          id="referralCode"
+          name="referralCode"
+          placeholder="Enter referral code if you have one"
+          value={formData.referralCode}
+          onChange={handleInputChange}
+          className="uppercase"
         />
       </div>
     </div>
@@ -325,7 +335,7 @@ export default function SchoolRegistrationPage() {
         <CheckCircle className="h-5 w-5 text-emerald-500 mt-0.5" />
         <p className="text-sm text-gray-600">
           By registering, you agree to our terms of service and privacy policy.
-          Your school account will be activated immediately.
+          A verification link will be sent to your email address.
         </p>
       </div>
     </div>
@@ -377,36 +387,66 @@ export default function SchoolRegistrationPage() {
               </Alert>
             )}
 
-            <form onSubmit={handleSubmit}>
-              {step === 1 && renderStep1()}
-              {step === 2 && renderStep2()}
-              {step === 3 && renderStep3()}
-
-              <div className="flex justify-between mt-6">
-                {step > 1 && (
-                  <Button type="button" variant="outline" onClick={handleBack}>
-                    Back
-                  </Button>
-                )}
-                {step < 3 ? (
-                  <Button
-                    type="button"
-                    onClick={handleNext}
-                    className={step === 1 ? 'ml-auto' : ''}
-                  >
-                    Next
-                  </Button>
-                ) : (
-                  <Button
-                    type="submit"
-                    disabled={isLoading}
-                    className="ml-auto"
-                  >
-                    {isLoading ? 'Registering...' : 'Complete Registration'}
-                  </Button>
-                )}
+            {isSuccess ? (
+              <div className="text-center py-8 space-y-6">
+                <div className="flex justify-center">
+                  <div className="bg-emerald-100 p-4 rounded-full">
+                    <CheckCircle className="h-12 w-12 text-emerald-600" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold text-gray-900">Registration Successful!</h3>
+                  <p className="text-gray-600">
+                    We've sent a verification link to <span className="font-semibold text-indigo-600">{formData.email}</span>.
+                  </p>
+                </div>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 text-left">
+                  <p className="font-semibold mb-1">Next Steps:</p>
+                  <ol className="list-decimal ml-4 space-y-1">
+                    <li>Check your email inbox (and spam folder).</li>
+                    <li>Click the link to verify your account.</li>
+                    <li>Log in to access your 14-day free trial.</li>
+                  </ol>
+                </div>
+                <Button
+                  onClick={() => navigate('/login')}
+                  className="w-full"
+                >
+                  Go to Login
+                </Button>
               </div>
-            </form>
+            ) : (
+              <form onSubmit={handleSubmit}>
+                {step === 1 && renderStep1()}
+                {step === 2 && renderStep2()}
+                {step === 3 && renderStep3()}
+
+                <div className="flex justify-between mt-6">
+                  {step > 1 && (
+                    <Button type="button" variant="outline" onClick={handleBack}>
+                      Back
+                    </Button>
+                  )}
+                  {step < 3 ? (
+                    <Button
+                      type="button"
+                      onClick={handleNext}
+                      className={step === 1 ? 'ml-auto' : ''}
+                    >
+                      Next
+                    </Button>
+                  ) : (
+                    <Button
+                      type="submit"
+                      disabled={isLoading}
+                      className="ml-auto"
+                    >
+                      {isLoading ? 'Registering...' : 'Complete Registration'}
+                    </Button>
+                  )}
+                </div>
+              </form>
+            )}
 
             <div className="mt-6 text-center text-sm text-gray-600">
               <p>

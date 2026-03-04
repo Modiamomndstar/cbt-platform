@@ -25,9 +25,14 @@ router.post(
     try {
       const { username, password } = req.body;
 
-      // Find school by username
+      // Find school by username, join with subscription to check status
       const result = await db.query(
-        "SELECT id, name, username, password_hash, email, is_active, plan_type FROM schools WHERE username = $1",
+        `SELECT s.id, s.name, s.username, s.password_hash, s.email,
+                s.is_active, s.is_email_verified, s.plan_type,
+                ss.status as sub_status
+         FROM schools s
+         LEFT JOIN school_subscriptions ss ON s.id = ss.school_id
+         WHERE s.username = $1`,
         [username],
       );
 
@@ -37,8 +42,19 @@ router.post(
 
       const school = result.rows[0];
 
+      // Check email verification
+      if (!school.is_email_verified) {
+        return ApiResponseHandler.unauthorized(res, "Please verify your email address to log in.");
+      }
+
+      // Check if account is active (General master switch)
       if (!school.is_active) {
-        return ApiResponseHandler.unauthorized(res, "Account is inactive. Please contact support.");
+        return ApiResponseHandler.unauthorized(res, "Your account is currently inactive. Please contact support.");
+      }
+
+      // Check subscription status (Administrative suspension)
+      if (school.sub_status === 'suspended') {
+        return ApiResponseHandler.unauthorized(res, "Your school portal has been suspended by an administrator. Please contact support.");
       }
 
       // Verify password
@@ -75,6 +91,56 @@ router.post(
       next(error);
     }
   },
+);
+
+/**
+ * @route   POST /api/auth/verify-email
+ * @desc    Verify school email token
+ * @access  Public
+ */
+router.post(
+  "/verify-email",
+  [
+    body("token").notEmpty().withMessage("Verification token is required"),
+    validate,
+  ],
+  async (req, res, next) => {
+    try {
+      const { token } = req.body;
+
+      // Find school by token
+      const result = await db.query(
+        "SELECT id, name, is_email_verified FROM schools WHERE email_verification_token = $1",
+        [token]
+      );
+
+      if (result.rows.length === 0) {
+        return ApiResponseHandler.badRequest(res, "Invalid or expired verification token.");
+      }
+
+      const school = result.rows[0];
+
+      if (school.is_email_verified) {
+        return ApiResponseHandler.success(res, null, "Email already verified. You can log in.");
+      }
+
+      // Verify email and activate school
+      await db.query(
+        "UPDATE schools SET is_email_verified = true, is_active = true, email_verification_token = null, updated_at = NOW() WHERE id = $1",
+        [school.id]
+      );
+
+      // Log activity
+      await db.query(
+        "INSERT INTO activity_logs (user_id, user_type, school_id, action, details) VALUES ($1, $2, $3, $4, $5)",
+        [school.id, "school", school.id, "email_verified", { ip: req.ip }],
+      );
+
+      ApiResponseHandler.success(res, null, "Email verified successfully! Your account is now active. You can log in.");
+    } catch (error) {
+      next(error);
+    }
+  }
 );
 
 // @route   POST /api/auth/tutor/login

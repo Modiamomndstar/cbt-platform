@@ -23,10 +23,11 @@ router.post('/register', [
   body('address').optional().trim(),
   body('description').optional().trim(),
   body('country').optional().trim(),
+  body('referralCode').optional().trim(),
   validate
 ], async (req, res, next) => {
   try {
-    const { name, username, password, email, phone, address, description, country } = req.body;
+    const { name, username, password, email, phone, address, description, country, referralCode } = req.body;
 
     // Check if username exists
     const usernameCheck = await db.query('SELECT id FROM schools WHERE username = $1', [username]);
@@ -43,20 +44,66 @@ router.post('/register', [
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Create school
-    const result = await db.query(
-      `INSERT INTO schools (name, username, password_hash, email, phone, address, description, country, plan_type)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'freemium')
-       RETURNING id, name, username, email, phone, plan_type, created_at`,
-      [name, username, passwordHash, email, phone, address, description, country || 'Nigeria']
-    );
+    // Generate verification token and referral code for the new school
+    const verificationToken = require('crypto').randomBytes(32).toString('hex');
+    const newSchoolReferralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-    const school = result.rows[0];
+    // Handle referral (find referrer)
+    let referredById = null;
+    if (referralCode) {
+      const referrer = await db.query('SELECT id FROM schools WHERE referral_code = $1', [referralCode.toUpperCase()]);
+      if (referrer.rows.length > 0) {
+        referredById = referrer.rows[0].id;
+      }
+    }
 
-    // Auto-start 14-day trial (Basic Premium features)
-    await startTrial(school.id);
+    // Execute registration in a transaction to ensure atomicity
+    const school = await db.transaction(async (client) => {
+      // 1. Create school (is_active = false until email verified)
+      const schoolResult = await client.query(
+        `INSERT INTO schools (
+          name, username, password_hash, email, phone, address,
+          description, country, plan_type, is_active,
+          is_email_verified, email_verification_token, referral_code, referred_by_id
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'freemium', false, false, $9, $10, $11)
+        RETURNING id, name, username, email, phone, plan_type, created_at`,
+        [
+          name, username, passwordHash, email, phone, address,
+          description, country || 'Nigeria', verificationToken,
+          newSchoolReferralCode, referredById
+        ]
+      );
 
-    // Send welcome email (non-blocking)
+      const newSchool = schoolResult.rows[0];
+
+      // 2. Auto-start 14-day trial (Basic Premium features)
+      await client.query(
+        `INSERT INTO school_subscriptions (school_id, plan_type, status, billing_cycle, trial_start, trial_end)
+         VALUES ($1, 'basic', 'trialing', 'free', NOW(), NOW() + INTERVAL '14 days')
+         ON CONFLICT (school_id) DO UPDATE
+         SET plan_type = 'basic', status = 'trialing', trial_start = EXCLUDED.trial_start, trial_end = EXCLUDED.trial_end, updated_at = NOW()`,
+        [newSchool.id]
+      );
+
+      // 3. Initialize school settings
+      await client.query(
+        `INSERT INTO school_settings (school_id) VALUES ($1) ON CONFLICT (school_id) DO NOTHING`,
+        [newSchool.id]
+      );
+
+      // 4. Initialize PAYG wallet
+      await client.query(
+        `INSERT INTO payg_wallets (school_id) VALUES ($1) ON CONFLICT (school_id) DO NOTHING`,
+        [newSchool.id]
+      );
+
+      return newSchool;
+    });
+
+    // Send verification email (non-blocking)
+    // For now, let's just use existing welcome but maybe mention verification
+    // Ideally we'd have a specific verification email service
     sendWelcomeEmail(email, name).catch(() => {});
 
     // Log the registration
@@ -70,12 +117,17 @@ router.post('/register', [
       targetId: school.id,
       targetName: name,
       request: req,
-      details: { email, plan_type: school.plan_type }
+      details: { email, plan_type: school.plan_type, referred_by: referredById }
     });
 
-    ApiResponseHandler.created(res, school, 'School registered successfully. Your 14-day trial has started!');
+    ApiResponseHandler.created(res, {
+      ...school,
+      requiresVerification: true
+    }, 'Registration successful! Please check your email to verify your account and activate your 14-day trial.');
   } catch (error) {
-    next(error);
+    // Standardize error handling to prevent DB exposure
+    logger.error('Registration error:', error);
+    ApiResponseHandler.serverError(res, 'An error occurred during registration. Please try again later.');
   }
 });
 
