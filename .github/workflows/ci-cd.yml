@@ -92,16 +92,14 @@ jobs:
             # Login to GHCR so server can pull images
             echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-            # Substitute image owner and tag (lowercase owner)
-            TAG="${{ github.sha }}"
-            OWNER="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
-            sed -i "s|__IMAGE_OWNER__|${OWNER}|g; s|__IMAGE_TAG__|${TAG}|g" docker-compose.prod.yml
-
-            # Pull new images and restart
-            docker compose -f docker-compose.prod.yml pull
-
             # Always sync .env from .env.production so all env vars reach containers
             cp .env.production .env
+
+            # Set specific images for this deployment
+            TAG="${{ github.sha }}"
+            OWNER="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+            echo "BACKEND_IMAGE=ghcr.io/${OWNER}/cbt-platform-backend:${TAG}" >> .env
+            echo "FRONTEND_IMAGE=ghcr.io/${OWNER}/cbt-platform-frontend:${TAG}" >> .env
 
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
 

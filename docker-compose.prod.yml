@@ -14,7 +14,7 @@ services:
 
   # --- Backend API ---
   backend:
-    image: ghcr.io/__IMAGE_OWNER__/cbt-platform-backend:__IMAGE_TAG__
+    image: ${BACKEND_IMAGE:-ghcr.io/modiamomndstar/cbt-platform-backend:8d07ffb971afa8d1bd75a8d71877ad368f8b8e4b}
     restart: always
     ports:
       - "5000:5000"
@@ -40,7 +40,7 @@ services:
 
   # --- Frontend ---
   frontend:
-    image: ghcr.io/__IMAGE_OWNER__/cbt-platform-frontend:__IMAGE_TAG__
+    image: ${FRONTEND_IMAGE:-ghcr.io/modiamomndstar/cbt-platform-frontend:8d07ffb971afa8d1bd75a8d71877ad368f8b8e4b}
     restart: always
     networks:
       - web

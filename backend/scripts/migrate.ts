@@ -2,6 +2,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 import { pool } from '../src/config/database';
 import { logger } from '../src/utils/logger';
+import fs from 'fs';
+import path from 'path';
 
 async function migrate() {
   const client = await pool.connect();
@@ -143,20 +145,39 @@ async function migrate() {
     ];
 
     // Read remaining from migrations directory
-    const fs = require('fs');
-    const path = require('path');
-    const migrationsDir = path.join(__dirname, '../migrations');
-    if (fs.existsSync(migrationsDir)) {
+    const possibleDirs = [
+      path.join(__dirname, '../migrations'),        // Development: scripts/ -> migrations/
+      path.join(__dirname, '../../migrations'),     // Production: dist/scripts/ -> migrations/
+      path.join(process.cwd(), 'migrations'),       // Working directory
+      path.join(process.cwd(), 'backend/migrations') // Backend root from project root
+    ];
+
+    let migrationsDir = '';
+    for (const dir of possibleDirs) {
+      if (fs.existsSync(dir)) {
+        migrationsDir = dir;
+        logger.info(`Found migrations directory at: ${dir}`);
+        break;
+      }
+    }
+
+    if (migrationsDir) {
       const files = fs.readdirSync(migrationsDir).filter((f: string) => f.endsWith('.sql')).sort();
+      logger.info(`Discovered ${files.length} migration files in ${migrationsDir}`);
+
       for (const file of files) {
         const name = file.replace('.sql', '');
         if (!migrations.find(m => m.name === name)) {
+          logger.info(`Queueing migration from file: ${file}`);
           migrations.push({
             name,
             sql: fs.readFileSync(path.join(migrationsDir, file), 'utf-8')
           });
         }
       }
+    } else {
+      logger.warn('No migrations directory found. Only hardcoded migrations will be executed.');
+      logger.debug(`Checked paths: ${possibleDirs.join(', ')}`);
     }
 
     // Execute pending migrations
