@@ -68,6 +68,7 @@ import SchoolDetails from '@/pages/super-admin/SchoolDetails';
 import MarketplaceManagement from '@/pages/super-admin/MarketplaceManagement';
 import FinancialAnalytics from '@/pages/super-admin/FinancialAnalytics';
 import CompetitionManagement from '@/pages/super-admin/CompetitionManagement';
+import SuperAdminProfile from '@/pages/super-admin/Profile';
 
 function AppRoutes() {
   const { isLoading } = useAuth();
@@ -189,6 +190,7 @@ function AppRoutes() {
         <Route path="finance" element={<FinancialAnalytics />} />
         <Route path="competitions" element={<CompetitionManagement />} />
         <Route path="messages" element={<MessagesPage />} />
+        <Route path="profile" element={<SuperAdminProfile />} />
       </Route>
 
       {/* Common Protected Routes (not nested under a specific layout) */}

@@ -591,6 +591,9 @@ router.post(
         case "student":
           tableName = "students";
           break;
+        case "super_admin":
+          tableName = "staff_accounts";
+          break;
         default:
           return ApiResponseHandler.badRequest(res, "Cannot change password for this user type");
       }

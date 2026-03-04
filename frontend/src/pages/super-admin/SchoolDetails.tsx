@@ -189,12 +189,13 @@ export default function SchoolDetails() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              {school.name}
-              {!school.is_active && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">Suspended</span>}
-              <Badge variant="outline" className="text-xs font-medium ml-2">{school.plan_type.toUpperCase()}</Badge>
+              {school?.name || 'Loading...'}
+              {school && !school.is_active && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">Suspended</span>}
+              <Badge variant="outline" className="text-xs font-medium ml-2">{school?.plan_type?.toUpperCase() || 'FREE'}</Badge>
             </h1>
-            <p className="text-sm text-gray-500">{school.email} • {school.country}</p>
+            <p className="text-sm text-gray-500">{school?.email || 'N/A'} • {school?.country || 'Unknown'}</p>
           </div>
+
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => window.open(`mailto:${school.email}`)} className="h-9">
@@ -419,14 +420,14 @@ export default function SchoolDetails() {
                      {logs.map((log: any) => (
                        <tr key={log.id} className="hover:bg-gray-50/50">
                          <td className="py-4 px-6 text-gray-500 whitespace-nowrap">
-                            {new Date(log.created_at).toLocaleString()}
+                            {log.created_at ? new Date(log.created_at).toLocaleString() : 'N/A'}
                          </td>
                          <td className="py-4 px-6">
                             <div className="flex flex-col">
                                <span className="font-semibold text-gray-900">
                                   {log.actor_id === '00000000-0000-0000-0000-000000000000' ? 'Super Admin' : (log.actor_name || 'System User')}
                                </span>
-                               <span className="text-[10px] text-gray-400">ID: {log.actor_id?.substring(0,8)}... ({log.actor_type})</span>
+                               <span className="text-[10px] text-gray-400">ID: {log.actor_id?.substring(0,8)}... ({log.actor_type || 'system'})</span>
                             </div>
                          </td>
                          <td className="py-4 px-6">

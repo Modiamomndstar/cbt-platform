@@ -108,7 +108,7 @@ router.get("/inbox", authenticate, async (req: Request, res: Response) => {
                 WHEN m.sender_role = 'school' THEN (SELECT name FROM schools WHERE id = m.sender_id)
                 WHEN m.sender_role = 'tutor' THEN (SELECT full_name FROM tutors WHERE id = m.sender_id)
                 WHEN m.sender_role = 'student' THEN (SELECT full_name FROM students WHERE id = m.sender_id)
-                WHEN m.sender_role = 'super_admin' THEN (SELECT name FROM staff_accounts WHERE id = m.sender_id)
+                WHEN m.sender_role = 'super_admin' THEN (SELECT COALESCE(name, 'System Admin') FROM staff_accounts WHERE id = m.sender_id)
                 ELSE 'System'
               END as sender_name
        FROM inbox_messages m

@@ -16,7 +16,8 @@ import {
   ShoppingBag,
   History,
   Trophy,
-  MessageSquare
+  MessageSquare,
+  User
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -33,6 +34,7 @@ export default function SuperAdminLayout() {
 
   const navigation = [
     { name: 'Dashboard', href: '/super-admin/dashboard', icon: LayoutDashboard },
+    { name: 'Profile', href: '/super-admin/profile', icon: User },
     { name: 'Messages', href: '/super-admin/messages', icon: MessageSquare, badge: unreadCount },
     { name: 'Schools', href: '/super-admin/schools', icon: School },
     { name: 'School Overrides', href: '/super-admin/school-overrides', icon: Gift },

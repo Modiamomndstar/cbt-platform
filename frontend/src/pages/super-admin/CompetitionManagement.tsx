@@ -169,9 +169,10 @@ export default function CompetitionManagement() {
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <StatCard title="Total Events" value={hubStats.total_events} icon={Layout} color="text-blue-600" />
-        <StatCard title="Active Participants" value={hubStats.active_participants.toLocaleString()} icon={Users} color="text-indigo-600" />
-        <StatCard title="Regional Scope" value={`${hubStats.regional_scope} ${hubStats.regional_scope === 1 ? 'Country' : 'Countries'}`} icon={Globe} color="text-emerald-600" />
-        <StatCard title="Awards Issued" value={hubStats.awards_issued.toLocaleString()} icon={Flag} color="text-purple-600" />
+        <StatCard title="Active Participants" value={(hubStats.active_participants || 0).toLocaleString()} icon={Users} color="text-indigo-600" />
+        <StatCard title="Regional Scope" value={`${hubStats.regional_scope || 0} ${(hubStats.regional_scope || 0) === 1 ? 'Country' : 'Countries'}`} icon={Globe} color="text-emerald-600" />
+        <StatCard title="Awards Issued" value={(hubStats.awards_issued || 0).toLocaleString()} icon={Flag} color="text-purple-600" />
+
       </div>
 
       <div className="flex items-center gap-4 bg-white p-4 rounded-xl border shadow-sm">
@@ -231,7 +232,7 @@ export default function CompetitionManagement() {
                   <div className="flex items-center justify-between pt-4 border-t">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                        <Calendar className="h-3.5 w-3.5" /> Starts {new Date(comp.created_at).toLocaleDateString()}
+                        <Calendar className="h-3.5 w-3.5" /> Starts {comp.created_at ? new Date(comp.created_at).toLocaleDateString() : 'TBD'}
                       </div>
                       {comp.is_featured && (
                         <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-none h-5 px-1.5">
