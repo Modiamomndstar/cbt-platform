@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import { body, param, validationResult } from 'express-validator';
 import bcrypt from 'bcryptjs';
 import { db } from '../config/database';
@@ -9,6 +10,7 @@ import { sendWelcomeEmail } from '../services/email';
 import { validate } from '../middleware/validation';
 import { getPaginationOptions, formatPaginationResponse } from '../utils/pagination';
 import { logActivity, logUserActivity } from '../utils/auditLogger';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -45,7 +47,7 @@ router.post('/register', [
     const passwordHash = await bcrypt.hash(password, 10);
 
     // Generate verification token and referral code for the new school
-    const verificationToken = require('crypto').randomBytes(32).toString('hex');
+    const verificationToken = crypto.randomBytes(32).toString('hex');
     const newSchoolReferralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
     // Handle referral (find referrer)
