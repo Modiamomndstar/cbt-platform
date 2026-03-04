@@ -341,16 +341,18 @@ router.post('/schools/:id/suspend', [
             }
         }
 
-        await client.query(
+        const updateSubRes = await client.query(
             `UPDATE school_subscriptions SET status = $1, updated_at = NOW() WHERE school_id = $2`,
             [newSubStatus, id]
         );
 
         // 2. Update master active switch
-        await client.query(
+        const updateSchoolRes = await client.query(
             `UPDATE schools SET is_active = $1, updated_at = NOW() WHERE id = $2`,
             [!suspended, id]
         );
+
+        logger.info(`Suspension update for ${id}: suspended=${suspended}, sub_rows=${updateSubRes.rowCount}, school_rows=${updateSchoolRes.rowCount}`);
     });
 
     const school = await db.query('SELECT name FROM schools WHERE id = $1', [id]);

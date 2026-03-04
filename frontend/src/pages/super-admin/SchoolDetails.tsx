@@ -190,7 +190,7 @@ export default function SchoolDetails() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               {school?.name || 'Loading...'}
-              {school && !school.is_active && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">Suspended</span>}
+              {school && school.is_active === false && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">Suspended</span>}
               <Badge variant="outline" className="text-xs font-medium ml-2">{school?.plan_type?.toUpperCase() || 'FREE'}</Badge>
             </h1>
             <p className="text-sm text-gray-500">{school?.email || 'N/A'} • {school?.country || 'Unknown'}</p>
@@ -385,7 +385,7 @@ export default function SchoolDetails() {
                       <div key={f.feature_key} className="flex items-center justify-between p-3 rounded-lg border border-gray-50 bg-gray-50/30">
                         <div>
                            <p className="text-sm font-semibold text-gray-900">{f.feature_name}</p>
-                           <p className="text-[10px] text-gray-500">Normal: {f.min_plan.toUpperCase()}+</p>
+                           <p className="text-[10px] text-gray-500">Normal: {f.min_plan?.toUpperCase() || 'N/A'}+</p>
                         </div>
                         <Switch
                           checked={overrides[f.feature_key] || false}
