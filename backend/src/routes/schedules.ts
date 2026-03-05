@@ -48,8 +48,49 @@ router.get(
       }
 
       if (categoryId && categoryId !== "all") {
-        query += ` AND s.category_id = $${params.length + 1}`;
-        params.push(categoryId);
+        if (categoryId === "external") {
+          // If external selected, we need to query the external_students table instead
+          const extParams: any[] = [user.schoolId, examId];
+          let extQuery = `
+            SELECT s.id, s.full_name, s.first_name, s.last_name, s.email, s.username as student_id, s.category_id,
+                   sc.name as category_name
+            FROM external_students s
+            LEFT JOIN student_categories sc ON s.category_id = sc.id
+            WHERE s.school_id = $1
+              AND s.is_active = true
+              AND s.id NOT IN (
+                SELECT external_student_id FROM exam_schedules
+                WHERE exam_id = $2 AND status NOT IN ('cancelled', 'expired') AND external_student_id IS NOT NULL
+              )
+          `;
+
+          if (user.role === "tutor") {
+            extQuery += ` AND s.tutor_id = $${extParams.length + 1}`;
+            extParams.push(user.id);
+          }
+
+          extQuery += ` ORDER BY s.full_name, s.last_name, s.first_name`;
+          const extResult = await client.query(extQuery, extParams);
+
+          return ApiResponseHandler.success(
+            res,
+            extResult.rows.map((s) => ({
+              id: s.id,
+              studentName: s.full_name || `${s.first_name || ""} ${s.last_name || ""}`.trim() || "Unknown",
+              firstName: s.first_name,
+              lastName: s.last_name,
+              email: s.email,
+              registrationNumber: s.student_id,
+              categoryId: s.category_id,
+              categoryName: s.category_name,
+              isExternal: true
+            })),
+            "Available external students retrieved"
+          );
+        } else {
+          query += ` AND s.category_id = $${params.length + 1}`;
+          params.push(categoryId);
+        }
       }
 
       query += ` ORDER BY s.full_name, s.last_name, s.first_name`;
@@ -185,7 +226,7 @@ router.get(
             statusLabel,
             accessCode: row.login_username,
             examUsername: row.login_username,
-            examPassword: (row.login_password && row.login_password.startsWith('$2')) ? '********' : row.login_password,
+            examPassword: row.login_password, // Return plain text password so tutor can copy/print
             score: row.score !== null ? parseFloat(row.score) : null,
             totalMarks: actualTotalMarks,
             percentage:
@@ -367,7 +408,7 @@ router.post(
             .toString(36)
             .substring(2, 8)
             .toUpperCase();
-          const hashedPassword = await bcrypt.hash(password, 10);
+          const hashedPassword = password; // Store as plain text
 
           const result = await client.query(
             `INSERT INTO exam_schedules (
@@ -469,7 +510,7 @@ router.post(
             .toString(36)
             .substring(2, 8)
             .toUpperCase();
-          const hashedPassword = await bcrypt.hash(password, 10);
+          const hashedPassword = password; // Store as plain text
 
           const result = await client.query(
             `INSERT INTO exam_schedules (
@@ -605,7 +646,7 @@ router.put(
           .toString(36)
           .substring(2, 8)
           .toUpperCase();
-        hashedPassword = await bcrypt.hash(generatedPassword, 10);
+        hashedPassword = generatedPassword; // Store as plain text
       }
 
       const result = await client.query(

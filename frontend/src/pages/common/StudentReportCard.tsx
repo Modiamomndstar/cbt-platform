@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { analyticsAPI } from '../../services/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Loader2, Printer, ArrowLeft, Lock, Sparkles } from 'lucide-react';
+import { Loader2, Printer, ArrowLeft, Lock, Sparkles, AlertCircle, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePlan } from '@/hooks/usePlan';
 import { FeatureLockedModal } from '@/components/common/FeatureLock';
@@ -44,6 +44,7 @@ export default function StudentReportCard() {
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLockModal, setShowLockModal] = useState(false);
+  const [error, setError] = useState<{ status: number; message: string } | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -53,9 +54,16 @@ export default function StudentReportCard() {
         if (response.data.success) {
           setData(response.data.data);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to load report card:', error);
-        toast.error('Failed to load report card');
+        if (error.response?.status) {
+          setError({
+            status: error.response.status,
+            message: error.response.data?.message || 'Failed to load report card'
+          });
+        } else {
+          toast.error('Failed to load report card');
+        }
       } finally {
         setLoading(false);
       }
@@ -75,11 +83,66 @@ export default function StudentReportCard() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8 text-center">
+        <div className="bg-white p-12 rounded-3xl shadow-xl border border-slate-200 max-w-md w-full space-y-6">
+          <div className="mx-auto w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center">
+            {error.status === 402 ? (
+              <CreditCard className="h-10 w-10 text-rose-500" />
+            ) : error.status === 403 ? (
+              <Lock className="h-10 w-10 text-rose-500" />
+            ) : (
+              <AlertCircle className="h-10 w-10 text-rose-500" />
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-slate-900">
+              {error.status === 402 ? 'Subscription Upgrade' :
+               error.status === 403 ? 'Access Restricted' :
+               'Report Unavailable'}
+            </h2>
+            <p className="text-slate-500 font-medium">
+              {error.message || 'We encountered an issue retrieving this student record.'}
+            </p>
+          </div>
+
+          <div className="pt-4 flex flex-col gap-3">
+            {error.status === 402 && (
+              <Button
+                className="bg-indigo-600 hover:bg-indigo-700 w-full font-bold"
+                onClick={() => navigate('/billing')}
+              >
+                Upgrade Plan
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              className="w-full flex items-center justify-center gap-2"
+              onClick={() => navigate(-1)}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Return to Safety
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!data) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen gap-4">
-        <p className="text-lg text-muted-foreground">Report card not found</p>
-        <Button onClick={() => navigate(-1)}>Go Back</Button>
+      <div className="flex flex-col items-center justify-center h-screen gap-6 bg-slate-50 p-8">
+        <div className="bg-white p-12 rounded-3xl shadow-xl border border-slate-200 max-w-md w-full text-center space-y-4">
+          <AlertCircle className="h-12 w-12 text-slate-300 mx-auto" />
+          <h2 className="text-xl font-bold text-slate-900">Report Not Found</h2>
+          <p className="text-slate-500 font-medium">We couldn't find any results for this student.</p>
+          <Button variant="outline" onClick={() => navigate(-1)} className="w-full">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Go Back
+          </Button>
+        </div>
       </div>
     );
   }

@@ -19,7 +19,10 @@ import {
   PenLine,
   Mail,
   Phone,
-  Calendar
+  Calendar,
+  Lock,
+  AlertCircle,
+  CreditCard
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -84,6 +87,7 @@ export default function AdvancedReportCard() {
   const [signatureName, setSignatureName] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [isIssueDialogOpen, setIsIssueDialogOpen] = useState(false);
+  const [error, setError] = useState<{ status: number; message: string } | null>(null);
   const isStaff = user?.role === 'tutor' || user?.role === 'school_admin' || user?.role === 'super_admin';
   const reportRef = useRef<HTMLDivElement>(null);
 
@@ -132,9 +136,16 @@ export default function AdvancedReportCard() {
           setSignatureName(report.config.signatureName || report.config.signature_name || '');
         }
       }
-    } catch (error) {
+    } catch (error: any) {
        console.error('Failed to load issued report:', error);
-       toast.error('Failed to load issued report');
+       if (error.response?.status) {
+         setError({
+           status: error.response.status,
+           message: error.response.data?.message || 'Failed to load report'
+         });
+       } else {
+         toast.error('Failed to load issued report');
+       }
     } finally {
       setLoading(false);
     }
@@ -143,12 +154,16 @@ export default function AdvancedReportCard() {
   const fetchData = async () => {
     try {
       setLoading(true);
+      setError(null);
       if (!studentId) return;
 
       // Fetch both report data and school settings for defaults
+      // For students, we skip schoolSettingsAPI to avoid 403s on unauthorized metadata
       const [reportRes, settingsRes] = await Promise.all([
         analyticsAPI.getAdvancedReportCard(studentId, timeframe),
-        schoolSettingsAPI.get().catch(() => ({ data: { success: false } }))
+        user?.role !== 'student'
+          ? schoolSettingsAPI.get().catch(() => ({ data: { success: false, data: null } }))
+          : Promise.resolve({ data: { success: false, data: null } })
       ]);
 
       if (reportRes.data.success) {
@@ -179,9 +194,16 @@ export default function AdvancedReportCard() {
           setSignatureName(settings.reportSignatureName || settings.report_signature_name);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load advanced report:', error);
-      toast.error('Failed to load advanced report');
+      if (error.response?.status) {
+        setError({
+          status: error.response.status,
+          message: error.response.data?.message || 'Failed to load advanced report'
+        });
+      } else {
+        toast.error('Failed to load advanced report');
+      }
     } finally {
       setLoading(false);
     }
@@ -322,7 +344,64 @@ export default function AdvancedReportCard() {
     );
   }
 
-  if (!data) return null;
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8 text-center">
+        <div className="bg-white p-12 rounded-3xl shadow-xl border border-slate-200 max-w-md w-full space-y-6">
+          <div className="mx-auto w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center">
+            {error.status === 402 ? (
+              <CreditCard className="h-10 w-10 text-rose-500" />
+            ) : error.status === 403 ? (
+              <Lock className="h-10 w-10 text-rose-500" />
+            ) : (
+              <AlertCircle className="h-10 w-10 text-rose-500" />
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-slate-900">
+              {error.status === 402 ? 'Subscription Upgrade' :
+               error.status === 403 ? 'Access Restricted' :
+               'Report Unavailable'}
+            </h2>
+            <p className="text-slate-500 font-medium">
+              {error.message || 'We encountered an issue retrieving this high-performance academic record.'}
+            </p>
+          </div>
+
+          <div className="pt-4 flex flex-col gap-3">
+            {error.status === 402 && (
+              <Button
+                className="bg-indigo-600 hover:bg-indigo-700 w-full font-bold"
+                onClick={() => navigate('/billing')}
+              >
+                Upgrade Plan
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              className="w-full flex items-center justify-center gap-2"
+              onClick={() => navigate(-1)}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Return to Safety
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) return (
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8 text-center">
+       <div className="bg-white p-12 rounded-3xl shadow-xl border border-slate-200 max-w-md w-full space-y-4">
+          <AlertCircle className="h-12 w-12 text-slate-300 mx-auto" />
+          <h2 className="text-xl font-bold text-slate-900">No Data Available</h2>
+          <p className="text-slate-500">We couldn't find any assessment data for this scholar.</p>
+          <Button variant="outline" onClick={() => navigate(-1)}>Go Back</Button>
+       </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
