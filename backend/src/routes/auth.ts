@@ -296,32 +296,20 @@ router.post(
       const fiveMinBefore = new Date(scheduleStartDate.getTime() - 5 * 60 * 1000);
 
       if (studentNowDate < fiveMinBefore) {
-        return res.status(403).json({
-          success: false,
-          message: `Exam not yet available. Please check back at ${schedule.start_time}.`,
-        });
+        return ApiResponseHandler.forbidden(res, `Exam not yet available. Please check back at ${schedule.start_time}.`);
       }
 
       if (studentNowDate > scheduleEndDate) {
-        return res.status(403).json({
-          success: false,
-          message: "Exam schedule has expired.",
-        });
+        return ApiResponseHandler.forbidden(res, "Exam schedule has expired.");
       }
 
       // Check status
       if (schedule.status === "completed") {
-        return res.status(403).json({
-          success: false,
-          message: "You have already completed this exam",
-        });
+        return ApiResponseHandler.forbidden(res, "You have already completed this exam");
       }
 
       if (schedule.attempt_count >= schedule.max_attempts) {
-        return res.status(403).json({
-          success: false,
-          message: "Maximum attempts reached",
-        });
+        return ApiResponseHandler.forbidden(res, "Maximum attempts reached");
       }
 
       // Use student_id or external_student_id as the identity

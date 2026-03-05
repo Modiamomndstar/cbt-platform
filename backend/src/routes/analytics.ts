@@ -544,30 +544,6 @@ router.get(
         return ApiResponseHandler.forbidden(res, "Unauthorized");
       }
 
-      if (user.role === "tutor") {
-        // Check if tutor is assigned to student
-        const assignment = await client.query(
-          "SELECT 1 FROM student_tutors WHERE student_id = $1 AND tutor_id = $2",
-          [studentId, user.id], // user.id here is the USER ID, not tutorId. But wait, req.user for tutor has id as userId?
-          // Actually, in auth middleware, req.user payload usually has id. If role is tutor, it might trigger logic.
-          // Let's check auth middleware. simpler: check if student belongs to tutor's school at least?
-          // Better: strict assignment check.
-          // BUT `req.user` might be the specific Tutor table ID or the Users table ID depending on implementation.
-          // Looking at `tutors.ts`: `const { id } = req.params; const { role, schoolId, tutorId } = req.user!;`
-          // So req.user has `tutorId`.
-        );
-        // Wait, let's look at `req.user` type usage in other files.
-        // `const { role, schoolId, tutorId } = req.user!;`
-        // So I should use `user.tutorId`.
-        // Let's verify assignment.
-      }
-
-      // Simpler check for now: Verify School Context (School Admin & Tutor must belong to same school as student)
-      let querySchoolId = user.schoolId;
-      if (user.role === "tutor" && user.tutorId) {
-        // Fetch tutor's school if not in token (usually is)
-      }
-
       // Fetch Student & School Details
       const studentQuery = await client.query(
         `SELECT s.id, s.full_name, s.student_id as reg_number, s.email,
@@ -583,6 +559,15 @@ router.get(
       if (studentQuery.rows.length === 0) {
         return ApiResponseHandler.notFound(res, "Student not found");
       }
+
+      // Verify school context — School Admin & Tutor must belong to same school as student
+      if (
+        user.role !== "super_admin" &&
+        user.role !== "student" &&
+        user.schoolId !== studentQuery.rows[0].school_id
+      ) {
+        return ApiResponseHandler.forbidden(res, "Access denied. Student does not belong to your school.");
+      }
       const student = studentQuery.rows[0];
 
       // Authorization verify (ensure user belongs to same school as student)
@@ -591,9 +576,7 @@ router.get(
         user.schoolId !== studentQuery.rows[0].school_id &&
         user.role !== "student"
       ) {
-        // Actually, previous logic in other routes uses `s.school_id = $1` in WHERE clause.
-        // Since we already fetched, let's check:
-        // if (user.schoolId && user.schoolId !== student.school_id) return 403.
+        return ApiResponseHandler.forbidden(res, "Access denied. Student does not belong to your school.");
       }
 
       // Fetch Completed Exam Results

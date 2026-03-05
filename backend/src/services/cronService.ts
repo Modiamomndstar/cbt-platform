@@ -32,10 +32,9 @@ const processTrialExpiries = async () => {
 
     // 1. Alert schools whose trial is expiring in 3 days
     const expiringIn3Days = await db.query(`
-      SELECT sa.email, s.school_name, sub.trial_end
+      SELECT s.email, s.name as school_name, sub.trial_end
       FROM school_subscriptions sub
       JOIN schools s ON sub.school_id = s.id
-      JOIN school_admins sa ON s.id = sa.school_id
       WHERE sub.status = 'trialing'
       AND DATE(sub.trial_end) = DATE($1)
     `, [new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000)]);
@@ -59,10 +58,9 @@ const processTrialExpiries = async () => {
       const expiredSchoolIds = expiredSchools.rows.map(r => r.school_id);
 
       const adminEmails = await db.query(`
-        SELECT email, s.school_name
-        FROM school_admins sa
-        JOIN schools s ON sa.school_id = s.id
-        WHERE sa.school_id = ANY($1)
+        SELECT s.email, s.name as school_name
+        FROM schools s
+        WHERE s.id = ANY($1)
       `, [expiredSchoolIds]);
 
       for (const row of adminEmails.rows) {

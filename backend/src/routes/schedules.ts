@@ -2,7 +2,6 @@ import { Router, Request, Response } from "express";
 import { pool } from "../config/database";
 import { authenticate, requireRole } from "../middleware/auth";
 import { sendExamCredentials } from "../services/email";
-import bcrypt from "bcryptjs";
 import { ApiResponseHandler } from "../utils/apiResponse";
 import { ScheduleService } from "../services/scheduleService";
 

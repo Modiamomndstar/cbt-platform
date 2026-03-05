@@ -75,7 +75,7 @@ router.get(
       const result = await db.query(query, params);
 
       if (result.rows.length === 0) {
-        res.status(404).json({ success: false, message: "Tutor not found" });
+        ApiResponseHandler.notFound(res, "Tutor not found");
         return;
       }
 
@@ -101,9 +101,7 @@ router.put(
       const { schoolId } = req.user!;
 
       if (typeof is_active !== "boolean") {
-        res
-          .status(400)
-          .json({ success: false, message: "is_active must be a boolean" });
+        ApiResponseHandler.badRequest(res, "is_active must be a boolean");
         return;
       }
 
@@ -113,7 +111,7 @@ router.put(
       );
 
       if (result.rows.length === 0) {
-        res.status(404).json({ success: false, message: "Tutor not found" });
+        ApiResponseHandler.notFound(res, "Tutor not found");
         return;
       }
 
@@ -140,7 +138,7 @@ router.get(
 
       // Permission check
       if (role === "tutor" && tutorId !== id) {
-        res.status(403).json({ success: false, message: "Access denied" });
+        ApiResponseHandler.forbidden(res, "Access denied");
         return;
       }
 
@@ -191,7 +189,7 @@ router.get(
       const { role, tutorId } = req.user!;
 
       if (role === "tutor" && tutorId !== id) {
-        res.status(403).json({ success: false, message: "Access denied" });
+        ApiResponseHandler.forbidden(res, "Access denied");
         return;
       }
 
@@ -237,9 +235,7 @@ router.post(
         [schoolId, username],
       );
       if (check.rows.length > 0) {
-        res
-          .status(409)
-          .json({ success: false, message: "Username already exists" });
+        ApiResponseHandler.conflict(res, "Username already exists");
         return;
       }
 
@@ -362,7 +358,7 @@ router.put(
 
       // Check permissions
       if (role === "tutor" && tutorId !== id) {
-        res.status(403).json({ success: false, message: "Access denied" });
+        ApiResponseHandler.forbidden(res, "Access denied");
         return;
       }
 
@@ -406,9 +402,7 @@ router.put(
       }
 
       if (setClauses.length === 0) {
-        res
-          .status(400)
-          .json({ success: false, message: "No fields to update" });
+        ApiResponseHandler.badRequest(res, "No fields to update");
         return;
       }
 

@@ -633,7 +633,7 @@ router.post(
         [id, schoolId]
       );
       if (student.rows.length === 0) {
-        return res.status(404).json({ success: false, message: "Student not found" });
+        return ApiResponseHandler.notFound(res, "Student not found");
       }
 
       // Verify tutor belongs to school
@@ -642,7 +642,7 @@ router.post(
         [tutorId, schoolId]
       );
       if (tutor.rows.length === 0) {
-        return res.status(404).json({ success: false, message: "Tutor not found" });
+        return ApiResponseHandler.notFound(res, "Tutor not found");
       }
 
       // Assign
@@ -679,7 +679,7 @@ router.post(
         [tutorId, schoolId]
       );
       if (tutor.rows.length === 0) {
-        return res.status(404).json({ success: false, message: "Tutor not found" });
+        return ApiResponseHandler.notFound(res, "Tutor not found");
       }
 
       const validStudentsQuery = await db.query(
@@ -689,7 +689,7 @@ router.post(
       const validStudentIds = validStudentsQuery.rows.map(r => r.id);
 
       if (validStudentIds.length === 0) {
-        return res.status(400).json({ success: false, message: "No valid students found for this school" });
+        return ApiResponseHandler.badRequest(res, "No valid students found for this school");
       }
 
       const values = validStudentIds.map((_, index) => `($${index * 2 + 1}, $${index * 2 + 2})`).join(', ');
@@ -734,7 +734,7 @@ router.delete(
       );
 
       if (result.rowCount === 0) {
-        return res.status(404).json({ success: false, message: "Assignment not found or unauthorized" });
+        return ApiResponseHandler.notFound(res, "Assignment not found or unauthorized");
       }
 
       ApiResponseHandler.success(res, null, "Tutor removed successfully");
