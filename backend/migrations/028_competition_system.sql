@@ -1,5 +1,14 @@
 -- Migration 028: Global Exam Competition System
 
+-- Ensure the updated_at trigger function exists (defined in init_schema but guard here for safety)
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- 1. Competitions Table
 CREATE TABLE IF NOT EXISTS competitions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
