@@ -6,7 +6,7 @@ import { db } from '../config/database';
 import { authenticate, authorize } from '../middleware/auth';
 import { startTrial } from '../services/planService';
 import { ApiResponseHandler } from '../utils/apiResponse';
-import { sendWelcomeEmail } from '../services/email';
+import { sendWelcomeEmail, sendVerificationEmail } from '../services/email';
 import { validate } from '../middleware/validation';
 import { getPaginationOptions, formatPaginationResponse } from '../utils/pagination';
 import { logActivity, logUserActivity } from '../utils/auditLogger';
@@ -104,9 +104,9 @@ router.post('/register', [
     });
 
     // Send verification email (non-blocking)
-    // For now, let's just use existing welcome but maybe mention verification
-    // Ideally we'd have a specific verification email service
-    sendWelcomeEmail(email, name).catch(() => {});
+    sendVerificationEmail(email, name, verificationToken).catch((err) => {
+      logger.error('Failed to send verification email:', err);
+    });
 
     // Log the registration
     await logActivity({

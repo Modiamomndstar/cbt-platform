@@ -95,6 +95,36 @@ export const sendWelcomeEmail = async (to: string, schoolName: string): Promise<
 };
 
 // =============================================
+// Verification email (on school registration)
+// =============================================
+export const sendVerificationEmail = async (to: string, schoolName: string, token: string): Promise<boolean> => {
+  const verificationUrl = `${PLATFORM_URL}/verify-email?token=${token}`;
+  const html = emailLayout(`
+    <h2 style="color:#1f2937;margin:0 0 16px;">Verify Your Email Address</h2>
+    <p style="color:#374151;line-height:1.6;">
+      Hello <strong>${schoolName}</strong>, thank you for registering with ${PLATFORM_NAME}!
+    </p>
+    <p style="color:#374151;line-height:1.6;">
+      Please click the button below to verify your email address and activate your account.
+    </p>
+    <div style="text-align:center;margin:32px 0;">
+      <a href="${verificationUrl}" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:16px;">
+        Verify Email →
+      </a>
+    </div>
+    <p style="color:#6b7280;font-size:14px;">
+      If the button above doesn't work, copy and paste this link into your browser:<br>
+      <a href="${verificationUrl}" style="color:#6366f1;">${verificationUrl}</a>
+    </p>
+    <p style="color:#6b7280;font-size:14px;margin-top:24px;">
+      Your 14-day free trial will begin immediately after verification.
+    </p>
+  `);
+
+  return sendEmail(to, `Verify Your Email — ${PLATFORM_NAME}`, html);
+};
+
+// =============================================
 // Trial expiry warning (sent on day 10)
 // =============================================
 export const sendTrialStartEmail = async (to: string, schoolName: string, trialEndDate: Date): Promise<boolean> => {
