@@ -29,7 +29,16 @@ ALTER TABLE exams ADD COLUMN IF NOT EXISTS max_violations INTEGER DEFAULT 3;
 ALTER TABLE schools ADD COLUMN IF NOT EXISTS referral_code VARCHAR(20) UNIQUE;
 ALTER TABLE schools ADD COLUMN IF NOT EXISTS referred_by_id UUID REFERENCES schools(id);
 
--- Add referral reward settings
+-- Add referral reward settings (create settings table if it doesn't exist)
+CREATE TABLE IF NOT EXISTS settings (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  key         VARCHAR(100) UNIQUE NOT NULL,
+  value       TEXT,
+  description TEXT,
+  category    VARCHAR(50),
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
 ALTER TABLE settings ADD COLUMN IF NOT EXISTS category VARCHAR(50);
 
 INSERT INTO settings (key, value, description, category)

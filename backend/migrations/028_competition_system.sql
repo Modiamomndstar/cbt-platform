@@ -74,11 +74,16 @@ CREATE TABLE IF NOT EXISTS competition_results (
 );
 
 -- Indices for performance
-CREATE INDEX idx_comp_registrations_school ON competition_registrations(school_id);
-CREATE INDEX idx_comp_registrations_student ON competition_registrations(student_id);
-CREATE INDEX idx_comp_results_stage ON competition_results(stage_id);
+CREATE INDEX IF NOT EXISTS idx_comp_registrations_school ON competition_registrations(school_id);
+CREATE INDEX IF NOT EXISTS idx_comp_registrations_student ON competition_registrations(student_id);
+CREATE INDEX IF NOT EXISTS idx_comp_results_stage ON competition_results(stage_id);
 
 -- Trigger for updated_at in competitions
-CREATE TRIGGER update_competitions_updated_at
-BEFORE UPDATE ON competitions
-FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_competitions_updated_at') THEN
+        CREATE TRIGGER update_competitions_updated_at
+        BEFORE UPDATE ON competitions
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+END $$;
