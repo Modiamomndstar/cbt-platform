@@ -1,6 +1,24 @@
 -- Sprint 3 Migrations: External Students Categorization & Exam Categories
 
--- 1. Add toggle for Tutors editing School-wide student categories
+-- 1. Ensure school_settings exists before altering (it's officially created in migration 020,
+--    but this migration runs first so we create a minimal version here)
+CREATE TABLE IF NOT EXISTS school_settings (
+  school_id UUID PRIMARY KEY REFERENCES schools(id) ON DELETE CASCADE,
+  allow_external_students       BOOLEAN DEFAULT true,
+  max_external_per_tutor        INTEGER DEFAULT 30,
+  allow_tutor_create_students   BOOLEAN DEFAULT true,
+  student_portal_enabled        BOOLEAN DEFAULT true,
+  result_release_mode           VARCHAR(20) DEFAULT 'immediate',
+  allow_student_pdf_download    BOOLEAN DEFAULT false,
+  default_exam_attempts         INTEGER DEFAULT 1,
+  email_on_exam_complete        BOOLEAN DEFAULT true,
+  email_on_new_student          BOOLEAN DEFAULT true,
+  email_on_results_release      BOOLEAN DEFAULT true,
+  primary_color                 VARCHAR(20) DEFAULT '#6366f1',
+  updated_at                    TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Add toggle for Tutors editing School-wide student categories
 ALTER TABLE school_settings
 ADD COLUMN IF NOT EXISTS allow_tutor_edit_categories BOOLEAN DEFAULT true;
 
@@ -20,7 +38,6 @@ CREATE TABLE IF NOT EXISTS exam_categories (
 );
 
 -- 4. Convert exams.category to reference exam_categories
--- If the current 'category' column exists as VARCHAR, we drop it to use a strict foreign key relation.
 ALTER TABLE exams
 DROP COLUMN IF EXISTS category;
 
