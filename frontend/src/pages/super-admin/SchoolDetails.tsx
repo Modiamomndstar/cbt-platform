@@ -201,9 +201,14 @@ export default function SchoolDetails() {
           <Button variant="outline" size="sm" onClick={() => window.open(`mailto:${school.email}`)} className="h-9">
             <Mail className="h-4 w-4 mr-2" /> Contact Admin
           </Button>
-          <Button variant={school.is_active ? "destructive" : "default"} size="sm" onClick={handleStatusToggle} className="h-9">
+          <Button
+            variant={school.is_active ? "destructive" : "default"}
+            size="sm"
+            onClick={handleStatusToggle}
+            className={`h-9 ${school.is_active ? '' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+          >
             {school.is_active ? <ShieldAlert className="h-4 w-4 mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
-            {school.is_active ? 'Suspend' : 'Activate'}
+            {school.is_active ? 'Suspend School' : 'Activate School'}
           </Button>
         </div>
       </div>
@@ -380,12 +385,15 @@ export default function SchoolDetails() {
                 <p className="text-xs text-gray-500">Enable specific features for this school regardless of their plan.</p>
               </CardHeader>
               <CardContent className="pt-2">
-                 <div className="space-y-4">
+                 <div className="space-y-3">
                     {featureFlags.map((f: any) => (
-                      <div key={f.feature_key} className="flex items-center justify-between p-3 rounded-lg border border-gray-50 bg-gray-50/30">
-                        <div>
-                           <p className="text-sm font-semibold text-gray-900">{f.feature_name}</p>
-                           <p className="text-[10px] text-gray-500">Normal: {f.min_plan?.toUpperCase() || 'N/A'}+</p>
+                      <div key={f.feature_key} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-gray-50/50 hover:bg-gray-100/50 transition-colors">
+                        <div className="flex-1 min-w-0 mr-3">
+                           <p className="text-sm font-semibold text-gray-900 truncate">{f.feature_name}</p>
+                           <p className="text-[10px] text-gray-500 mt-0.5">
+                             Min plan: <span className="font-bold uppercase text-indigo-600">{f.min_plan || 'any'}</span>
+                             {overrides[f.feature_key] && <span className="ml-2 text-emerald-600 font-bold">• Override ON</span>}
+                           </p>
                         </div>
                         <Switch
                           checked={overrides[f.feature_key] || false}
