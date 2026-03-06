@@ -24,6 +24,7 @@ COPY --from=builder /usr/src/app/node_modules ./node_modules
 COPY --from=builder /usr/src/app/dist ./dist
 COPY --from=builder /usr/src/app/src ./src
 COPY --from=builder /usr/src/app/scripts ./scripts
+COPY --from=builder /usr/src/app/migrations ./migrations
 
 # Entrypoint: migrations + start
 COPY entrypoint.sh ./entrypoint.sh
