@@ -18,7 +18,13 @@ END $$;
 
 -- 2. Update student_exams to support external students and early creation
 ALTER TABLE student_exams ALTER COLUMN student_id DROP NOT NULL;
-ALTER TABLE student_exams ALTER COLUMN questions DROP NOT NULL;
+-- Only drop NOT NULL on 'questions' column if it actually exists (it won't on fresh DBs)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'student_exams' AND COLUMN_NAME = 'questions') THEN
+        ALTER TABLE student_exams ALTER COLUMN questions DROP NOT NULL;
+    END IF;
+END $$;
 ALTER TABLE student_exams ADD COLUMN IF NOT EXISTS external_student_id UUID REFERENCES external_students(id) ON DELETE CASCADE;
 
 -- Add check constraint for student_exams
