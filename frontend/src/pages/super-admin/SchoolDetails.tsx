@@ -27,6 +27,7 @@ export default function SchoolDetails() {
   const [creditAmount, setCreditAmount] = useState('');
   const [creditReason, setCreditReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isToggling, setIsToggling] = useState(false);
   const [subForm, setSubForm] = useState({ plan_type: '', billing_cycle: '', status: '' });
   const [overrides, setOverrides] = useState<Record<string, boolean>>({});
 
@@ -117,14 +118,19 @@ export default function SchoolDetails() {
   };
 
   const handleStatusToggle = async () => {
-    if (!id || !data) return;
-    const newStatus = !data.school.is_active;
+    if (!id || !data || isToggling) return;
+    const isCurrentlyActive = data.school.is_active;
+    const newStatus = !isCurrentlyActive; // what we WANT it to become
+    setIsToggling(true);
     try {
+      // suspended=true means suspend, suspended=false means activate
       await superAdminAPI.suspendSchool(id, !newStatus, 'Updated via management portal');
-      toast.success(`School ${newStatus ? 'activated' : 'suspended'}`);
-      loadDetails();
+      toast.success(`School ${newStatus ? 'activated' : 'suspended'} successfully`);
+      await loadDetails(); // await so the button state updates in correct order
     } catch {
-      toast.error('Failed to update status');
+      toast.error('Failed to update school status');
+    } finally {
+      setIsToggling(false);
     }
   };
 
@@ -205,10 +211,15 @@ export default function SchoolDetails() {
             variant={school.is_active ? "destructive" : "default"}
             size="sm"
             onClick={handleStatusToggle}
+            disabled={isToggling}
             className={`h-9 ${school.is_active ? '' : 'bg-emerald-600 hover:bg-emerald-700'}`}
           >
-            {school.is_active ? <ShieldAlert className="h-4 w-4 mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
-            {school.is_active ? 'Suspend School' : 'Activate School'}
+            {isToggling ? (
+              <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            ) : (
+              school.is_active ? <ShieldAlert className="h-4 w-4 mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />
+            )}
+            {isToggling ? 'Updating...' : (school.is_active ? 'Suspend School' : 'Activate School')}
           </Button>
         </div>
       </div>
