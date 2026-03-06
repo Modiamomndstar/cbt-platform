@@ -145,7 +145,7 @@ router.get('/audit-log', async (req, res, next) => {
     const result = await db.query(
       `SELECT id, created_at, action, user_type, ip_address,
               COALESCE(actor_name, 'System') as actor_name,
-              COALESCE(target_type, resource_type, 'unknown') as target_type,
+              COALESCE(target_type, 'unknown') as target_type,
               COALESCE(target_name, 'unknown') as target_name
        FROM activity_logs
        WHERE user_type IN ('super_admin', 'staff')
