@@ -1,4 +1,4 @@
-mycbtplatform.duckdns.org {
+mycbtplatform.cc {
     # Reverse Proxy for Backend API
     handle /api/* {
         reverse_proxy backend:5000

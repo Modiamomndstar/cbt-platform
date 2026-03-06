@@ -6,9 +6,9 @@ if (process.env.RESEND_API_KEY) {
   resend = new Resend(process.env.RESEND_API_KEY);
 }
 
-const FROM = process.env.EMAIL_FROM || 'CBT Platform <noreply@mycbtplatform.duckdns.org>';
+const FROM = process.env.EMAIL_FROM || 'CBT Platform <noreply@mycbtplatform.cc>';
 const PLATFORM_NAME = 'CBT Platform';
-const PLATFORM_URL = process.env.FRONTEND_URL || 'https://mycbtplatform.duckdns.org';
+const PLATFORM_URL = process.env.FRONTEND_URL || 'https://mycbtplatform.cc';
 
 // Base HTML wrapper for all emails
 const emailLayout = (content: string) => `
@@ -150,7 +150,7 @@ import { paygService } from './paygService';
 // ... (previous layout and helper code remains same)
 
 /**
- * Exam credentials for students. 
+ * Exam credentials for students.
  * Charges 1 credit per recipient (via bulk_email_batch and batch_size=10 in service).
  */
 export const sendExamCredentials = async (
@@ -206,7 +206,7 @@ export const sendStudentPortalCredentialsEmail = async (
   const canSend = await paygService.shouldSendEmail(schoolId);
   if (!canSend) {
     console.warn(`[PAYG] Skipped portal credentials to ${studentEmail} - Insufficient credits for school ${schoolId}`);
-    return false; 
+    return false;
   }
 
   const html = emailLayout(`

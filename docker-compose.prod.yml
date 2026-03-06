@@ -27,7 +27,7 @@ services:
       DB_NAME: ${DB_NAME}
       JWT_SECRET: ${JWT_SECRET}
       NODE_ENV: production
-      FRONTEND_URL: ${FRONTEND_URL:-https://mycbtplatform.duckdns.org}
+      FRONTEND_URL: ${FRONTEND_URL:-https://mycbtplatform.cc}
     env_file:
       - .env.production
     depends_on:
