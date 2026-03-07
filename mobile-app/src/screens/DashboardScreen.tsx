@@ -10,11 +10,12 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { analyticsAPI, scheduleAPI } from '../services/api';
+import BroadcastModal from '../components/BroadcastModal';
 
 export default function DashboardScreen({ navigation }: any) {
   const { user, logout } = useAuth();
   const { colors, spacing, fontSize } = useTheme();
-  
+
   const [stats, setStats] = useState<any>(null);
   const [upcomingExams, setUpcomingExams] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -236,6 +237,7 @@ export default function DashboardScreen({ navigation }: any) {
           ))
         )}
       </View>
+      <BroadcastModal />
     </ScrollView>
   );
 }
