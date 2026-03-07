@@ -4,6 +4,7 @@ import { authenticate, authorize } from "../middleware/auth";
 import { ApiResponseHandler } from "../utils/apiResponse";
 import Stripe from "stripe";
 import axios from "axios";
+import crypto from "crypto";
 import { getPaginationOptions, formatPaginationResponse } from "../utils/pagination";
 
 
@@ -656,5 +657,87 @@ router.get(
     }
   },
 );
+
+// Paystack Webhook Handler
+router.post("/paystack/webhook", async (req: Request, res: Response) => {
+  try {
+    const hash = crypto.createHmac('sha512', PAYSTACK_SECRET_KEY!).update(JSON.stringify(req.body)).digest('hex');
+    if (hash !== req.headers['x-paystack-signature']) {
+      return res.status(400).send('Invalid signature');
+    }
+
+    const event = req.body;
+    if (event.event === 'charge.success') {
+      const { metadata, amount, currency, reference } = event.data;
+      const { schoolId, planType, type, credits, billingCycle } = metadata;
+
+      // Check if already processed (idempotency)
+      const existingPayment = await db.query("SELECT id FROM payments WHERE provider_payment_id = $1", [reference]);
+      if (existingPayment.rows.length > 0) {
+        return res.status(200).send('Event already processed');
+      }
+
+      if (type === 'credits') {
+        const creditAmount = parseInt(credits);
+        await db.query("UPDATE payg_wallets SET balance_credits = balance_credits + $1, updated_at = NOW() WHERE school_id = $2", [creditAmount, schoolId]);
+        await db.query(
+          `INSERT INTO payments (school_id, amount, currency, provider, provider_payment_id, status, metadata, paid_at)
+           VALUES ($1, $2, $3, 'paystack', $4, 'completed', $5, NOW())`,
+          [schoolId, amount / 100, currency, reference, JSON.stringify(metadata)]
+        );
+        await db.query(
+          `INSERT INTO payg_ledger (school_id, type, credits, balance_after, description)
+           VALUES ($1, 'topup', $2, (SELECT balance_credits FROM payg_wallets WHERE school_id = $1), $3)`,
+          [schoolId, creditAmount, `Wallet top-up via Paystack Webhook (${creditAmount} credits)`]
+        );
+      } else {
+        // Plan Upgrade
+        const planResult = await db.query("SELECT * FROM plan_definitions WHERE plan_type = $1", [planType]);
+        if (planResult.rows.length > 0) {
+          const durationMonths = billingCycle === 'yearly' ? 12 : 1;
+          const startDate = new Date();
+          const endDate = new Date();
+          endDate.setMonth(endDate.getMonth() + durationMonths);
+
+          await db.query(
+            `INSERT INTO payments (school_id, amount, currency, provider, provider_payment_id, status, plan_type, plan_duration_months, paid_at)
+             VALUES ($1, $2, $3, 'paystack', $4, 'completed', $5, $6, NOW())`,
+            [schoolId, amount / 100, currency, reference, planType, durationMonths]
+          );
+
+          await db.query(
+            `INSERT INTO school_subscriptions (school_id, plan_type, status, billing_cycle, current_period_start, current_period_end)
+             VALUES ($1, $2, 'active', $3, $4, $5)
+             ON CONFLICT (school_id) DO UPDATE
+             SET plan_type = $2, status = 'active', billing_cycle = $3,
+                 current_period_start = $4, current_period_end = $5, updated_at = NOW()`,
+            [schoolId, planType, billingCycle, startDate, endDate]
+          );
+
+          // Referral reward
+          const schoolRefRes = await db.query("SELECT referred_by_id FROM schools WHERE id = $1 AND referral_reward_granted = false", [schoolId]);
+          if (schoolRefRes.rows.length > 0 && schoolRefRes.rows[0].referred_by_id) {
+            const referrerId = schoolRefRes.rows[0].referred_by_id;
+            const rewardRes = await db.query("SELECT value FROM settings WHERE key = 'referral_reward_credits'");
+            const rewardAmount = parseInt(rewardRes.rows[0]?.value || '100');
+            if (rewardAmount > 0) {
+              await db.query("UPDATE payg_wallets SET balance_credits = balance_credits + $1 WHERE school_id = $2", [rewardAmount, referrerId]);
+              await db.query(
+                `INSERT INTO payg_ledger (school_id, type, credits, balance_after, description)
+                 VALUES ($1, 'referral_reward', $2, (SELECT balance_credits FROM payg_wallets WHERE school_id = $1), $3)`,
+                [referrerId, rewardAmount, `Reward for referring a school that upgraded via Paystack Webhook`]
+              );
+              await db.query("UPDATE schools SET referral_reward_granted = true WHERE id = $1", [schoolId]);
+            }
+          }
+        }
+      }
+    }
+    res.status(200).send('Webhook processed');
+  } catch (error) {
+    console.error("Paystack webhook error:", error);
+    res.status(500).send('Internal Server Error');
+  }
+});
 
 export default router;
