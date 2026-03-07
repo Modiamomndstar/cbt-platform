@@ -122,8 +122,6 @@ export default function SchoolDetails() {
     const isCurrentlyActive = data.school.isActive;
     setIsToggling(true);
     try {
-      // Pass suspended=true to suspend, suspended=false to activate
-      // If currently active, we WANT to suspend (true).
       await superAdminAPI.suspendSchool(id, !!isCurrentlyActive, 'Updated via management portal');
       toast.success(`School ${isCurrentlyActive ? 'suspended' : 'activated'} successfully`);
       await loadDetails();
@@ -131,6 +129,26 @@ export default function SchoolDetails() {
       toast.error('Failed to update school status');
     } finally {
       setIsToggling(false);
+    }
+  };
+
+  const handleVerifyEmailToggle = async () => {
+    if (!id || !data || isProcessing) return;
+    const isVerified = data.school.isEmailVerified;
+    setIsProcessing(true);
+    try {
+      if (isVerified) {
+        await superAdminAPI.unverifySchoolEmail(id);
+        toast.success('Email verification status revoked');
+      } else {
+        await superAdminAPI.verifySchoolEmail(id);
+        toast.success('Email manually verified');
+      }
+      await loadDetails();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to update verification status');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -169,6 +187,10 @@ export default function SchoolDetails() {
           return `Initial registration on ${details.plan_type} plan`;
         case 'tutor_created':
           return `Created staff account: ${details.username} (${details.email || 'no email'})`;
+        case 'email_manually_verified':
+          return `Email manually verified by Super Admin (${details.email || ''})`;
+        case 'email_verification_revoked':
+          return `Email verification revoked – account reset to unverified status`;
         default:
           return JSON.stringify(details);
       }
@@ -207,7 +229,7 @@ export default function SchoolDetails() {
 
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => window.open(`mailto:${school.email}`)} className="h-9">
+          <Button variant="outline" size="sm" onClick={() => window.location.href = `mailto:${school.email}`} className="h-9">
             <Mail className="h-4 w-4 mr-2" /> Contact Admin
           </Button>
           <Button
@@ -223,6 +245,21 @@ export default function SchoolDetails() {
               school.isActive ? <ShieldAlert className="h-4 w-4 mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />
             )}
             {isToggling ? 'Updating...' : (school.isActive ? 'Suspend School' : 'Activate School')}
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleVerifyEmailToggle}
+            disabled={isProcessing}
+            className={`h-9 ${!school.isEmailVerified ? 'border-amber-200 text-amber-700 hover:bg-amber-50' : 'border-indigo-200 text-indigo-700 hover:bg-indigo-50'}`}
+          >
+            {isProcessing ? (
+              <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            ) : (
+              school.isEmailVerified ? <ShieldCheck className="h-4 w-4 mr-2" /> : <ShieldAlert className="h-4 w-4 mr-2" />
+            )}
+            {school.isEmailVerified ? 'Revoke Verification' : 'Verify Email Manually'}
           </Button>
         </div>
       </div>

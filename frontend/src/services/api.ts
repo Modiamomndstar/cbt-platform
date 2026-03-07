@@ -79,6 +79,7 @@ export const authAPI = {
     api.post("/auth/change-password", { currentPassword, newPassword }),
 
   verifyEmail: (token: string) => api.post("/auth/verify-email", { token }),
+  resendVerification: (username: string) => api.post("/auth/resend-verification", { username }),
 };
 
 // School API
@@ -414,6 +415,10 @@ export const superAdminAPI = {
     api.post(`/super-admin/schools/${id}/feature-overrides`, { overrides }),
   extendTrial: (schoolId: string, days: number) =>
     api.post(`/super-admin/schools/${schoolId}/extend-trial`, { days }),
+  verifySchoolEmail: (schoolId: string) =>
+    api.post(`/super-admin/schools/${schoolId}/verify-email`),
+  unverifySchoolEmail: (schoolId: string) =>
+    api.post(`/super-admin/schools/${schoolId}/unverify-email`),
 
   // Coupons
   getCoupons: () => api.get("/super-admin/coupons"),
@@ -479,8 +484,9 @@ export const messagesAPI = {
   sendMessage: (data: { receiverId: string; receiverRole: string; content: string }) =>
     api.post("/messages/send", data),
   markAsRead: (id: string) => api.patch(`/messages/read/${id}`),
-  broadcast: (data: { role: string; title: string; content: string }) =>
-    api.post("/messages/broadcast", data),
+  broadcast: (data: any) => api.post("/messages/broadcast", data),
+  getLatestBroadcast: () => api.get("/messages/latest-broadcast"),
+  markBroadcastAsViewed: (id: string) => api.post(`/messages/broadcasts/${id}/view`),
 };
 
 export default api;

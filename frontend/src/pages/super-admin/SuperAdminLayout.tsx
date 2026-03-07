@@ -20,6 +20,7 @@ import {
   User
 } from 'lucide-react';
 import { useState } from 'react';
+import { BroadcastAlert } from '@/components/BroadcastAlert';
 
 export default function SuperAdminLayout() {
   const navigate = useNavigate();
@@ -167,6 +168,7 @@ export default function SuperAdminLayout() {
           <Outlet />
         </div>
       </main>
+      <BroadcastAlert />
     </div>
   );
 }

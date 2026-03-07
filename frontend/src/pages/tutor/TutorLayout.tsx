@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { useMessages } from '@/hooks/useMessages';
+import { BroadcastAlert } from '@/components/BroadcastAlert';
 
 export default function TutorLayout() {
   const navigate = useNavigate();
@@ -216,6 +217,7 @@ export default function TutorLayout() {
         onClose={() => setLockModal({ ...lockModal, open: false })}
         featureName={lockModal.feature}
       />
+      <BroadcastAlert />
     </div>
   );
 }

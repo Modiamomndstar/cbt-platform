@@ -201,4 +201,49 @@ router.post("/broadcast", authenticate, authorize("super_admin", "school"), asyn
   }
 });
 
+// Get latest unread broadcast for modal alert
+router.get("/latest-broadcast", authenticate, async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+
+    // Find latest broadcast matching user that hasn't been viewed
+    const result = await db.query(
+      `SELECT b.*, 'System' as sender_name
+       FROM inbox_broadcasts b
+       LEFT JOIN broadcast_views bv ON b.id = bv.broadcast_id AND bv.user_id = $1
+       WHERE (b.target_role IS NULL OR b.target_role = $2)
+         AND (b.target_school_id IS NULL OR b.target_school_id = $3)
+         AND bv.id IS NULL
+       ORDER BY b.created_at DESC
+       LIMIT 1`,
+      [user.id, user.role, user.schoolId || user.id]
+    );
+
+    ApiResponseHandler.success(res, result.rows[0] || null);
+  } catch (error) {
+    console.error("Latest broadcast error:", error);
+    ApiResponseHandler.serverError(res, "Failed to fetch latest broadcast");
+  }
+});
+
+// Mark broadcast as viewed (for modal)
+router.post("/broadcasts/:id/view", authenticate, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const user = req.user!;
+
+    await db.query(
+      `INSERT INTO broadcast_views (user_id, broadcast_id)
+       VALUES ($1, $2)
+       ON CONFLICT (user_id, broadcast_id) DO NOTHING`,
+      [user.id, id]
+    );
+
+    ApiResponseHandler.success(res, null, "Broadcast marked as viewed");
+  } catch (error) {
+    console.error("View broadcast error:", error);
+    ApiResponseHandler.serverError(res, "Failed to mark broadcast as viewed");
+  }
+});
+
 export default router;

@@ -18,6 +18,7 @@ import { useState } from 'react';
 import { usePlan } from '@/hooks/usePlan';
 import { useMessages } from '@/hooks/useMessages';
 import { FeatureLockedModal, FeatureLockBadge } from '@/components/common/FeatureLock';
+import { BroadcastAlert } from '@/components/BroadcastAlert';
 
 export default function StudentLayout() {
   const navigate = useNavigate();
@@ -192,6 +193,7 @@ export default function StudentLayout() {
         featureName={lockedFeature}
         description={`${lockedFeature} is available on our Advanced and Enterprise plans. Ask your school administrator to upgrade to unlock this feature for all students.`}
       />
+      <BroadcastAlert />
     </div>
   );
 }

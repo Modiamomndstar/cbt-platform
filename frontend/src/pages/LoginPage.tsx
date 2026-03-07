@@ -7,8 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/useAuth';
-import { GraduationCap, School, Users, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { GraduationCap, School, Users, ArrowLeft, Eye, EyeOff, Mail } from 'lucide-react';
 import type { UserRole } from '@/types';
+import { authAPI } from '@/services/api';
+import { toast } from 'sonner';
+import { useEffect } from 'react';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -24,6 +27,34 @@ export default function LoginPage() {
   const [tutorUsername, setTutorUsername] = useState('');
   const [tutorPassword, setTutorPassword] = useState('');
   const [tutorSchoolId, setTutorSchoolId] = useState('');
+  const [isResending, setIsResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    let timer: any;
+    if (resendCooldown > 0) {
+      timer = setInterval(() => {
+        setResendCooldown(prev => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  const handleResendLink = async () => {
+    if (!schoolUsername || isResending || resendCooldown > 0) return;
+    setIsResending(true);
+    try {
+      const res = await authAPI.resendVerification(schoolUsername);
+      if (res.data.success) {
+        toast.success(res.data.message || 'Verification email sent!');
+        setResendCooldown(60); // 1 minute UI cooldown
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to resend email');
+    } finally {
+      setIsResending(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,7 +140,25 @@ export default function LoginPage() {
 
               {error && (
                 <Alert variant="destructive" className="mt-4">
-                  <AlertDescription>{error}</AlertDescription>
+                  <AlertDescription className="space-y-3">
+                    <p>{error}</p>
+                    {error.includes('verify your email') && activeTab === 'school_admin' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-xs bg-white text-red-600 hover:bg-red-50 border-red-200"
+                        onClick={handleResendLink}
+                        disabled={isResending || resendCooldown > 0}
+                      >
+                        {isResending ? (
+                          <div className="h-3 w-3 mr-2 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+                        ) : (
+                          <Mail className="h-3 w-4 mr-2" />
+                        )}
+                        {resendCooldown > 0 ? `Resend again in ${resendCooldown}s` : 'Resend Verification Link'}
+                      </Button>
+                    )}
+                  </AlertDescription>
                 </Alert>
               )}
 

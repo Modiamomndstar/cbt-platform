@@ -21,6 +21,7 @@ import {
 import { useState, useEffect } from 'react';
 import { schoolAPI } from '@/services/api';
 import { useMessages } from '@/hooks/useMessages';
+import { BroadcastAlert } from '@/components/BroadcastAlert';
 
 export default function SchoolAdminLayout() {
   const navigate = useNavigate();
@@ -231,6 +232,7 @@ export default function SchoolAdminLayout() {
         onClose={() => setLockModal({ ...lockModal, open: false })}
         featureName={lockModal.feature}
       />
+      <BroadcastAlert />
     </div>
   );
 }
