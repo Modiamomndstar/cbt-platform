@@ -7,6 +7,7 @@ import { ApiResponseHandler } from '../utils/apiResponse';
 import { sendWelcomeEmail, sendTrialStartEmail } from '../services/email';
 import { financeService } from '../services/financeService';
 import { paygService } from '../services/paygService';
+import crypto from 'crypto';
 
 const router = Router();
 const validate = (req: any, res: any, next: any) => {
