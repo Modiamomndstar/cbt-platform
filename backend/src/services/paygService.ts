@@ -8,6 +8,7 @@ export interface MarketplaceItem {
   description?: string;
   category: string;
   is_active: boolean;
+  batch_size: number;
 }
 
 /**
@@ -42,17 +43,15 @@ export const paygService = {
 
       // 1. Get pricing
       const pricingRes = await client.query(
-        'SELECT credit_cost, display_name FROM marketplace_items WHERE feature_key = $1',
+        'SELECT credit_cost, display_name, batch_size FROM marketplace_items WHERE feature_key = $1',
         [featureKey]
       );
       if (pricingRes.rows.length === 0) {
         throw new Error(`Pricing not found for feature: ${featureKey}`);
       }
-      const { credit_cost, display_name } = pricingRes.rows[0];
+      const { credit_cost, display_name, batch_size = 1 } = pricingRes.rows[0];
 
       // 2. Calculate required credits
-      // Legacy batch_size support (default to 1 since new schema doesn't have it explicitly as a col yet, will be 1 for items)
-      const batch_size = 1;
       const batches = Math.ceil(itemCount / batch_size);
       const totalRequired = batches * credit_cost;
 

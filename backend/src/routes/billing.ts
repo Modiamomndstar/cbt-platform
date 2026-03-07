@@ -72,12 +72,12 @@ router.post('/marketplace/purchase', authenticate, authorize('school'), [
           'UPDATE school_subscriptions SET purchased_tutor_slots = purchased_tutor_slots + $1 WHERE school_id = $2',
           [quantity, schoolId]
         );
-      } else if (featureKey === 'extra_student_batch') {
+      } else if (featureKey === 'extra_student_pack') {
         await db.query(
           'UPDATE school_subscriptions SET purchased_student_slots = purchased_student_slots + ($1 * $2) WHERE school_id = $3',
           [quantity, p.batch_size, schoolId]
         );
-      } else if (featureKey === 'ai_query_pack') {
+      } else if (featureKey === 'ai_credits_10' || featureKey === 'ai_credits_50') {
         // AI packs are consumable but tracked in sub to persist across months until used?
         // User said "if you dont use it you dont get charge" but packs are usually pre-paid credits.
         // We'll add them to a monthly limit that superseeds plan limit.
