@@ -58,13 +58,15 @@ export function BroadcastAlert() {
           </div>
           <DialogTitle className="text-xl font-bold">{broadcast.title}</DialogTitle>
           <DialogDescription className="text-sm text-gray-500">
-            Posted on {new Date(broadcast.created_at).toLocaleDateString('en-NG', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })}
+            {broadcast.created_at ? (
+              `Posted on ${new Date(broadcast.created_at).toLocaleDateString('en-NG', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })}`
+            ) : (
+              'New Announcement'
+            )}
           </DialogDescription>
         </DialogHeader>
 
