@@ -8,7 +8,7 @@ import {
   DollarSign, Zap, Tag,
   RefreshCw, Save, Plus, ToggleLeft, ToggleRight,
   Pencil, Check, X, ShoppingBag, Settings as SettingsIcon,
-  ShieldCheck, Eye, EyeOff, AlertCircle, History, ExternalLink,
+  ShieldCheck, History, ExternalLink,
   CheckCircle2, XCircle
 } from 'lucide-react';
 import {
@@ -677,7 +677,6 @@ function SubscriptionSettings() {
   const discountActive = settings.find(s => s.key === 'yearly_discount_active');
   const usdtAddress = settings.find(s => s.key === 'usdt_trc20_address');
   const creditPriceUsd = settings.find(s => s.key === 'payg_credit_price_usd');
-  const creditPriceNgn = settings.find(s => s.key === 'payg_credit_price_ngn');
 
   return (
     <div className="space-y-6">
@@ -807,13 +806,11 @@ export default function MonetizationPage() {
   const [flags, setFlags] = useState<FeatureFlag[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [marketplace, setMarketplace] = useState<MarketplaceItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'plans' | 'features' | 'coupons' | 'marketplace' | 'settings' | 'payments'>('plans');
 
   useEffect(() => { loadAll(); }, []);
 
   const loadAll = async () => {
-    setLoading(true);
     try {
       const [plansRes, flagsRes, couponsRes, marketplaceRes] = await Promise.allSettled([
         superAdminAPI.getPlans(),
@@ -832,8 +829,6 @@ export default function MonetizationPage() {
       if (marketplaceRes.status === 'fulfilled' && marketplaceRes.value.data.success) setMarketplace(marketplaceRes.value.data.data || []);
     } catch (err) {
       toast.error('Failed to load monetization data');
-    } finally {
-      setLoading(false);
     }
   };
 
