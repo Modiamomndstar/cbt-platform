@@ -135,6 +135,7 @@ export default function SchoolRegistrationPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (step < 3) return;
     setIsLoading(true);
     setError('');
 
@@ -426,7 +427,15 @@ export default function SchoolRegistrationPage() {
                 </Button>
               </div>
             ) : (
-              <form onSubmit={handleSubmit}>
+              <form
+                onSubmit={handleSubmit}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && step < 3) {
+                    e.preventDefault();
+                    handleNext();
+                  }
+                }}
+              >
                 {step === 1 && renderStep1()}
                 {step === 2 && renderStep2()}
                 {step === 3 && renderStep3()}

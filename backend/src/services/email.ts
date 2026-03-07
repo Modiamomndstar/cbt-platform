@@ -49,14 +49,17 @@ const emailLayout = (content: string) => `
 const sendEmail = async (to: string, subject: string, html: string): Promise<boolean> => {
   try {
     if (resend) {
-      await resend.emails.send({ from: FROM, to, subject, html });
+      console.log(`[EmailService] Sending via Resend to: ${to} | Subject: ${subject}`);
+      const result = await resend.emails.send({ from: FROM, to, subject, html });
+      console.log(`[EmailService] Resend result:`, result);
       return true;
     }
     // Fallback: log to console (dev/no-config)
     console.log(`\n📧 EMAIL (no Resend configured)\nTo: ${to}\nSubject: ${subject}\n`);
+    console.warn(`[EmailService] RESEND_API_KEY is not set. Email was not sent to third-party provider.`);
     return true;
   } catch (error) {
-    console.error('Failed to send email:', error);
+    console.error('[EmailService] Failed to send email:', error);
     return false;
   }
 };
