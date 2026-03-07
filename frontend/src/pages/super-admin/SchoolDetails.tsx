@@ -120,13 +120,12 @@ export default function SchoolDetails() {
   const handleStatusToggle = async () => {
     if (!id || !data || isToggling) return;
     const isCurrentlyActive = data.school.is_active;
-    const newStatus = !isCurrentlyActive; // what we WANT it to become
     setIsToggling(true);
     try {
-      // suspended=true means suspend, suspended=false means activate
-      await superAdminAPI.suspendSchool(id, !newStatus, 'Updated via management portal');
-      toast.success(`School ${newStatus ? 'activated' : 'suspended'} successfully`);
-      await loadDetails(); // await so the button state updates in correct order
+      // Pass suspended=true to suspend, suspended=false to activate
+      await superAdminAPI.suspendSchool(id, isCurrentlyActive, 'Updated via management portal');
+      toast.success(`School ${isCurrentlyActive ? 'suspended' : 'activated'} successfully`);
+      await loadDetails();
     } catch {
       toast.error('Failed to update school status');
     } finally {
@@ -389,31 +388,44 @@ export default function SchoolDetails() {
               </CardContent>
             </Card>
 
-            {/* Feature Overrides */}
             <Card className="border-none shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-emerald-600" /> Feature Overrides</CardTitle>
-                <p className="text-xs text-gray-500">Enable specific features for this school regardless of their plan.</p>
+                <p className="text-xs text-gray-500">Enable specific features for this school regardless of their plan. Each toggle only affects that single feature.</p>
               </CardHeader>
               <CardContent className="pt-2">
-                 <div className="space-y-3">
-                    {featureFlags.map((f: any) => (
-                      <div key={f.feature_key} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-gray-50/50 hover:bg-gray-100/50 transition-colors">
+                <div className="space-y-2">
+                  {featureFlags.length === 0 && <p className="text-center py-8 text-gray-400 text-sm">No platform features defined.</p>}
+                  {featureFlags.map((f: any) => {
+                    const isOn = overrides[f.feature_key] === true;
+                    const planLabel = !f.min_plan || f.min_plan === 'freemium' ? 'All plans' : `${f.min_plan}+`;
+                    const PLAN_BADGE: Record<string, string> = {
+                      freemium: 'bg-gray-100 text-gray-500',
+                      basic: 'bg-blue-100 text-blue-700',
+                      advanced: 'bg-purple-100 text-purple-700',
+                      enterprise: 'bg-amber-100 text-amber-700',
+                    };
+                    const badgeClass = PLAN_BADGE[f.min_plan] ?? 'bg-gray-100 text-gray-500';
+                    return (
+                      <div key={f.feature_key} className={`flex items-start justify-between p-3 rounded-lg border transition-colors ${
+                        isOn ? 'border-emerald-200 bg-emerald-50/50' : 'border-gray-100 bg-gray-50/50 hover:bg-gray-100/50'
+                      }`}>
                         <div className="flex-1 min-w-0 mr-3">
-                           <p className="text-sm font-semibold text-gray-900 truncate">{f.feature_name}</p>
-                           <p className="text-[10px] text-gray-500 mt-0.5">
-                              Min plan: <span className="font-bold uppercase text-indigo-600">{f.min_plan && f.min_plan !== 'any' ? f.min_plan : 'All Plans'}</span>
-                              {overrides[f.feature_key] && <span className="ml-2 text-emerald-600 font-bold">• Override ON</span>}
-                            </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-semibold text-gray-900">{f.feature_name || f.feature_key}</p>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeClass}`}>{planLabel}</span>
+                            {isOn && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">OVERRIDE ON</span>}
+                          </div>
+                          {f.description && <p className="text-[11px] text-gray-500 mt-0.5">{f.description}</p>}
                         </div>
                         <Switch
-                          checked={overrides[f.feature_key] || false}
+                          checked={isOn}
                           onCheckedChange={(checked) => handleToggleFeature(f.feature_key, checked)}
                         />
                       </div>
-                    ))}
-                    {featureFlags.length === 0 && <p className="text-center py-8 text-gray-400 text-sm">No platform features defined.</p>}
-                 </div>
+                    );
+                  })}
+                </div>
               </CardContent>
             </Card>
           </div>

@@ -135,10 +135,12 @@ router.post('/schools/:id/feature-overrides', [
     const { id } = req.params;
     const { overrides } = req.body;
 
+    // UPSERT: insert subscription row if missing, otherwise update override_features
     await db.query(`
-      UPDATE school_subscriptions
-      SET override_features = $1, updated_at = NOW()
-      WHERE school_id = $2
+      INSERT INTO school_subscriptions (school_id, plan_type, status, override_features)
+      VALUES ($2, 'freemium', 'active', $1::jsonb)
+      ON CONFLICT (school_id) DO UPDATE
+      SET override_features = $1::jsonb, updated_at = NOW()
     `, [JSON.stringify(overrides), id]);
 
     const school = await db.query('SELECT name FROM schools WHERE id = $1', [id]);

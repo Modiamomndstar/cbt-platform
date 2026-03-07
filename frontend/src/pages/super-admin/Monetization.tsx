@@ -191,7 +191,7 @@ function FeatureFlagsPanel({ flags, onUpdate }: { flags: FeatureFlag[]; onUpdate
   const toggle = async (f: FeatureFlag) => {
     try {
       await superAdminAPI.updateFeatureFlag(f.feature_key, { isEnabled: !f.is_enabled });
-      toast.success(`Feature "${f.display_name}" ${!f.is_enabled ? 'enabled' : 'disabled'}`);
+      toast.success(`Feature "${f.feature_name}" ${!f.is_enabled ? 'enabled' : 'disabled'}`);
       onUpdate();
     } catch {
       toast.error('Failed to update feature flag');
@@ -212,7 +212,7 @@ function FeatureFlagsPanel({ flags, onUpdate }: { flags: FeatureFlag[]; onUpdate
           {flags.map((f) => (
             <div key={f.feature_key} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
               <div className="flex-1 pr-4">
-                <p className="text-sm font-medium text-gray-800">{f.feature_name || f.display_name}</p>
+                <p className="text-sm font-medium text-gray-800">{f.feature_name}</p>
                 <p className="text-xs text-gray-500">{f.description}</p>
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium mt-1 inline-block ${PLAN_COLORS[f.min_plan] ?? 'bg-gray-100 text-gray-500'}`}>
                   {!f.min_plan || f.min_plan === 'freemium' ? 'All plans' : `${f.min_plan}+`}
