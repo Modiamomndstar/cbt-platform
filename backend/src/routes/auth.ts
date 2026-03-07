@@ -6,6 +6,8 @@ import { generateToken, authenticate } from "../middleware/auth";
 import { logger } from "../utils/logger";
 import { ApiResponseHandler } from "../utils/apiResponse";
 import { validate } from "../middleware/validation";
+import crypto from "crypto";
+import { sendVerificationEmail } from "../services/email";
 
 const router = Router();
 
@@ -137,6 +139,70 @@ router.post(
       );
 
       ApiResponseHandler.success(res, null, "Email verified successfully! Your account is now active. You can log in.");
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * @route   POST /api/auth/resend-verification
+ * @desc    Resend verification email with rate limiting
+ * @access  Public
+ */
+router.post(
+  "/resend-verification",
+  [
+    body("username").trim().notEmpty().withMessage("Username is required"),
+    validate,
+  ],
+  async (req, res, next) => {
+    try {
+      const { username } = req.body;
+
+      // Find school by username
+      const result = await db.query(
+        "SELECT id, name, email, is_email_verified, verification_resent_at FROM schools WHERE username = $1",
+        [username]
+      );
+
+      if (result.rows.length === 0) {
+        return ApiResponseHandler.notFound(res, "Account not found.");
+      }
+
+      const school = result.rows[0];
+
+      if (school.is_email_verified) {
+        return ApiResponseHandler.badRequest(res, "Email is already verified. Please log in.");
+      }
+
+      // Rate limiting: 5 minute cooldown
+      const COOLDOWN_MINUTES = 5;
+      const lastSent = school.verification_resent_at;
+
+      if (lastSent) {
+        const lastSentDate = new Date(lastSent);
+        const now = new Date();
+        const diffMs = now.getTime() - lastSentDate.getTime();
+        const diffMins = diffMs / (1000 * 60);
+
+        if (diffMins < COOLDOWN_MINUTES) {
+          const waitMins = Math.ceil(COOLDOWN_MINUTES - diffMins);
+          return ApiResponseHandler.error(res, `Please wait ${waitMins} minute(s) before requesting another email.`, 429, 'RATE_LIMIT_EXCEEDED');
+        }
+      }
+
+      // Generate new token and update timestamp
+      const token = crypto.randomBytes(32).toString("hex");
+      await db.query(
+        "UPDATE schools SET email_verification_token = $1, verification_resent_at = NOW(), updated_at = NOW() WHERE id = $2",
+        [token, school.id]
+      );
+
+      // Send email
+      await sendVerificationEmail(school.email, school.name, token);
+
+      ApiResponseHandler.success(res, null, "Verification email resent successfully. Please check your inbox.");
     } catch (error) {
       next(error);
     }
