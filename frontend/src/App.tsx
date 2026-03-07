@@ -29,6 +29,7 @@ import SchoolSettingsPage from '@/pages/school-admin/SchoolSettings';
 import SchoolQuestions from '@/pages/school-admin/Questions';
 import SchoolSchedules from '@/pages/school-admin/Schedules';
 import SchoolResults from '@/pages/school-admin/Results';
+import CheckoutPage from '@/pages/school-admin/CheckoutPage';
 
 // Tutor Pages
 import TutorLayout from '@/pages/tutor/TutorLayout';
@@ -126,6 +127,7 @@ function AppRoutes() {
         <Route path="schedules" element={<SchoolSchedules />} />
         <Route path="schedules-by-exam/:examId" element={<ScheduleExam />} />
         <Route path="results" element={<SchoolResults />} />
+        <Route path="checkout" element={<CheckoutPage />} />
       </Route>
 
       {/* Tutor Routes */}

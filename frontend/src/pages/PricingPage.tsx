@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { billingAPI } from '@/services/api';
 import {
@@ -60,6 +61,7 @@ const DEFAULT_PLAN_ASSETS: Record<string, any> = {
 
 export default function PricingPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [currency, setCurrency] = useState<'NGN' | 'USD'>('NGN');
@@ -248,7 +250,13 @@ export default function PricingPage() {
 
                 <div className="p-8 bg-slate-50 rounded-b-2xl border-t border-slate-100">
                   <Button
-                    onClick={() => navigate('/register-school')}
+                    onClick={() => {
+                      if (user?.role === 'school_admin') {
+                        navigate(`/school-admin/checkout?type=upgrade&planType=${plan.planType}&cycle=${billingCycle}`);
+                      } else {
+                        navigate('/register-school');
+                      }
+                    }}
                     variant={assets.buttonVariant}
                     className="w-full h-12 text-base font-bold rounded-xl shadow-sm"
                   >

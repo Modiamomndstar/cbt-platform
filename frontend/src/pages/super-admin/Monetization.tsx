@@ -7,8 +7,18 @@ import { toast } from 'sonner';
 import {
   DollarSign, Zap, Tag,
   RefreshCw, Save, Plus, ToggleLeft, ToggleRight,
-  Pencil, Check, X, ShoppingBag, Settings as SettingsIcon
+  Pencil, Check, X, ShoppingBag, Settings as SettingsIcon,
+  ShieldCheck, Eye, EyeOff, AlertCircle, History, ExternalLink,
+  CheckCircle2, XCircle
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // ─── Types ───────────────────────────────────────────────────
 interface Plan {
@@ -488,17 +498,139 @@ function MarketplacePricingPanel({ items, onUpdate }: { items: MarketplaceItem[]
   );
 }
 
+// ─── Pending Payments Panel ─────────────────────────────────────
+function PendingPaymentsPanel() {
+  const [payments, setPayments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState<string | null>(null);
+
+  useEffect(() => { loadPayments(); }, []);
+
+  const loadPayments = async () => {
+    try {
+      const res = await superAdminAPI.getPendingPayments();
+      if (res.data.success) setPayments(res.data.data);
+    } catch {
+      toast.error('Failed to load pending payments');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerify = async (id: string, status: 'completed' | 'failed') => {
+    const adminNotes = prompt(`Enter ${status} notes (optional):`) || '';
+    setProcessing(id);
+    try {
+      await superAdminAPI.verifyPayment(id, { status, adminNotes });
+      toast.success(`Payment marked as ${status}`);
+      loadPayments();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Verification failed');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  if (loading) return <div className="h-32 flex items-center justify-center"><RefreshCw className="animate-spin text-gray-400" /></div>;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-bold flex items-center gap-2">
+          <History className="h-4 w-4 text-indigo-500" />
+          Pending Verification
+        </CardTitle>
+        <p className="text-xs text-gray-500">Manual review of Crypto (USDT) and Bank Transfer proofs.</p>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-gray-500 text-[10px] uppercase font-bold tracking-wider">
+              <tr>
+                <th className="px-6 py-3 text-left">School</th>
+                <th className="px-6 py-3 text-left">Amount</th>
+                <th className="px-6 py-3 text-left">Method</th>
+                <th className="px-6 py-3 text-left">TX Hash / Proof</th>
+                <th className="px-6 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {payments.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-gray-400">No pending payments to verify.</td>
+                </tr>
+              )}
+              {payments.map((p) => (
+                <tr key={p.id} className="hover:bg-gray-50/50">
+                  <td className="px-6 py-4">
+                    <p className="font-bold text-gray-900">{p.school_name}</p>
+                    <p className="text-[10px] text-gray-500">{p.school_email}</p>
+                  </td>
+                  <td className="px-6 py-4">
+                    <p className="font-black text-indigo-700">{p.currency} {p.amount}</p>
+                    <p className="text-[10px] uppercase font-bold text-gray-400">{p.metadata?.type}</p>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">
+                      {p.provider === 'crypto' ? 'USDT' : p.provider}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <code className="text-[10px] bg-gray-100 p-1 rounded font-mono truncate max-w-[120px]">{p.transaction_hash}</code>
+                      {p.proof_attachment_url && (
+                        <a href={p.proof_attachment_url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:text-indigo-800">
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 text-red-600 hover:bg-red-50"
+                        disabled={!!processing}
+                        onClick={() => handleVerify(p.id, 'failed')}
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-8 bg-green-600 hover:bg-green-700"
+                        disabled={!!processing}
+                        onClick={() => handleVerify(p.id, 'completed')}
+                      >
+                        {processing === p.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Subscription Settings Panel ────────────────────────────────
 function SubscriptionSettings() {
   const [settings, setSettings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
 
+  // Secure update dialog
+  const [secureDialogOpen, setSecureDialogOpen] = useState(false);
+  const [secureData, setSecureData] = useState({ key: '', value: '', password: '' });
+
   useEffect(() => { loadSettings(); }, []);
 
   const loadSettings = async () => {
     try {
-      const res = await superAdminAPI.getSettings({ category: 'billing' });
+      const res = await superAdminAPI.getSettings();
       if (res.data.success) setSettings(res.data.data);
     } catch {
       toast.error('Failed to load settings');
@@ -520,64 +652,152 @@ function SubscriptionSettings() {
     }
   };
 
+  const handleSecureUpdate = async () => {
+    if (!secureData.password) {
+        toast.error('Please enter your password to confirm');
+        return;
+    }
+    setSaving(secureData.key);
+    try {
+        await superAdminAPI.updateSettingSecure(secureData);
+        toast.success(`Secure setting ${secureData.key} updated!`);
+        setSecureDialogOpen(false);
+        setSecureData({ key: '', value: '', password: '' });
+        loadSettings();
+    } catch (err: any) {
+        toast.error(err.response?.data?.message || 'Verification failed');
+    } finally {
+        setSaving(null);
+    }
+  };
+
   if (loading) return <div className="h-32 flex items-center justify-center"><RefreshCw className="animate-spin text-gray-400" /></div>;
 
   const discountPercent = settings.find(s => s.key === 'yearly_discount_percentage');
   const discountActive = settings.find(s => s.key === 'yearly_discount_active');
+  const usdtAddress = settings.find(s => s.key === 'usdt_trc20_address');
+  const creditPriceUsd = settings.find(s => s.key === 'payg_credit_price_usd');
+  const creditPriceNgn = settings.find(s => s.key === 'payg_credit_price_ngn');
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <SettingsIcon className="h-4 w-4 text-gray-500" />
-          Subscription Settings
-        </CardTitle>
-        <p className="text-xs text-gray-500">Configure global subscription rules and discounts.</p>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
-          <div>
-            <p className="text-sm font-semibold text-gray-800">Yearly Discount Active</p>
-            <p className="text-xs text-gray-500">Enable or disable discounts for annual billing across all plans.</p>
-          </div>
-          <button
-            onClick={() => handleUpdate('yearly_discount_active', discountActive?.value === 'true' ? 'false' : 'true')}
-            disabled={saving === 'yearly_discount_active'}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${
-              discountActive?.value === 'true' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'
-            }`}
-          >
-            {saving === 'yearly_discount_active' ? <RefreshCw className="h-4 w-4 animate-spin" /> :
-             discountActive?.value === 'true' ? <><ToggleRight className="h-5 w-5" /> ACTIVE</> : <><ToggleLeft className="h-5 w-5" /> INACTIVE</>}
-          </button>
-        </div>
-
-        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
-          <div>
-            <p className="text-sm font-semibold text-gray-800">Yearly Discount Percentage (%)</p>
-            <p className="text-xs text-gray-500">The percentage value to subtract from the total annual price.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              className="w-24 text-center font-bold"
-              value={discountPercent?.value || ''}
-              min="0"
-              max="100"
-              onChange={(e) => setSettings(prev => prev.map(s => s.key === 'yearly_discount_percentage' ? { ...s, value: e.target.value } : s))}
-            />
-            <Button
-              size="sm"
-              className="bg-indigo-600 hover:bg-indigo-700"
-              onClick={() => handleUpdate('yearly_discount_percentage', discountPercent?.value)}
-              disabled={saving === 'yearly_discount_percentage'}
+    <div className="space-y-6">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <SettingsIcon className="h-4 w-4 text-gray-500" />
+            General Billing
+          </CardTitle>
+          <p className="text-xs text-gray-500">Configure global subscription rules and discounts.</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+            <div>
+              <p className="text-sm font-semibold text-gray-800">Yearly Discount Active</p>
+              <p className="text-xs text-gray-500">Enable or disable discounts for annual billing.</p>
+            </div>
+            <button
+              onClick={() => handleUpdate('yearly_discount_active', discountActive?.value === 'true' ? 'false' : 'true')}
+              disabled={saving === 'yearly_discount_active'}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${
+                discountActive?.value === 'true' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'
+              }`}
             >
-              {saving === 'yearly_discount_percentage' ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : 'Apply'}
-            </Button>
+               {discountActive?.value === 'true' ? <ToggleRight className="h-5 w-5" /> : <ToggleLeft className="h-5 w-5" />}
+               {discountActive?.value === 'true' ? 'ACTIVE' : 'INACTIVE'}
+            </button>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
+                <p className="text-sm font-semibold text-gray-800">Yearly Discount (%)</p>
+                <div className="flex items-center gap-2">
+                    <Input
+                        type="number"
+                        value={discountPercent?.value || ''}
+                        onChange={(e) => setSettings(prev => prev.map(s => s.key === 'yearly_discount_percentage' ? { ...s, value: e.target.value } : s))}
+                    />
+                    <Button size="sm" onClick={() => handleUpdate('yearly_discount_percentage', discountPercent?.value)}>Save</Button>
+                </div>
+             </div>
+             <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
+                <p className="text-sm font-semibold text-gray-800">PAYG Credit Price (USD)</p>
+                <div className="flex items-center gap-2">
+                    <Input
+                        type="number" step="0.01"
+                        value={creditPriceUsd?.value || ''}
+                        onChange={(e) => setSettings(prev => prev.map(s => s.key === 'payg_credit_price_usd' ? { ...s, value: e.target.value } : s))}
+                    />
+                    <Button size="sm" onClick={() => handleUpdate('payg_credit_price_usd', creditPriceUsd?.value)}>Save</Button>
+                </div>
+             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-red-100 bg-red-50/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-bold flex items-center gap-2 text-red-900">
+            <ShieldCheck className="h-4 w-4" />
+            High-Security Settings
+          </CardTitle>
+          <p className="text-xs text-red-700">Changing these requires re-authentication. <strong>Protect your wallet.</strong></p>
+        </CardHeader>
+        <CardContent>
+           <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-red-100 shadow-sm">
+              <div className="flex-1 pr-4">
+                  <p className="text-sm font-bold text-gray-900">Platform USDT (TRC20) Wallet</p>
+                  <code className="text-[10px] text-gray-500 font-mono block mt-1 truncate">{usdtAddress?.value || 'NO_ADDRESS_SET'}</code>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-red-200 text-red-700 hover:bg-red-50"
+                onClick={() => {
+                    setSecureData({ key: 'usdt_trc20_address', value: usdtAddress?.value || '', password: '' });
+                    setSecureDialogOpen(true);
+                }}
+              >
+                  Update Securely
+              </Button>
+           </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={secureDialogOpen} onOpenChange={setSecureDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Identity</DialogTitle>
+            <DialogDescription>
+                You are updating a sensitive platform setting: <strong>{secureData.key}</strong>.
+                Please enter your administrator password to proceed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+             <div className="space-y-2">
+                <label className="text-sm font-bold">New {secureData.key === 'usdt_trc20_address' ? 'Wallet Address' : 'Value'}</label>
+                <Input
+                    value={secureData.value}
+                    onChange={(e) => setSecureData(p => ({ ...p, value: e.target.value }))}
+                    placeholder="Enter new value..."
+                />
+             </div>
+             <div className="space-y-2">
+                <label className="text-sm font-bold">Your Admin Password</label>
+                <Input
+                    type="password"
+                    value={secureData.password}
+                    onChange={(e) => setSecureData(p => ({ ...p, password: e.target.value }))}
+                    placeholder="••••••••"
+                />
+             </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSecureDialogOpen(false)}>Cancel</Button>
+            <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={handleSecureUpdate}>Confirm Update</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
@@ -588,7 +808,7 @@ export default function MonetizationPage() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [marketplace, setMarketplace] = useState<MarketplaceItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'plans' | 'features' | 'coupons' | 'marketplace' | 'settings'>('plans');
+  const [activeTab, setActiveTab] = useState<'plans' | 'features' | 'coupons' | 'marketplace' | 'settings' | 'payments'>('plans');
 
   useEffect(() => { loadAll(); }, []);
 
@@ -605,32 +825,21 @@ export default function MonetizationPage() {
       if (plansRes.status === 'fulfilled' && plansRes.value.data.success) {
         const planData = plansRes.value.data.data || [];
         setPlans(PLAN_ORDER.map(pt => planData.find((p: Plan) => p.planType === pt)).filter(Boolean));
-      } else if (plansRes.status === 'rejected') {
-        console.error('Plans API error:', plansRes.reason);
       }
 
       if (flagsRes.status === 'fulfilled' && flagsRes.value.data.success) setFlags(flagsRes.value.data.data || []);
       if (couponsRes.status === 'fulfilled' && couponsRes.value.data.success) setCoupons(couponsRes.value.data.data || []);
       if (marketplaceRes.status === 'fulfilled' && marketplaceRes.value.data.success) setMarketplace(marketplaceRes.value.data.data || []);
     } catch (err) {
-      console.error('Monetization load error:', err);
       toast.error('Failed to load monetization data');
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
-      </div>
-    );
-  }
-
   const TABS = [
-    { key: 'plans', label: 'Plan Pricing', icon: DollarSign },
-    { key: 'features', label: 'Feature Flags', icon: Zap },
+    { key: 'plans', label: 'Plans', icon: DollarSign },
+    { key: 'payments', label: 'Verification', icon: History },
     { key: 'marketplace', label: 'Marketplace', icon: ShoppingBag },
     { key: 'coupons', label: 'Coupons', icon: Tag },
     { key: 'settings', label: 'Settings', icon: SettingsIcon },
@@ -688,6 +897,10 @@ export default function MonetizationPage() {
 
       {activeTab === 'settings' && (
         <SubscriptionSettings />
+      )}
+
+      {activeTab === 'payments' && (
+        <PendingPaymentsPanel />
       )}
     </div>
   );

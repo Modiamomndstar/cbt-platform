@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -49,6 +50,7 @@ interface PlanStatus {
     purchasedAiQueries: number;
   };
   paygBalance: number;
+  referralRewardCredits: number;
   features: Record<string, boolean>;
   referralCode?: string;
 }
@@ -129,6 +131,7 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [purchasing, setPurchasing] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => { loadData(); }, []);
 
@@ -223,7 +226,7 @@ export default function BillingPage() {
                 Purchased marketplace capacity is only available while you have an active <strong>Basic Premium</strong> or <strong>Advanced</strong> subscription.
               </p>
               <div className="mt-4 flex gap-3">
-                <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white border-0">Upgrade to Reactivate</Button>
+                <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white border-0" onClick={() => navigate('/school-admin/checkout?type=upgrade&planType=basic')}>Upgrade to Reactivate</Button>
                 <Button size="sm" variant="outline" className="bg-white border-red-200 text-red-700 hover:bg-red-50">Learn More</Button>
               </div>
             </div>
@@ -339,7 +342,7 @@ export default function BillingPage() {
                    <p className="text-indigo-100 text-[10px] mt-1 italic opacity-80">Universal platform credits for micro-features</p>
 
                    <div className="mt-6 space-y-2">
-                     <Button className="w-full bg-white text-indigo-700 hover:bg-indigo-50 border-0 font-bold shadow-md" onClick={() => toast.info('PAYG top-up functionality is being localized for your region.')}>
+                     <Button className="w-full bg-white text-indigo-700 hover:bg-indigo-50 border-0 font-bold shadow-md" onClick={() => navigate('/school-admin/checkout?type=credits&amount=100')}>
                        <ArrowUpRight className="h-4 w-4 mr-2" /> Fund Wallet
                      </Button>
                      <p className="text-[10px] text-center text-indigo-100 opacity-70 flex items-center justify-center gap-1">
@@ -434,7 +437,7 @@ export default function BillingPage() {
                             <h3 className="text-xl font-black tracking-tight">Refer & Earn PAYG Credits</h3>
                         </div>
                         <p className="text-indigo-100 font-medium max-w-lg leading-relaxed mb-8">
-                            Share your referral code with other schools. When they upgrade to any premium plan, you'll receive <span className="text-white font-bold">50 PAYG Credits</span> automatically!
+                            Share your referral code with other schools. When they upgrade to any premium plan, you'll receive <span className="text-white font-bold">{status?.referralRewardCredits || 50} PAYG Credits</span> automatically!
                         </p>
 
                         <div className="flex flex-col sm:flex-row gap-4">
@@ -458,7 +461,7 @@ export default function BillingPage() {
                             </div>
                             <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-center px-8 min-w-[120px]">
                                 <p className="text-[10px] uppercase font-black tracking-widest text-indigo-200">Reward</p>
-                                <p className="text-2xl font-black tracking-tighter mt-1">50 <span className="text-sm">Pts</span></p>
+                                <p className="text-2xl font-black tracking-tighter mt-1">{status?.referralRewardCredits || 50} <span className="text-sm">Pts</span></p>
                             </div>
                         </div>
                     </div>

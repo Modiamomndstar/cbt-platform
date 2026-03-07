@@ -58,7 +58,7 @@ export function BroadcastAlert() {
           </div>
           <DialogTitle className="text-xl font-bold">{broadcast.title}</DialogTitle>
           <DialogDescription className="text-sm text-gray-500">
-            {broadcast.created_at ? (
+            {broadcast.created_at && !isNaN(new Date(broadcast.created_at).getTime()) ? (
               `Posted on ${new Date(broadcast.created_at).toLocaleDateString('en-NG', {
                 year: 'numeric',
                 month: 'long',

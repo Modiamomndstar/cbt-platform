@@ -325,12 +325,18 @@ export const startTrial = async (schoolId: string): Promise<void> => {
  * Get full billing status for a school.
  */
 export const getSchoolBillingStatus = async (schoolId: string) => {
-  const [plan, usage, sub, wallet] = await Promise.all([
+  const [plan, usage, sub, wallet, settingsResult] = await Promise.all([
     getSchoolPlan(schoolId),
     getSchoolUsage(schoolId),
     db.query('SELECT * FROM school_subscriptions WHERE school_id = $1', [schoolId]),
     db.query('SELECT balance_credits FROM payg_wallets WHERE school_id = $1', [schoolId]),
+    db.query("SELECT key, value FROM settings WHERE key IN ('referral_reward_credits', 'yearly_discount_percentage', 'yearly_discount_active')"),
   ]);
+
+  const settings: Record<string, string> = {};
+  (settingsResult as any).rows.forEach((row: any) => {
+    settings[row.key] = row.value;
+  });
 
   const featureKeys = [
     'student_portal', 'bulk_import', 'email_notifications', 'sms_notifications',
@@ -360,6 +366,9 @@ export const getSchoolBillingStatus = async (schoolId: string) => {
       isFreemium: plan.planType === 'freemium',
     },
     paygBalance,
+    referralRewardCredits: parseInt(settings.referral_reward_credits || '50'),
+    yearlyDiscountPercentage: parseInt(settings.yearly_discount_percentage || '0'),
+    yearlyDiscountActive: settings.yearly_discount_active === 'true',
     features,
     limits: {
       tutorsUsed: usage.tutorCount,

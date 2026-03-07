@@ -8,6 +8,7 @@ import { sendWelcomeEmail, sendTrialStartEmail } from '../services/email';
 import { financeService } from '../services/financeService';
 import { paygService } from '../services/paygService';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 
 const router = Router();
 const validate = (req: any, res: any, next: any) => {
@@ -194,9 +195,13 @@ router.put('/plans/:planType', [
     let p = 1;
 
     for (const key of allowed) {
-      if (req.body[key] !== undefined) {
+      // support both snake_case (DB) and camelCase (some FE components)
+      const camelKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+      const value = req.body[key] !== undefined ? req.body[key] : req.body[camelKey];
+
+      if (value !== undefined) {
         updates.push(`${key} = $${p++}`);
-        values.push(req.body[key]);
+        values.push(value);
       }
     }
 
@@ -256,6 +261,128 @@ router.put('/feature-flags/:featureKey', [
 
     await logAudit(req, 'feature_flag_updated', 'feature_flag', undefined, featureKey, req.body);
     ApiResponseHandler.success(res, result.rows[0], 'Feature flag updated');
+  } catch (error) { next(error); }
+});
+
+// ================================================================
+//  PAYMENT VERIFICATION (Manual/Crypto)
+// ================================================================
+
+// GET /api/super-admin/payments/pending
+router.get('/payments/pending', async (req, res, next) => {
+  try {
+    const result = await db.query(`
+      SELECT p.*, s.name as school_name, s.email as school_email
+      FROM payments p
+      JOIN schools s ON p.school_id = s.id
+      WHERE p.status = 'pending'
+      ORDER BY p.created_at DESC
+    `);
+    ApiResponseHandler.success(res, result.rows, 'Pending payments retrieved');
+  } catch (error) { next(error); }
+});
+
+// PUT /api/super-admin/payments/:id/verify
+router.put('/payments/:id/verify', [
+  param('id').isUUID(),
+  body('status').isIn(['completed', 'failed']),
+  body('adminNotes').optional().trim(),
+  validate
+], async (req: any, res: any, next: any) => {
+  const client = await db.getClient();
+  try {
+    const { id } = req.params;
+    const { status, adminNotes } = req.body;
+    const staffId = req.user.id;
+
+    await client.query('BEGIN');
+
+    // 1. Get payment details
+    const payRes = await client.query('SELECT * FROM payments WHERE id = $1 FOR UPDATE', [id]);
+    if (payRes.rows.length === 0) throw new Error('Payment not found');
+    const payment = payRes.rows[0];
+
+    if (payment.status !== 'pending') throw new Error('Payment already processed');
+
+    // 2. If completed, apply the goods (plan or credits)
+    if (status === 'completed') {
+      const metadata = payment.metadata || {};
+      const { type, planType, credits, billingCycle = 'monthly' } = metadata;
+
+      if (type === 'upgrade') {
+        const durationMonths = billingCycle === 'yearly' ? 12 : 1;
+        const startDate = new Date();
+        const endDate = new Date();
+        endDate.setMonth(endDate.getMonth() + durationMonths);
+
+        await client.query(
+          `INSERT INTO school_subscriptions (school_id, plan_type, status, billing_cycle, current_period_start, current_period_end)
+           VALUES ($1, $2, 'active', $3, $4, $5)
+           ON CONFLICT (school_id) DO UPDATE
+           SET plan_type = $2, status = 'active', billing_cycle = $3,
+               current_period_start = $4, current_period_end = $5, updated_at = NOW()`,
+          [payment.school_id, planType, billingCycle, startDate, endDate]
+        );
+      } else if (type === 'credits') {
+        const creditAmount = parseInt(credits || '0');
+        await client.query(
+          'UPDATE payg_wallets SET balance_credits = balance_credits + $1, updated_at = NOW() WHERE school_id = $2',
+          [creditAmount, payment.school_id]
+        );
+        await client.query(
+          `INSERT INTO payg_ledger (school_id, type, credits, balance_after, description)
+           VALUES ($1, 'topup', $2, (SELECT balance_credits FROM payg_wallets WHERE school_id = $1), $3)`,
+          [payment.school_id, creditAmount, `Wallet top-up (Manual/Crypto Approval)`]
+        );
+      }
+    }
+
+    // 3. Update payment status
+    await client.query(
+      `UPDATE payments SET status = $1, admin_notes = $2, verified_by_staff_id = $3, paid_at = $4, updated_at = NOW()
+       WHERE id = $5`,
+      [status, adminNotes, staffId, status === 'completed' ? new Date() : null, id]
+    );
+
+    await client.query('COMMIT');
+    await logAudit(req, 'payment_verified', 'payment', id, payment.transaction_hash, { status, adminNotes });
+
+    ApiResponseHandler.success(res, null, `Payment marked as ${status}`);
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    console.error('Payment verification error:', error);
+    ApiResponseHandler.serverError(res, error.message || 'Failed to verify payment');
+  } finally {
+    client.release();
+  }
+});
+
+// PUT /api/super-admin/settings/secure (Wallet address update)
+router.put('/settings/secure', [
+  body('key').notEmpty(),
+  body('value').notEmpty(),
+  body('password').notEmpty(),
+  validate
+], async (req: any, res: any, next: any) => {
+  try {
+    const { key, value, password } = req.body;
+    const adminId = req.user.id;
+
+    // 1. Verify password for high-security changes
+    const adminRes = await db.query('SELECT password_hash FROM staff_accounts WHERE id = $1', [adminId]);
+    const isValid = await bcrypt.compare(password, adminRes.rows[0].password_hash);
+    if (!isValid) return ApiResponseHandler.unauthorized(res, 'Invalid password. Security check failed.');
+
+    // 2. Perform update
+    const oldValRes = await db.query('SELECT value FROM settings WHERE key = $1', [key]);
+    await db.query('UPDATE settings SET value = $1, updated_at = NOW() WHERE key = $2', [value, key]);
+
+    await logAudit(req, 'secure_setting_updated', 'setting', undefined, key, {
+        old: oldValRes.rows[0]?.value,
+        new: value
+    });
+
+    ApiResponseHandler.success(res, null, `Platform setting ${key} updated securely.`);
   } catch (error) { next(error); }
 });
 

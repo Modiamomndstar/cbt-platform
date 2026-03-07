@@ -68,7 +68,7 @@ export default function BroadcastModal() {
 
           <Text style={[styles.title, { color: colors.text }]}>{broadcast.title}</Text>
           <Text style={[styles.date, { color: colors.textSecondary }]}>
-            {broadcast.created_at ? new Date(broadcast.created_at).toLocaleDateString() : 'New Announcement'}
+            {broadcast.created_at && !isNaN(new Date(broadcast.created_at).getTime()) ? new Date(broadcast.created_at).toLocaleDateString() : 'New Announcement'}
           </Text>
 
           <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>

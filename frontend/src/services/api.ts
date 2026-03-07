@@ -348,6 +348,24 @@ export const billingAPI = {
   getMarketplace: () => api.get("/billing/marketplace"),
   purchaseMarketplaceItem: (data: { featureKey: string; quantity?: number }) => api.post("/billing/marketplace/purchase", data),
   consumeCredits: (featureKey: string) => api.post("/billing/payg/consume", { featureKey }),
+
+  // Unified Payments (Phase 18)
+  getPaymentConfig: () => api.get("/payments/config"),
+  initializeCheckout: (data: {
+    type: 'upgrade' | 'credits',
+    planType?: string,
+    creditAmount?: number,
+    provider: 'stripe' | 'paystack' | 'crypto',
+    billingCycle?: 'monthly' | 'yearly'
+  }) => api.post("/payments/checkout/initialize", data),
+  submitCryptoProof: (data: {
+    amount: number,
+    transactionHash: string,
+    type: string,
+    planType?: string,
+    credits?: number,
+    billingCycle?: string
+  }) => api.post("/payments/crypto/submit", data),
 };
 
 // ── External Students API ───────────────────────────────────
@@ -453,6 +471,13 @@ export const superAdminAPI = {
   // Settings
   getSettings: (params?: { category?: string }) => api.get("/super-admin/settings", { params }),
   updateSetting: (key: string, value: string) => api.put(`/super-admin/settings/${key}`, { value }),
+  updateSettingSecure: (data: { key: string, value: string, password: string }) =>
+    api.put("/super-admin/settings/secure", data),
+
+  // Payments & Verification (Phase 18)
+  getPendingPayments: () => api.get("/super-admin/payments/pending"),
+  verifyPayment: (id: string, data: { status: 'completed' | 'failed', adminNotes?: string }) =>
+    api.put(`/super-admin/payments/${id}/verify`, data),
 };
 
 // Competition API
