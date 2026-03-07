@@ -773,45 +773,6 @@ router.put('/settings/:key', [
 });
 
 
-// End of file cleanup -- removed duplicate marketplace routes
-        values.push(req.body[key]);
-      }
-    }
-
-    if (updates.length === 0) return ApiResponseHandler.badRequest(res, 'No valid fields provided');
-
-    values.push(featureKey);
-    const result = await db.query(
-      `UPDATE marketplace_items SET ${updates.join(', ')}, updated_at = NOW() WHERE feature_key = $${p} RETURNING *`,
-      values
-    );
-
-    if (result.rows.length === 0) return ApiResponseHandler.notFound(res, 'Marketplace item not found');
-    await logAudit(req, 'marketplace_item_updated', 'marketplace', undefined, featureKey, req.body);
-    ApiResponseHandler.success(res, result.rows[0], 'Marketplace item updated');
-  } catch (error) { next(error); }
-});
-
-// POST /api/super-admin/marketplace/gift
-router.post('/marketplace/gift', [
-  body('schoolId').isUUID(),
-  body('featureKey').notEmpty(),
-  body('quantity').optional().isInt({ min: 1 }),
-  validate
-], async (req: any, res: any, next: any) => {
-  try {
-    const { schoolId, featureKey, quantity = 1 } = req.body;
-    // Record gifted marketplace feature (no credits deducted)
-    const result = await db.query(
-      `INSERT INTO marketplace_purchases (school_id, feature_key, credits_spent, is_gift, gifted_by_staff_id, quantity)
-       VALUES ($1, $2, 0, true, $3, $4) RETURNING *`,
-      [schoolId, featureKey, req.user.id, quantity]
-    );
-    await logAudit(req, 'marketplace_gift', 'school', schoolId, undefined, { featureKey, quantity });
-    ApiResponseHandler.success(res, result.rows[0], 'Item gifted successfully');
-  } catch (error) { next(error); }
-});
-
 // ================================================================
 //  COUPON CODES
 // ================================================================

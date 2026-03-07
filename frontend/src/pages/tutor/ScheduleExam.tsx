@@ -154,7 +154,7 @@ export default function ScheduleExam() {
     }
   };
 
-  const displayStudents = selectedCategory === 'external' ? externalStudents : students;
+  const displayStudents = students;
 
   const handleSelectAll = () => {
     const displayIds = displayStudents.map((s: any) => s.id);

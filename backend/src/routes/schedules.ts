@@ -385,29 +385,30 @@ router.post(
           }
 
           // Generate access code and credentials
-          const accessCode = Math.random()
-            .toString(36)
-            .substring(2, 8)
-            .toUpperCase();
+          const accessCode = Math.random().toString(36).substring(2, 8).toUpperCase();
           const studentRes = await client.query(
             "SELECT student_id FROM students WHERE id = $1",
             [studentId],
           );
-          const regNum =
-            studentRes.rows[0]?.student_id || `STU${studentId.substring(0, 4)}`;
-          const randomSuffix = Math.random()
-            .toString(36)
-            .substring(2, 6)
-            .toUpperCase();
-          const username = `exam_${regNum}_${randomSuffix}`.replace(
-            /[^a-zA-Z0-9_]/g,
-            "",
-          );
-          const password = Math.random()
-            .toString(36)
-            .substring(2, 8)
-            .toUpperCase();
-          const hashedPassword = password; // Store as plain text
+          const regNum = studentRes.rows[0]?.student_id || `STU${studentId.substring(0, 4)}`;
+
+          // Ensure username is distinct from access code and registration number
+          let username = "";
+          let isUnique = false;
+          while (!isUnique) {
+            const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+            username = `exam_${regNum}_${randomSuffix}`.replace(/[^a-zA-Z0-9_]/g, "");
+
+            // Check if this username already exists in this exam's schedules (unlikely but safe)
+            const dupCheck = await client.query(
+              "SELECT id FROM exam_schedules WHERE login_username = $1",
+              [username]
+            );
+            if (dupCheck.rows.length === 0) isUnique = true;
+          }
+
+          const password = Math.random().toString(36).substring(2, 8).toUpperCase();
+          const hashedPassword = password; // Store as plain text per user requirement for tutor visibility
 
           const result = await client.query(
             `INSERT INTO exam_schedules (
@@ -488,27 +489,27 @@ router.post(
             continue;
           }
 
-          const accessCode = Math.random()
-            .toString(36)
-            .substring(2, 8)
-            .toUpperCase();
+          const accessCode = Math.random().toString(36).substring(2, 8).toUpperCase();
           const extRes = await client.query(
             "SELECT username FROM external_students WHERE id = $1",
             [externalId],
           );
           const baseUser = extRes.rows[0]?.username || "ext";
-          const randomSuffix = Math.random()
-            .toString(36)
-            .substring(2, 6)
-            .toUpperCase();
-          const username = `${baseUser}_${randomSuffix}`.replace(
-            /[^a-zA-Z0-9_]/g,
-            "",
-          );
-          const password = Math.random()
-            .toString(36)
-            .substring(2, 8)
-            .toUpperCase();
+
+          let username = "";
+          let isUnique = false;
+          while (!isUnique) {
+            const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+            username = `${baseUser}_${randomSuffix}`.replace(/[^a-zA-Z0-9_]/g, "");
+
+            const dupCheck = await client.query(
+              "SELECT id FROM exam_schedules WHERE login_username = $1",
+              [username]
+            );
+            if (dupCheck.rows.length === 0) isUnique = true;
+          }
+
+          const password = Math.random().toString(36).substring(2, 8).toUpperCase();
           const hashedPassword = password; // Store as plain text
 
           const result = await client.query(
