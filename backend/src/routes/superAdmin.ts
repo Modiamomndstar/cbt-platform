@@ -319,6 +319,51 @@ router.post('/schools/:id/revoke-plan', [
   } catch (error) { next(error); }
 });
 
+// POST /api/super-admin/schools/:id/verify-email
+router.post('/schools/:id/verify-email', [
+  param('id').isUUID(),
+  validate
+], async (req: any, res: any, next: any) => {
+  try {
+    const { id } = req.params;
+
+    const result = await db.query(
+      `UPDATE schools SET is_email_verified = true, email_verification_token = NULL, updated_at = NOW() WHERE id = $1 RETURNING name, email`,
+      [id]
+    );
+
+    if (result.rows.length === 0) return ApiResponseHandler.notFound(res, 'School not found');
+
+    const school = result.rows[0];
+    await logAudit(req, 'email_manually_verified', 'school', id, school.name, { email: school.email });
+
+    ApiResponseHandler.success(res, null, 'School email manually verified');
+  } catch (error) { next(error); }
+});
+
+// POST /api/super-admin/schools/:id/unverify-email
+router.post('/schools/:id/unverify-email', [
+  param('id').isUUID(),
+  validate
+], async (req: any, res: any, next: any) => {
+  try {
+    const { id } = req.params;
+    const newToken = crypto.randomBytes(32).toString('hex');
+
+    const result = await db.query(
+      `UPDATE schools SET is_email_verified = false, email_verification_token = $1, updated_at = NOW() WHERE id = $2 RETURNING name, email`,
+      [newToken, id]
+    );
+
+    if (result.rows.length === 0) return ApiResponseHandler.notFound(res, 'School not found');
+
+    const school = result.rows[0];
+    await logAudit(req, 'email_verification_revoked', 'school', id, school.name, { email: school.email });
+
+    ApiResponseHandler.success(res, null, 'School email verification status revoked');
+  } catch (error) { next(error); }
+});
+
 // POST /api/super-admin/schools/:id/suspend
 router.post('/schools/:id/suspend', [
   param('id').isUUID(),
