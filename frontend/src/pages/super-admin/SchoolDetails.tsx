@@ -48,11 +48,11 @@ export default function SchoolDetails() {
         const d = res.data.data;
         setData(d);
         setSubForm({
-          plan_type: d.school.plan_type,
-          billing_cycle: d.school.billing_cycle || 'free',
-          status: d.school.sub_status
+          plan_type: d.school.planType || 'freemium',
+          billing_cycle: d.school.billingCycle || 'free',
+          status: d.school.subStatus || 'active'
         });
-        setOverrides(d.school.override_features || {});
+        setOverrides(d.school.overrideFeatures || {});
       }
       if (featuresRes.data.success) {
         setFeatureFlags(featuresRes.data.data);
@@ -119,11 +119,12 @@ export default function SchoolDetails() {
 
   const handleStatusToggle = async () => {
     if (!id || !data || isToggling) return;
-    const isCurrentlyActive = data.school.is_active;
+    const isCurrentlyActive = data.school.isActive;
     setIsToggling(true);
     try {
       // Pass suspended=true to suspend, suspended=false to activate
-      await superAdminAPI.suspendSchool(id, isCurrentlyActive, 'Updated via management portal');
+      // If currently active, we WANT to suspend (true).
+      await superAdminAPI.suspendSchool(id, !!isCurrentlyActive, 'Updated via management portal');
       toast.success(`School ${isCurrentlyActive ? 'suspended' : 'activated'} successfully`);
       await loadDetails();
     } catch {
@@ -182,7 +183,10 @@ export default function SchoolDetails() {
     </div>
   );
 
-  const school = data?.school || {}; const stats = data?.stats || { tutors: 0, internal_students: 0, external_students: 0 }; const tutorBreakdown = data?.tutorBreakdown || []; const logs = data?.logs || [];
+  const school = data?.school || {};
+  const stats = data?.stats || { tutors: 0, internalStudents: 0, externalStudents: 0 };
+  const tutorBreakdown = data?.tutorBreakdown || [];
+  const logs = data?.logs || [];
 
   return (
     <div className="space-y-6 pb-20">
@@ -195,8 +199,8 @@ export default function SchoolDetails() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               {school?.name || 'Loading...'}
-              {school && school.is_active === false && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">Suspended</span>}
-              <Badge variant="outline" className="text-xs font-medium ml-2">{school?.plan_type?.toUpperCase() || 'FREE'}</Badge>
+              {school && school.isActive === false && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">Suspended</span>}
+              <Badge variant="outline" className="text-xs font-medium ml-2">{school?.planType?.toUpperCase() || 'FREE'}</Badge>
             </h1>
             <p className="text-sm text-gray-500">{school?.email || 'N/A'} • {school?.country || 'Unknown'}</p>
           </div>
@@ -207,18 +211,18 @@ export default function SchoolDetails() {
             <Mail className="h-4 w-4 mr-2" /> Contact Admin
           </Button>
           <Button
-            variant={school.is_active ? "destructive" : "default"}
+            variant={school.isActive ? "destructive" : "default"}
             size="sm"
             onClick={handleStatusToggle}
             disabled={isToggling}
-            className={`h-9 ${school.is_active ? '' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+            className={`h-9 ${school.isActive ? '' : 'bg-emerald-600 hover:bg-emerald-700'}`}
           >
             {isToggling ? (
               <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
             ) : (
-              school.is_active ? <ShieldAlert className="h-4 w-4 mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />
+              school.isActive ? <ShieldAlert className="h-4 w-4 mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />
             )}
-            {isToggling ? 'Updating...' : (school.is_active ? 'Suspend School' : 'Activate School')}
+            {isToggling ? 'Updating...' : (school.isActive ? 'Suspend School' : 'Activate School')}
           </Button>
         </div>
       </div>
@@ -234,9 +238,9 @@ export default function SchoolDetails() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {[
               { label: 'Tutors', value: stats.tutors, icon: GraduationCap, color: 'text-blue-600', bg: 'bg-blue-50' },
-              { label: 'Internal Students', value: stats.internal_students, icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-              { label: 'External Students', value: stats.external_students, icon: BookOpen, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-              { label: 'PAYG Balance', value: school.payg_balance || 0, icon: Coins, color: 'text-amber-600', bg: 'bg-amber-50' },
+              { label: 'Internal Students', value: stats.internalStudents, icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+              { label: 'External Students', value: stats.externalStudents, icon: BookOpen, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+              { label: 'PAYG Balance', value: school.paygBalance || 0, icon: Coins, color: 'text-amber-600', bg: 'bg-amber-50' },
             ].map((item, idx) => (
               <Card key={idx} className="border-none shadow-sm bg-white/60 backdrop-blur-md">
                 <CardContent className="p-4 flex items-center justify-between">
@@ -276,16 +280,16 @@ export default function SchoolDetails() {
                           <td className="py-4 px-6">
                             <div className="flex items-center gap-3">
                               <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500">
-                                {t.first_name?.[0]}{t.last_name?.[0]}
+                                {t.firstName?.[0]}{t.lastName?.[0]}
                               </div>
                               <div>
-                                <p className="font-semibold text-gray-900 leading-tight">{t.first_name} {t.last_name}</p>
+                                <p className="font-semibold text-gray-900 leading-tight">{t.firstName} {t.lastName}</p>
                                 <p className="text-[11px] text-gray-500 leading-none mt-1">@{t.username}</p>
                               </div>
                             </div>
                           </td>
                           <td className="py-4 px-2 text-center">
-                            <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 font-bold">{t.external_count}</Badge>
+                            <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 font-bold">{t.externalCount}</Badge>
                           </td>
                           <td className="py-4 px-6 text-right">
                              <Button variant="ghost" size="sm" className="h-8 text-[11px] font-bold text-indigo-600 hover:bg-indigo-50">
@@ -397,22 +401,22 @@ export default function SchoolDetails() {
                 <div className="space-y-2">
                   {featureFlags.length === 0 && <p className="text-center py-8 text-gray-400 text-sm">No platform features defined.</p>}
                   {featureFlags.map((f: any) => {
-                    const isOn = overrides[f.feature_key] === true;
-                    const planLabel = !f.min_plan || f.min_plan === 'freemium' ? 'All plans' : `${f.min_plan}+`;
+                    const isOn = overrides[f.featureKey] === true;
+                    const planLabel = !f.minPlan || f.minPlan === 'freemium' ? 'All plans' : `${f.minPlan}+`;
                     const PLAN_BADGE: Record<string, string> = {
                       freemium: 'bg-gray-100 text-gray-500',
                       basic: 'bg-blue-100 text-blue-700',
                       advanced: 'bg-purple-100 text-purple-700',
                       enterprise: 'bg-amber-100 text-amber-700',
                     };
-                    const badgeClass = PLAN_BADGE[f.min_plan] ?? 'bg-gray-100 text-gray-500';
+                    const badgeClass = PLAN_BADGE[f.minPlan] ?? 'bg-gray-100 text-gray-500';
                     return (
-                      <div key={f.feature_key} className={`flex items-start justify-between p-3 rounded-lg border transition-colors ${
+                      <div key={f.featureKey} className={`flex items-start justify-between p-3 rounded-lg border transition-colors ${
                         isOn ? 'border-emerald-200 bg-emerald-50/50' : 'border-gray-100 bg-gray-50/50 hover:bg-gray-100/50'
                       }`}>
                         <div className="flex-1 min-w-0 mr-3">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-semibold text-gray-900">{f.feature_name || f.feature_key}</p>
+                            <p className="text-sm font-semibold text-gray-900">{f.featureName || f.featureKey}</p>
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeClass}`}>{planLabel}</span>
                             {isOn && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">OVERRIDE ON</span>}
                           </div>
@@ -420,7 +424,7 @@ export default function SchoolDetails() {
                         </div>
                         <Switch
                           checked={isOn}
-                          onCheckedChange={(checked) => handleToggleFeature(f.feature_key, checked)}
+                          onCheckedChange={(checked) => handleToggleFeature(f.featureKey, checked)}
                         />
                       </div>
                     );
@@ -448,34 +452,34 @@ export default function SchoolDetails() {
                      </tr>
                    </thead>
                    <tbody className="divide-y divide-gray-100">
-                     {logs.map((log: any) => (
-                       <tr key={log.id} className="hover:bg-gray-50/50">
-                         <td className="py-4 px-6 text-gray-500 whitespace-nowrap">
-                            {log.created_at ? new Date(log.created_at).toLocaleString() : 'N/A'}
-                         </td>
-                         <td className="py-4 px-6">
-                            <div className="flex flex-col">
-                               <span className="font-semibold text-gray-900">
-                                  {log.actor_id === '00000000-0000-0000-0000-000000000000' ? 'Super Admin' : (log.actor_name || 'System User')}
-                               </span>
-                               <span className="text-[10px] text-gray-400">ID: {log.actor_id?.substring(0,8)}... ({log.actor_type || 'system'})</span>
-                            </div>
-                         </td>
-                         <td className="py-4 px-6">
-                            <div className="flex flex-col">
-                               <Badge variant="outline" className="w-fit mb-1 bg-white uppercase text-[10px] tracking-wide">{log.action.replace(/_/g, ' ')}</Badge>
-                               <span className="text-xs text-gray-600 truncate max-w-xs" title={JSON.stringify(log.details)}>
-                                  {formatLogDetails(log.action, log.details)}
-                               </span>
-                            </div>
-                         </td>
-                         <td className="py-4 px-6">
-                            <Badge variant={log.log_type === 'staff' ? 'default' : 'secondary'} className={log.log_type === 'staff' ? 'bg-indigo-600' : ''}>
-                               {log.log_type === 'staff' ? 'SuperAdmin' : 'School'}
-                            </Badge>
-                         </td>
-                       </tr>
-                     ))}
+                      {logs.map((log: any) => (
+                        <tr key={log.id} className="hover:bg-gray-50/50">
+                          <td className="py-4 px-6 text-gray-500 whitespace-nowrap">
+                             {log.createdAt ? new Date(log.createdAt).toLocaleString() : 'N/A'}
+                          </td>
+                          <td className="py-4 px-6">
+                             <div className="flex flex-col">
+                                <span className="font-semibold text-gray-900">
+                                   {log.actorId === '00000000-0000-0000-0000-000000000000' ? 'Super Admin' : (log.actorName || 'System User')}
+                                </span>
+                                <span className="text-[10px] text-gray-400">ID: {log.actorId?.substring(0,8)}... ({log.actorType || 'system'})</span>
+                             </div>
+                          </td>
+                          <td className="py-4 px-6">
+                             <div className="flex flex-col">
+                                <Badge variant="outline" className="w-fit mb-1 bg-white uppercase text-[10px] tracking-wide">{log.action.replace(/_/g, ' ')}</Badge>
+                                <span className="text-xs text-gray-600 truncate max-w-xs" title={JSON.stringify(log.details)}>
+                                   {formatLogDetails(log.action, log.details)}
+                                </span>
+                             </div>
+                          </td>
+                          <td className="py-4 px-6">
+                             <Badge variant={log.logType === 'staff' ? 'default' : 'secondary'} className={log.logType === 'staff' ? 'bg-indigo-600' : ''}>
+                                {log.logType === 'staff' ? 'SuperAdmin' : 'School'}
+                             </Badge>
+                          </td>
+                        </tr>
+                      ))}
                      {logs.length === 0 && (
                        <tr><td colSpan={4} className="py-12 text-center text-gray-400">No activity logs found.</td></tr>
                      )}

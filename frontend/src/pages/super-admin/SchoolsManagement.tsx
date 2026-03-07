@@ -30,7 +30,7 @@ export default function SchoolsManagement() {
 
     if (searchQuery) {
       filtered = filtered.filter((school: any) =>
-        (school.school_name || school.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (school.schoolName || school.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (school.email || '').toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
@@ -118,17 +118,17 @@ export default function SchoolsManagement() {
                   </div>
                   <div>
                     <CardTitle className="text-lg">
-                      {school.school_name || school.name || 'Unknown School'}
+                      {school.schoolName || school.name || 'Unknown School'}
                     </CardTitle>
                     <Badge
-                      variant={school.plan_status === 'active' ? 'default' : 'secondary'}
-                      className={school.plan_status === 'active' ? 'bg-emerald-500' : ''}
+                      variant={school.planStatus === 'active' ? 'default' : 'secondary'}
+                      className={school.planStatus === 'active' ? 'bg-emerald-500' : ''}
                     >
-                      {school.plan_status || 'Free'}
+                      {school.planStatus || 'Free'}
                     </Badge>
-                    {school.override_plan && (
+                    {school.overridePlan && (
                       <Badge variant="outline" className="ml-2 border-indigo-200 text-indigo-700 bg-indigo-50 flex items-center gap-1">
-                        <ShieldCheck className="h-3 w-3" /> {school.override_plan}
+                        <ShieldCheck className="h-3 w-3" /> {school.overridePlan}
                       </Badge>
                     )}
                   </div>
@@ -150,8 +150,8 @@ export default function SchoolsManagement() {
 
               <div className="flex justify-between items-center text-sm text-gray-500">
                 <span>
-                  Registered: {school.created_at
-                    ? new Date(school.created_at).toLocaleDateString()
+                  Registered: {school.createdAt
+                    ? new Date(school.createdAt).toLocaleDateString()
                     : '-'}
                 </span>
               </div>

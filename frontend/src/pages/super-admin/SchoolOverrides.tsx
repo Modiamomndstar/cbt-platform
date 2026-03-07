@@ -10,10 +10,10 @@ import {
 
 interface SchoolData {
   id: string; name: string; username: string; email: string;
-  is_active: boolean; plan_type: string; plan_status: string;
-  override_plan: string | null; override_expires_at: string | null;
-  trial_end_at?: string | null;
-  payg_balance?: number;
+  isActive: boolean; planType: string; planStatus: string;
+  overridePlan: string | null; overrideExpiresAt: string | null;
+  trialEndAt?: string | null;
+  paygBalance?: number;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -174,9 +174,9 @@ function SchoolRow({ school, onRefresh }: { school: SchoolData; onRefresh: () =>
   const [expanded, setExpanded] = useState(false);
   const [modal, setModal] = useState<'gift' | 'revoke' | 'suspend' | 'unsuspend' | 'credits' | 'trial' | null>(null);
 
-  const isSuspended = school.plan_status === 'suspended';
-  const planLabel = school.override_plan || school.plan_type || 'freemium';
-  const statusLabel = school.plan_status || 'freemium';
+  const isSuspended = school.planStatus === 'suspended';
+  const planLabel = school.overridePlan || school.planType || 'freemium';
+  const statusLabel = school.planStatus || 'freemium';
 
   return (
     <>
@@ -209,12 +209,12 @@ function SchoolRow({ school, onRefresh }: { school: SchoolData; onRefresh: () =>
           <div className="border-t border-gray-100 px-4 py-3 bg-gray-50 space-y-3">
             <div className="grid grid-cols-2 gap-3 text-xs text-gray-600">
               <div><span className="font-medium text-gray-700">Username:</span> @{school.username}</div>
-              <div><span className="font-medium text-gray-700">PAYG Balance:</span> {school.payg_balance ?? 0} credits</div>
-              {school.trial_end_at && (
-                <div><span className="font-medium text-gray-700">Trial ends:</span> {new Date(school.trial_end_at).toLocaleDateString()}</div>
+              <div><span className="font-medium text-gray-700">PAYG Balance:</span> {school.paygBalance ?? 0} credits</div>
+              {school.trialEndAt && (
+                <div><span className="font-medium text-gray-700">Trial ends:</span> {new Date(school.trialEndAt).toLocaleDateString()}</div>
               )}
-              {school.override_expires_at && (
-                <div><span className="font-medium text-gray-700">Override expires:</span> {new Date(school.override_expires_at).toLocaleDateString()}</div>
+              {school.overrideExpiresAt && (
+                <div><span className="font-medium text-gray-700">Override expires:</span> {new Date(school.overrideExpiresAt).toLocaleDateString()}</div>
               )}
             </div>
             <div className="flex flex-wrap gap-2">
@@ -230,7 +230,7 @@ function SchoolRow({ school, onRefresh }: { school: SchoolData; onRefresh: () =>
               <button onClick={() => setModal('credits')} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-colors">
                 <Coins className="h-3.5 w-3.5" /> Add Credits
               </button>
-              {school.plan_status === 'trialing' && (
+              {school.planStatus === 'trialing' && (
                 <button onClick={() => setModal('trial')} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 transition-colors">
                   <Clock className="h-3.5 w-3.5" /> Extend Trial
                 </button>

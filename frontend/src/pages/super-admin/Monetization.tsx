@@ -12,39 +12,39 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────
 interface Plan {
-  plan_type: string; display_name: string; price_usd: number;
-  price_ngn: number; max_tutors: number | null;
-  max_internal_students: number | null; max_active_exams: number | null;
-  ai_queries_per_month: number;
-  allow_student_portal: boolean; allow_external_students: boolean;
-  allow_bulk_import: boolean; allow_email_notifications: boolean;
-  allow_advanced_analytics: boolean; allow_custom_branding: boolean;
-  allow_result_pdf: boolean; allow_api_access: boolean; allow_sms_notifications: boolean;
+  planType: string; displayName: string; priceUsd: number;
+  priceNgn: number; maxTutors: number | null;
+  maxInternalStudents: number | null; maxActiveExams: number | null;
+  aiQueriesPerMonth: number;
+  allowStudentPortal: boolean; allowExternalStudents: boolean;
+  allowBulkImport: boolean; allowEmailNotifications: boolean;
+  allowAdvancedAnalytics: boolean; allowCustomBranding: boolean;
+  allowResultPdf: boolean; allowApiAccess: boolean; allowSmsNotifications: boolean;
 }
 
 interface FeatureFlag {
-  feature_key: string; feature_name: string; description: string;
-  min_plan: string; is_enabled: boolean;
+  featureKey: string; featureName: string; description: string;
+  minPlan: string; isEnabled: boolean;
 }
 
 interface Coupon {
   id: string; code: string; name: string; description: string;
-  discount_type: string; discount_value: number;
-  max_uses: number | null; uses_count: number;
-  expires_at: string | null; is_active: boolean;
+  discountType: string; discountValue: number;
+  maxUses: number | null; usesCount: number;
+  expiresAt: string | null; isActive: boolean;
   type?: string;
   value?: number;
-  redemption_count?: number;
-  valid_until?: string | null;
+  redemptionCount?: number;
+  validUntil?: string | null;
 }
 
 interface MarketplaceItem {
-  feature_key: string;
-  display_name: string;
+  featureKey: string;
+  displayName: string;
   description: string;
-  item_type: string;
-  credit_cost: number;
-  is_active: boolean;
+  itemType: string;
+  creditCost: number;
+  isActive: boolean;
 }
 
 const PLAN_ORDER = ['freemium', 'basic', 'advanced', 'enterprise'];
@@ -62,26 +62,26 @@ function PlanEditor({ plan, onSave }: { plan: Plan; onSave: (updated: Plan) => v
 
   const handleSave = async () => {
     try {
-      await superAdminAPI.updatePlan(draft.plan_type, {
-        priceNgn: draft.price_ngn,
-        priceUsd: draft.price_usd,
-        maxTutors: draft.max_tutors,
-        maxInternalStudents: draft.max_internal_students,
-        maxActiveExams: draft.max_active_exams,
-        aiQueriesPerMonth: draft.ai_queries_per_month,
-        allow_student_portal: draft.allow_student_portal,
-        allow_external_students: draft.allow_external_students,
-        allow_bulk_import: draft.allow_bulk_import,
-        allow_email_notifications: draft.allow_email_notifications,
-        allow_advanced_analytics: draft.allow_advanced_analytics,
-        allow_custom_branding: draft.allow_custom_branding,
-        allow_result_pdf: draft.allow_result_pdf,
-        allow_api_access: draft.allow_api_access,
-        allow_sms_notifications: draft.allow_sms_notifications,
+      await superAdminAPI.updatePlan(draft.planType, {
+        priceNgn: draft.priceNgn,
+        priceUsd: draft.priceUsd,
+        maxTutors: draft.maxTutors,
+        maxInternalStudents: draft.maxInternalStudents,
+        maxActiveExams: draft.maxActiveExams,
+        aiQueriesPerMonth: draft.aiQueriesPerMonth,
+        allow_student_portal: draft.allowStudentPortal,
+        allow_external_students: draft.allowExternalStudents,
+        allow_bulk_import: draft.allowBulkImport,
+        allow_email_notifications: draft.allowEmailNotifications,
+        allow_advanced_analytics: draft.allowAdvancedAnalytics,
+        allow_custom_branding: draft.allowCustomBranding,
+        allow_result_pdf: draft.allowResultPdf,
+        allow_api_access: draft.allowApiAccess,
+        allow_sms_notifications: draft.allowSmsNotifications,
       });
       onSave(draft);
       setEditing(false);
-      toast.success(`${draft.display_name} plan updated`);
+      toast.success(`${draft.displayName} plan updated`);
     } catch {
       toast.error('Failed to update plan');
     }
@@ -121,8 +121,8 @@ function PlanEditor({ plan, onSave }: { plan: Plan; onSave: (updated: Plan) => v
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className={`text-xs font-bold px-3 py-1 rounded-full ${PLAN_COLORS[plan.plan_type] ?? 'bg-gray-100'}`}>
-              {plan.display_name}
+            <span className={`text-xs font-bold px-3 py-1 rounded-full ${PLAN_COLORS[plan.planType] ?? 'bg-gray-100'}`}>
+              {plan.displayName}
             </span>
           </div>
           <div className="flex gap-2">
@@ -148,8 +148,8 @@ function PlanEditor({ plan, onSave }: { plan: Plan; onSave: (updated: Plan) => v
             <input
               type="number"
               disabled={!editing}
-              value={draft.price_ngn}
-              onChange={(e) => setDraft(p => ({ ...p, price_ngn: parseFloat(e.target.value) || 0 }))}
+              value={draft.priceNgn}
+              onChange={(e) => setDraft(p => ({ ...p, priceNgn: parseFloat(e.target.value) || 0 }))}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50 focus:ring-2 focus:ring-indigo-300 outline-none"
             />
           </div>
@@ -158,28 +158,28 @@ function PlanEditor({ plan, onSave }: { plan: Plan; onSave: (updated: Plan) => v
             <input
               type="number"
               disabled={!editing}
-              value={draft.price_usd}
-              onChange={(e) => setDraft(p => ({ ...p, price_usd: parseFloat(e.target.value) || 0 }))}
+              value={draft.priceUsd}
+              onChange={(e) => setDraft(p => ({ ...p, priceUsd: parseFloat(e.target.value) || 0 }))}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50 focus:ring-2 focus:ring-indigo-300 outline-none"
             />
           </div>
         </div>
         <div className="space-y-0.5 pb-3 border-b border-gray-100">
-          {numField('Max tutors', 'max_tutors')}
-          {numField('Max students', 'max_internal_students')}
-          {numField('Max active exams', 'max_active_exams')}
-          {numField('AI queries/month', 'ai_queries_per_month')}
+          {numField('Max tutors', 'maxTutors')}
+          {numField('Max students', 'maxInternalStudents')}
+          {numField('Max active exams', 'maxActiveExams')}
+          {numField('AI queries/month', 'aiQueriesPerMonth')}
         </div>
         <div className="space-y-0.5">
-          {boolField('Student portal', 'allow_student_portal')}
-          {boolField('External students', 'allow_external_students')}
-          {boolField('Bulk import', 'allow_bulk_import')}
-          {boolField('Email notifications', 'allow_email_notifications')}
-          {boolField('SMS notifications', 'allow_sms_notifications')}
-          {boolField('Advanced analytics', 'allow_advanced_analytics')}
-          {boolField('Custom branding', 'allow_custom_branding')}
-          {boolField('Result PDF', 'allow_result_pdf')}
-          {boolField('API access', 'allow_api_access')}
+          {boolField('Student portal', 'allowStudentPortal')}
+          {boolField('External students', 'allowExternalStudents')}
+          {boolField('Bulk import', 'allowBulkImport')}
+          {boolField('Email notifications', 'allowEmailNotifications')}
+          {boolField('SMS notifications', 'allowSmsNotifications')}
+          {boolField('Advanced analytics', 'allowAdvancedAnalytics')}
+          {boolField('Custom branding', 'allowCustomBranding')}
+          {boolField('Result PDF', 'allowResultPdf')}
+          {boolField('API access', 'allowApiAccess')}
         </div>
       </CardContent>
     </Card>
@@ -190,8 +190,8 @@ function PlanEditor({ plan, onSave }: { plan: Plan; onSave: (updated: Plan) => v
 function FeatureFlagsPanel({ flags, onUpdate }: { flags: FeatureFlag[]; onUpdate: () => void }) {
   const toggle = async (f: FeatureFlag) => {
     try {
-      await superAdminAPI.updateFeatureFlag(f.feature_key, { isEnabled: !f.is_enabled });
-      toast.success(`Feature "${f.feature_name}" ${!f.is_enabled ? 'enabled' : 'disabled'}`);
+      await superAdminAPI.updateFeatureFlag(f.featureKey, { isEnabled: !f.isEnabled });
+      toast.success(`Feature "${f.featureName}" ${!f.isEnabled ? 'enabled' : 'disabled'}`);
       onUpdate();
     } catch {
       toast.error('Failed to update feature flag');
@@ -210,21 +210,21 @@ function FeatureFlagsPanel({ flags, onUpdate }: { flags: FeatureFlag[]; onUpdate
       <CardContent>
         <div className="space-y-3">
           {flags.map((f) => (
-            <div key={f.feature_key} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+            <div key={f.featureKey} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
               <div className="flex-1 pr-4">
-                <p className="text-sm font-medium text-gray-800">{f.feature_name}</p>
+                <p className="text-sm font-medium text-gray-800">{f.featureName}</p>
                 <p className="text-xs text-gray-500">{f.description}</p>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium mt-1 inline-block ${PLAN_COLORS[f.min_plan] ?? 'bg-gray-100 text-gray-500'}`}>
-                  {!f.min_plan || f.min_plan === 'freemium' ? 'All plans' : `${f.min_plan}+`}
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium mt-1 inline-block ${PLAN_COLORS[f.minPlan] ?? 'bg-gray-100 text-gray-500'}`}>
+                  {!f.minPlan || f.minPlan === 'freemium' ? 'All plans' : `${f.minPlan}+`}
                 </span>
               </div>
               <button
                 onClick={() => toggle(f)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                  f.is_enabled ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
+                  f.isEnabled ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
                 }`}
               >
-                {f.is_enabled ? <><ToggleRight className="h-4 w-4" />ON</> : <><ToggleLeft className="h-4 w-4" />OFF</>}
+                {f.isEnabled ? <><ToggleRight className="h-4 w-4" />ON</> : <><ToggleLeft className="h-4 w-4" />OFF</>}
               </button>
             </div>
           ))}
@@ -357,23 +357,23 @@ function CouponManager({ coupons, onRefresh }: { coupons: Coupon[]; onRefresh: (
         <div className="space-y-2">
           {coupons.length === 0 && <p className="text-sm text-gray-500 text-center py-4">No coupons yet.</p>}
           {coupons.map((c) => (
-            <div key={c.id} className={`flex items-center justify-between p-3 rounded-xl border ${c.is_active ? 'border-gray-200 bg-white' : 'border-gray-100 bg-gray-50 opacity-60'}`}>
+            <div key={c.id} className={`flex items-center justify-between p-3 rounded-xl border ${c.isActive ? 'border-gray-200 bg-white' : 'border-gray-100 bg-gray-50 opacity-60'}`}>
               <div>
                 <div className="flex items-center gap-2">
                   <code className="text-sm font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">{c.code}</code>
                   <span className="text-sm text-gray-700">{c.name}</span>
-                  {!c.is_active && <span className="text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full">Inactive</span>}
+                  {!c.isActive && <span className="text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full">Inactive</span>}
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {c.discount_type === 'percent_off' || c.type === 'percent_off' ? `${c.discount_value || c.value}% off` :
-                   c.discount_type === 'amount_off' || c.type === 'amount_off' ? `₦${c.discount_value || c.value} off` :
-                   c.discount_type === 'free_months' || c.type === 'free_months' ? `${c.discount_value || c.value} free month(s)` :
-                   `${c.discount_value || c.value} bonus credits`}
-                  {' · '}{c.uses_count || c.redemption_count || 0}/{c.max_uses ?? '∞'} used
-                  {(c.expires_at || c.valid_until) && ` · Expires ${new Date(c.expires_at || c.valid_until!).toLocaleDateString()}`}
+                  {c.discountType === 'percent_off' || c.type === 'percent_off' ? `${c.discountValue || c.value}% off` :
+                   c.discountType === 'amount_off' || c.type === 'amount_off' ? `₦${c.discountValue || c.value} off` :
+                   c.discountType === 'free_months' || c.type === 'free_months' ? `${c.discountValue || c.value} free month(s)` :
+                   `${c.discountValue || c.value} bonus credits`}
+                  {' · '}{c.usesCount || c.redemptionCount || 0}/{c.maxUses ?? '∞'} used
+                  {(c.expiresAt || c.validUntil) && ` · Expires ${new Date(c.expiresAt || c.validUntil!).toLocaleDateString()}`}
                 </p>
               </div>
-              {c.is_active && (
+              {c.isActive && (
                 <button
                   onClick={() => deactivate(c.id, c.code)}
                   className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition-colors"
@@ -395,7 +395,7 @@ function MarketplacePricingPanel({ items, onUpdate }: { items: MarketplaceItem[]
   const [draft, setDraft] = useState<Partial<MarketplaceItem>>({});
 
   const startEdit = (item: MarketplaceItem) => {
-    setEditingKey(item.feature_key);
+    setEditingKey(item.featureKey);
     setDraft(item);
   };
 
@@ -413,8 +413,8 @@ function MarketplacePricingPanel({ items, onUpdate }: { items: MarketplaceItem[]
 
   const toggleActive = async (item: MarketplaceItem) => {
     try {
-      await superAdminAPI.updateMarketplace(item.feature_key, { is_active: !item.is_active });
-      toast.success(`${item.display_name} ${!item.is_active ? 'activated' : 'deactivated'}`);
+      await superAdminAPI.updateMarketplace(item.featureKey, { isActive: !item.isActive });
+      toast.success(`${item.displayName} ${!item.isActive ? 'activated' : 'deactivated'}`);
       onUpdate();
     } catch {
       toast.error('Failed to toggle item status');
@@ -433,29 +433,29 @@ function MarketplacePricingPanel({ items, onUpdate }: { items: MarketplaceItem[]
       <CardContent>
         <div className="space-y-3">
           {items.map((item) => (
-            <div key={item.feature_key} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50/50 px-2 rounded-lg transition-colors">
+            <div key={item.featureKey} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50/50 px-2 rounded-lg transition-colors">
               <div className="flex-1 pr-4">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-gray-800">{item.display_name}</p>
-                  <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{item.item_type}</span>
+                  <p className="text-sm font-medium text-gray-800">{item.displayName}</p>
+                  <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{item.itemType}</span>
                 </div>
                 <p className="text-xs text-gray-500">{item.description}</p>
                 <div className="flex items-center gap-3 mt-1.5">
                   <div className="flex items-center gap-1.5">
                     <Zap className="h-3 w-3 text-indigo-500" />
-                    <span className="text-sm font-bold text-indigo-700">{item.credit_cost} credits</span>
+                    <span className="text-sm font-bold text-indigo-700">{item.creditCost} credits</span>
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                {editingKey === item.feature_key ? (
+                {editingKey === item.featureKey ? (
                   <div className="flex items-center gap-2 bg-white shadow-sm border border-gray-100 p-1 rounded-lg">
                     <Input
                       type="number"
                       className="w-20 h-8 text-sm"
-                      value={draft.credit_cost || ''}
-                      onChange={(e) => setDraft({ ...draft, credit_cost: parseInt(e.target.value) || 0 })}
+                      value={draft.creditCost || ''}
+                      onChange={(e) => setDraft({ ...draft, creditCost: parseInt(e.target.value) || 0 })}
                     />
                     <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700" onClick={handleSave}>
                       <Check className="h-3.5 w-3.5" />
@@ -469,10 +469,10 @@ function MarketplacePricingPanel({ items, onUpdate }: { items: MarketplaceItem[]
                     <button
                       onClick={() => toggleActive(item)}
                       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors ${
-                        item.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'
+                        item.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'
                       }`}
                     >
-                      {item.is_active ? 'ACTIVE' : 'INACTIVE'}
+                      {item.isActive ? 'ACTIVE' : 'INACTIVE'}
                     </button>
                     <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => startEdit(item)}>
                       <Pencil className="h-3.5 w-3.5 text-gray-400" />
@@ -604,7 +604,7 @@ export default function MonetizationPage() {
 
       if (plansRes.status === 'fulfilled' && plansRes.value.data.success) {
         const planData = plansRes.value.data.data || [];
-        setPlans(PLAN_ORDER.map(pt => planData.find((p: Plan) => p.plan_type === pt)).filter(Boolean));
+        setPlans(PLAN_ORDER.map(pt => planData.find((p: Plan) => p.planType === pt)).filter(Boolean));
       } else if (plansRes.status === 'rejected') {
         console.error('Plans API error:', plansRes.reason);
       }
@@ -667,8 +667,8 @@ export default function MonetizationPage() {
       {activeTab === 'plans' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {plans.map((plan) => (
-            <PlanEditor key={plan.plan_type} plan={plan} onSave={(updated) => {
-              setPlans(ps => ps.map(p => p.plan_type === updated.plan_type ? updated : p));
+            <PlanEditor key={plan.planType} plan={plan} onSave={(updated) => {
+              setPlans(ps => ps.map(p => p.planType === updated.planType ? updated : p));
             }} />
           ))}
         </div>

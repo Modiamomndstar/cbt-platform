@@ -14,36 +14,36 @@ import {
 
 interface RevenueMetric {
   currency: string;
-  total_earned: string;
+  totalEarned: string;
 }
 
 interface LiabilityMetric {
   currency: string;
-  total_liability: string;
+  totalLiability: string;
 }
 
 interface FinancialLog {
   type: string;
-  record_source?: string;
-  school_id: string;
-  school_name?: string;
-  amount_paid: string;
+  recordSource?: string;
+  schoolId: string;
+  schoolName?: string;
+  amountPaid: string;
   currency: string;
   description: string;
-  created_at: string;
+  createdAt: string;
 }
 
 interface RevenueHistoryItem {
   source: string;
   currency: string;
   amount: string;
-  period_start: string;
+  periodStart: string;
 }
 
 interface SchoolBreakdown {
-  school_name: string;
+  schoolName: string;
   currency: string;
-  total_contribution: string;
+  totalContribution: string;
 }
 
 export default function FinancialAnalytics() {
@@ -104,7 +104,7 @@ export default function FinancialAnalytics() {
             <div className="mt-4">
               <p className="text-sm font-medium text-gray-400 uppercase tracking-wider">Revenue ({m.currency})</p>
               <h3 className="text-3xl font-black text-gray-900 mt-1">
-                {getCurrencySymbol(m.currency)}{(parseFloat(m.total_earned) || 0).toLocaleString()}
+                {getCurrencySymbol(m.currency)}{(parseFloat(m.totalEarned) || 0).toLocaleString()}
               </h3>
             </div>
             <div className="mt-4 flex items-center gap-2">
@@ -129,7 +129,7 @@ export default function FinancialAnalytics() {
             <div className="mt-4">
               <p className="text-sm font-medium text-gray-400 uppercase tracking-wider">Unearned ({m.currency})</p>
               <h3 className="text-3xl font-black text-gray-900 mt-1">
-                {getCurrencySymbol(m.currency)}{(parseFloat(m.total_liability) || 0).toLocaleString()}
+                {getCurrencySymbol(m.currency)}{(parseFloat(m.totalLiability) || 0).toLocaleString()}
               </h3>
             </div>
             <div className="mt-4">
@@ -175,7 +175,7 @@ export default function FinancialAnalytics() {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={overview.revenueHistory?.map(h => ({
-                    period: format(new Date(h.period_start), period === 'year' ? 'yyyy' : period === 'month' ? 'MMM' : 'MMM d'),
+                    period: format(new Date(h.periodStart), period === 'year' ? 'yyyy' : period === 'month' ? 'MMM' : 'MMM d'),
                     amount: parseFloat(h.amount)
                   })).reverse() || []}
                 >
@@ -236,20 +236,20 @@ export default function FinancialAnalytics() {
                 {logs?.map((log, i) => (
                   <tr key={i} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-xs text-gray-500 whitespace-nowrap">
-                      {format(new Date(log.created_at), 'MMM d, HH:mm')}
+                      {format(new Date(log.createdAt), 'MMM d, HH:mm')}
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm font-semibold text-gray-900 truncate max-w-[150px]">
-                        {log.school_name || 'System'}
+                        {log.schoolName || 'System'}
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-gray-900">{log.description}</div>
-                      <div className="text-[10px] text-gray-500 uppercase font-bold tracking-tight">{log.record_source}</div>
+                      <div className="text-[10px] text-gray-500 uppercase font-bold tracking-tight">{log.recordSource}</div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <span className={`font-bold ${parseFloat(log.amount_paid) > 0 ? 'text-green-600' : 'text-gray-400'}`}>
-                        {getCurrencySymbol(log.currency)}{(parseFloat(log.amount_paid) || 0).toLocaleString()}
+                      <span className={`font-bold ${parseFloat(log.amountPaid) > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                        {getCurrencySymbol(log.currency)}{(parseFloat(log.amountPaid) || 0).toLocaleString()}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -335,7 +335,7 @@ export default function FinancialAnalytics() {
                     <div>
                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{h.source.replace('_', ' ')}</p>
                       <p className="text-sm font-bold text-gray-700">
-                        {format(new Date(h.period_start), period === 'year' ? 'yyyy' : period === 'month' ? 'MMM yyyy' : 'MMM d, yyyy')}
+                        {format(new Date(h.periodStart), period === 'year' ? 'yyyy' : period === 'month' ? 'MMM yyyy' : 'MMM d, yyyy')}
                       </p>
                     </div>
                     <div className="text-right">
@@ -366,13 +366,13 @@ export default function FinancialAnalytics() {
                     {i + 1}
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-bold text-indigo-900 truncate max-w-[120px]">{s.school_name}</p>
+                    <p className="text-sm font-bold text-indigo-900 truncate max-w-[120px]">{s.schoolName}</p>
                     <div className="w-full bg-white h-1.5 rounded-full mt-1 overflow-hidden">
                       <div className="bg-indigo-600 h-full" style={{ width: `${100 - (i * 15)}%` }} />
                     </div>
                   </div>
                   <div className="text-right text-sm font-black text-indigo-700">
-                    {getCurrencySymbol(s.currency)}{(parseInt(s.total_contribution) || 0).toLocaleString()}
+                    {getCurrencySymbol(s.currency)}{(parseInt(s.totalContribution) || 0).toLocaleString()}
                   </div>
                 </div>
               ))}

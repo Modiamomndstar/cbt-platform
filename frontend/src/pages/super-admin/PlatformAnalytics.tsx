@@ -94,7 +94,7 @@ export default function PlatformAnalytics() {
                 <div key={index} className="bg-gray-50 rounded-lg p-4 text-center">
                   <p className="text-2xl font-bold">{sub.count || 0}</p>
                   <p className="text-sm text-gray-600 capitalize">
-                    {sub.subscription_status || sub.plan_status || sub.plan_type || 'Unknown'}
+                    {sub.subscriptionStatus || sub.planStatus || sub.planType || 'Unknown'}
                   </p>
                 </div>
               ))}
@@ -140,16 +140,16 @@ export default function PlatformAnalytics() {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          school.plan_status === 'active'
+                          school.planStatus === 'active'
                             ? 'bg-emerald-100 text-emerald-700'
                             : 'bg-gray-100 text-gray-700'
                         }`}>
-                          {school.plan_status || 'Free'}
+                          {school.planStatus || 'Free'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-600">
-                        {school.created_at
-                          ? new Date(school.created_at).toLocaleDateString()
+                        {school.createdAt
+                          ? new Date(school.createdAt).toLocaleDateString()
                           : '-'}
                       </td>
                     </tr>
