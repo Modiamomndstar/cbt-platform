@@ -11,8 +11,8 @@
     "lint:fix": "eslint src --ext .ts --fix",
     "test": "jest",
     "test:watch": "jest --watch",
-    "db:migrate": "ts-node-esm scripts/migrate.ts",
-    "db:seed": "ts-node scripts/seed.ts"
+    "db:migrate": "node dist/scripts/migrate.js 2>/dev/null || ts-node scripts/migrate.ts",
+    "db:seed": "node dist/scripts/seed.js 2>/dev/null || ts-node scripts/seed.ts"
   },
   "keywords": [
     "cbt",
