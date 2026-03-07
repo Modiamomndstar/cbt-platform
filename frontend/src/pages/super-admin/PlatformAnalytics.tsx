@@ -94,7 +94,7 @@ export default function PlatformAnalytics() {
                 <div key={index} className="bg-gray-50 rounded-lg p-4 text-center">
                   <p className="text-2xl font-bold">{sub.count || 0}</p>
                   <p className="text-sm text-gray-600 capitalize">
-                    {sub.plan_status || sub.subscription_status || 'Unknown'}
+                    {sub.subscription_status || sub.plan_status || sub.plan_type || 'Unknown'}
                   </p>
                 </div>
               ))}

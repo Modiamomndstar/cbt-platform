@@ -402,9 +402,9 @@ export default function SchoolDetails() {
                         <div className="flex-1 min-w-0 mr-3">
                            <p className="text-sm font-semibold text-gray-900 truncate">{f.feature_name}</p>
                            <p className="text-[10px] text-gray-500 mt-0.5">
-                             Min plan: <span className="font-bold uppercase text-indigo-600">{f.min_plan || 'any'}</span>
-                             {overrides[f.feature_key] && <span className="ml-2 text-emerald-600 font-bold">• Override ON</span>}
-                           </p>
+                              Min plan: <span className="font-bold uppercase text-indigo-600">{f.min_plan && f.min_plan !== 'any' ? f.min_plan : 'All Plans'}</span>
+                              {overrides[f.feature_key] && <span className="ml-2 text-emerald-600 font-bold">• Override ON</span>}
+                            </p>
                         </div>
                         <Switch
                           checked={overrides[f.feature_key] || false}

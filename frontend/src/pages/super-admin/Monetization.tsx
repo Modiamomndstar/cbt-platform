@@ -12,8 +12,8 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────
 interface Plan {
-  plan_type: string; display_name: string; price_monthly_ngn: number;
-  price_monthly_usd: number; max_tutors: number | null;
+  plan_type: string; display_name: string; price_usd: number;
+  price_ngn: number; max_tutors: number | null;
   max_internal_students: number | null; max_active_exams: number | null;
   ai_queries_per_month: number;
   allow_student_portal: boolean; allow_external_students: boolean;
@@ -23,7 +23,7 @@ interface Plan {
 }
 
 interface FeatureFlag {
-  feature_key: string; display_name: string; description: string;
+  feature_key: string; feature_name: string; description: string;
   min_plan: string; is_enabled: boolean;
 }
 
@@ -63,21 +63,21 @@ function PlanEditor({ plan, onSave }: { plan: Plan; onSave: (updated: Plan) => v
   const handleSave = async () => {
     try {
       await superAdminAPI.updatePlan(draft.plan_type, {
-        priceMonthlyNgn: draft.price_monthly_ngn,
-        priceMonthlyUsd: draft.price_monthly_usd,
+        priceNgn: draft.price_ngn,
+        priceUsd: draft.price_usd,
         maxTutors: draft.max_tutors,
         maxInternalStudents: draft.max_internal_students,
         maxActiveExams: draft.max_active_exams,
         aiQueriesPerMonth: draft.ai_queries_per_month,
-        allowStudentPortal: draft.allow_student_portal,
-        allowExternalStudents: draft.allow_external_students,
-        allowBulkImport: draft.allow_bulk_import,
-        allowEmailNotifications: draft.allow_email_notifications,
-        allowAdvancedAnalytics: draft.allow_advanced_analytics,
-        allowCustomBranding: draft.allow_custom_branding,
-        allowResultPdf: draft.allow_result_pdf,
-        allowApiAccess: draft.allow_api_access,
-        allowSmsNotifications: draft.allow_sms_notifications,
+        allow_student_portal: draft.allow_student_portal,
+        allow_external_students: draft.allow_external_students,
+        allow_bulk_import: draft.allow_bulk_import,
+        allow_email_notifications: draft.allow_email_notifications,
+        allow_advanced_analytics: draft.allow_advanced_analytics,
+        allow_custom_branding: draft.allow_custom_branding,
+        allow_result_pdf: draft.allow_result_pdf,
+        allow_api_access: draft.allow_api_access,
+        allow_sms_notifications: draft.allow_sms_notifications,
       });
       onSave(draft);
       setEditing(false);
@@ -148,8 +148,8 @@ function PlanEditor({ plan, onSave }: { plan: Plan; onSave: (updated: Plan) => v
             <input
               type="number"
               disabled={!editing}
-              value={draft.price_monthly_ngn}
-              onChange={(e) => setDraft(p => ({ ...p, price_monthly_ngn: parseFloat(e.target.value) || 0 }))}
+              value={draft.price_ngn}
+              onChange={(e) => setDraft(p => ({ ...p, price_ngn: parseFloat(e.target.value) || 0 }))}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50 focus:ring-2 focus:ring-indigo-300 outline-none"
             />
           </div>
@@ -158,8 +158,8 @@ function PlanEditor({ plan, onSave }: { plan: Plan; onSave: (updated: Plan) => v
             <input
               type="number"
               disabled={!editing}
-              value={draft.price_monthly_usd}
-              onChange={(e) => setDraft(p => ({ ...p, price_monthly_usd: parseFloat(e.target.value) || 0 }))}
+              value={draft.price_usd}
+              onChange={(e) => setDraft(p => ({ ...p, price_usd: parseFloat(e.target.value) || 0 }))}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50 focus:ring-2 focus:ring-indigo-300 outline-none"
             />
           </div>
@@ -212,10 +212,10 @@ function FeatureFlagsPanel({ flags, onUpdate }: { flags: FeatureFlag[]; onUpdate
           {flags.map((f) => (
             <div key={f.feature_key} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
               <div className="flex-1 pr-4">
-                <p className="text-sm font-medium text-gray-800">{f.display_name}</p>
+                <p className="text-sm font-medium text-gray-800">{f.feature_name || f.display_name}</p>
                 <p className="text-xs text-gray-500">{f.description}</p>
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium mt-1 inline-block ${PLAN_COLORS[f.min_plan] ?? 'bg-gray-100 text-gray-500'}`}>
-                  {f.min_plan === 'freemium' ? 'All plans' : `${f.min_plan}+`}
+                  {!f.min_plan || f.min_plan === 'freemium' ? 'All plans' : `${f.min_plan}+`}
                 </span>
               </div>
               <button
