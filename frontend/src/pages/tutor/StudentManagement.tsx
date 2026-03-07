@@ -87,8 +87,8 @@ export default function StudentManagement() {
         if (searchQuery) {
           const lowerQ = searchQuery.toLowerCase();
           iData = iData.filter((s: any) =>
-            ((s.fullName || s.full_name) || '').toLowerCase().includes(lowerQ) ||
-            ((s.studentId || s.student_id) || '').toLowerCase().includes(lowerQ)
+            (s.fullName || '').toLowerCase().includes(lowerQ) ||
+            (s.studentId || '').toLowerCase().includes(lowerQ)
           );
         }
         setInternalStudents(iData);
@@ -107,9 +107,9 @@ export default function StudentManagement() {
         // Filter by category if needed
         if (selectedCategory && selectedCategory !== 'all') {
             if (selectedCategory === 'uncategorized') {
-                eData = eData.filter((s: any) => !(s.categoryId || s.category_id));
+                eData = eData.filter((s: any) => !s.categoryId);
             } else {
-                eData = eData.filter((s: any) => (s.categoryId || s.category_id) === selectedCategory);
+                eData = eData.filter((s: any) => s.categoryId === selectedCategory);
             }
         }
         setExternalStudents(eData);
@@ -313,7 +313,7 @@ export default function StudentManagement() {
                         <Checkbox
                           checked={selectedStudents.has(student.id)}
                           onCheckedChange={() => toggleSelectStudent(student.id)}
-                          aria-label={`Select ${student.full_name}`}
+                          aria-label={`Select ${student.fullName}`}
                         />
                       </td>
                       <td className="px-4 py-3">

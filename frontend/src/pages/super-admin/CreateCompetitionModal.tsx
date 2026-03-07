@@ -38,10 +38,10 @@ export default function CreateCompetitionModal({ isOpen, onClose, onSuccess }: C
     description: '',
     scope: 'global',
     visibility: 'public',
-    banner_url: '',
-    auto_promote: true,
-    is_featured: false,
-    target_countries: [] as string[],
+    bannerUrl: '',
+    autoPromote: true,
+    isFeatured: false,
+    targetCountries: [] as string[],
   });
 
   const handleNext = () => setStep(prev => prev + 1);
@@ -61,10 +61,10 @@ export default function CreateCompetitionModal({ isOpen, onClose, onSuccess }: C
           description: '',
           scope: 'global',
           visibility: 'public',
-          banner_url: '',
-          auto_promote: true,
-          is_featured: false,
-          target_countries: [],
+          bannerUrl: '',
+          autoPromote: true,
+          isFeatured: false,
+          targetCountries: [],
         });
       }
     } catch (err: any) {
@@ -178,8 +178,8 @@ export default function CreateCompetitionModal({ isOpen, onClose, onSuccess }: C
                   <p className="text-xs text-slate-500">Automatically advance top performers to the next stage.</p>
                 </div>
                 <Switch
-                  checked={formData.auto_promote}
-                  onCheckedChange={val => setFormData({ ...formData, auto_promote: val })}
+                  checked={formData.autoPromote}
+                  onCheckedChange={val => setFormData({ ...formData, autoPromote: val })}
                 />
               </div>
 
@@ -189,8 +189,8 @@ export default function CreateCompetitionModal({ isOpen, onClose, onSuccess }: C
                   <p className="text-xs text-slate-500">Showcase this event on student and school login banners.</p>
                 </div>
                 <Switch
-                  checked={formData.is_featured}
-                  onCheckedChange={val => setFormData({ ...formData, is_featured: val })}
+                  checked={formData.isFeatured}
+                  onCheckedChange={val => setFormData({ ...formData, isFeatured: val })}
                 />
               </div>
 

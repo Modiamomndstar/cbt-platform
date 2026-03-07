@@ -37,16 +37,11 @@ import { Textarea } from '@/components/ui/textarea';
 interface Message {
   id: string;
   senderId: string;
-  sender_id?: string;
   senderName: string;
-  sender_name?: string;
   senderRole: string;
-  sender_role?: string;
   content: string;
   isRead: boolean;
-  is_read?: boolean;
   createdAt: string;
-  created_at?: string;
 }
 
 interface Broadcast {
@@ -54,9 +49,7 @@ interface Broadcast {
   title: string;
   content: string;
   senderName: string;
-  sender_name?: string;
   createdAt: string;
-  created_at?: string;
 }
 
 export default function MessagesPage() {
@@ -102,8 +95,8 @@ export default function MessagesPage() {
 
     setSending(true);
     try {
-      const receiverId = (selectedMessage.senderId || selectedMessage.sender_id)!;
-      const receiverRole = (selectedMessage.senderRole || selectedMessage.sender_role)!;
+      const receiverId = selectedMessage.senderId;
+      const receiverRole = selectedMessage.senderRole;
 
       const res = await messagesAPI.sendMessage({
         receiverId,
@@ -196,7 +189,7 @@ export default function MessagesPage() {
   const handleMarkRead = async (id: string) => {
     try {
       await messagesAPI.markAsRead(id);
-      setMessages(prev => prev.map(m => m.id === id ? { ...m, isRead: true, is_read: true } : m));
+      setMessages(prev => prev.map(m => m.id === id ? { ...m, isRead: true } : m));
       refreshUnreadCount();
     } catch (err) {
       console.error(err);
@@ -206,7 +199,7 @@ export default function MessagesPage() {
 
   const filteredMessages = messages.filter(m =>
     m.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (m.senderName || m.sender_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+    (m.senderName || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const groupedRecipients = recipients.reduce((acc, curr) => {
@@ -270,25 +263,25 @@ export default function MessagesPage() {
                                 key={m.id}
                                 onClick={() => {
                                     setSelectedMessage(m);
-                                    if (!(m.isRead ?? m.is_read)) handleMarkRead(m.id);
+                                    if (!m.isRead) handleMarkRead(m.id);
                                 }}
                                 className={`w-full p-4 text-left hover:bg-indigo-50/50 transition-colors flex gap-3 items-start relative ${selectedMessage?.id === m.id ? 'bg-indigo-50' : ''}`}
                             >
-                                {!(m.isRead ?? m.is_read) && <div className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-indigo-600 rounded-full" />}
+                                {!m.isRead && <div className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-indigo-600 rounded-full" />}
                                 <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0 border border-gray-200">
                                     <User className="h-5 w-5 text-gray-500" />
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <div className="flex justify-between items-start">
-                                        <p className="text-sm font-black text-gray-900 truncate">{m.senderName || m.sender_name}</p>
+                                        <p className="text-sm font-black text-gray-900 truncate">{m.senderName}</p>
                                         <span className="text-[10px] text-gray-400 font-bold whitespace-nowrap">
-                                            {formatDistanceToNow(new Date(m.createdAt || m.created_at || ''), { addSuffix: true })}
+                                            {formatDistanceToNow(new Date(m.createdAt || ''), { addSuffix: true })}
                                         </span>
                                     </div>
                                     <p className="text-xs text-gray-500 truncate mt-0.5">{m.content}</p>
                                     <div className="flex items-center gap-2 mt-2">
                                         <Badge variant="outline" className="text-[9px] font-black uppercase tracking-tighter text-gray-400">
-                                            {(m.senderRole || m.sender_role) === 'super_admin' ? 'Support' : (m.senderRole || m.sender_role)}
+                                            {m.senderRole === 'super_admin' ? 'Support' : m.senderRole}
                                         </Badge>
                                     </div>
                                 </div>
@@ -310,8 +303,8 @@ export default function MessagesPage() {
                                 </h3>
                                 <p className="text-xs text-indigo-700 mt-2 leading-relaxed">{b.content}</p>
                                 <div className="mt-3 flex justify-between items-center text-[10px] text-indigo-500/50 font-bold">
-                                    <span>From: {b.senderName || b.sender_name}</span>
-                                    <span>{formatDistanceToNow(new Date(b.createdAt || b.created_at || ''))} ago</span>
+                                    <span>From: {b.senderName}</span>
+                                    <span>{formatDistanceToNow(new Date(b.createdAt || ''))} ago</span>
                                 </div>
                             </div>
                         ))}
@@ -338,10 +331,10 @@ export default function MessagesPage() {
                                 <User className="h-6 w-6 text-gray-500" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-black text-gray-900 leading-tight">{selectedMessage.senderName || selectedMessage.sender_name}</h2>
+                                <h2 className="text-lg font-black text-gray-900 leading-tight">{selectedMessage.senderName}</h2>
                                 <div className="flex items-center gap-2 mt-0.5">
                                     <Badge className="text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 border-emerald-100">
-                                        {(selectedMessage.senderRole || selectedMessage.sender_role) === 'super_admin' ? 'Support' : (selectedMessage.senderRole || selectedMessage.sender_role)}
+                                        {selectedMessage.senderRole === 'super_admin' ? 'Support' : selectedMessage.senderRole}
                                     </Badge>
                                     <span className="text-[10px] text-gray-400 font-bold">• Active Conversation</span>
                                 </div>
@@ -369,7 +362,7 @@ export default function MessagesPage() {
                                         {selectedMessage.content}
                                     </p>
                                     <p className="text-[10px] text-gray-400 font-bold mt-2 text-right">
-                                        {new Date(selectedMessage.createdAt || selectedMessage.created_at || '').toLocaleString()}
+                                        {new Date(selectedMessage.createdAt || '').toLocaleString()}
                                     </p>
                                 </div>
                             </div>

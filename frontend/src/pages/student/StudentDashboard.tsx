@@ -59,7 +59,7 @@ export default function StudentDashboard() {
 
         // Identify awards
         const possibleAwards = history.filter((r: any) =>
-          r.percentage >= 70 || r.rank <= 3 || r.isCompetition || r.is_competition // Include all competition results for participation certs
+          r.percentage >= 70 || r.rank <= 3 || r.isCompetition // Include all competition results for participation certs
         );
         setAwards(possibleAwards);
       }
@@ -154,8 +154,8 @@ export default function StudentDashboard() {
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="flex-1 min-w-0 pr-4">
                     <h3 className="font-bold text-indigo-900 truncate">{report.title}</h3>
-                    <p className="text-xs text-indigo-600 font-medium truncate">Issued by {report.issuedByName || report.issued_by_name || 'School Admin'}</p>
-                    <p className="text-[10px] text-gray-400 mt-1">{new Date(report.createdAt || report.created_at).toLocaleDateString()}</p>
+                    <p className="text-xs text-indigo-600 font-medium truncate">Issued by {report.issuedByName || 'School Admin'}</p>
+                    <p className="text-[10px] text-gray-400 mt-1">{new Date(report.createdAt).toLocaleDateString()}</p>
                   </div>
                   <Button size="sm" variant="ghost" className="text-indigo-600 shrink-0 hover:text-indigo-700 hover:bg-indigo-100">
                     View <ArrowRight className="ml-1 h-3 w-3" />
@@ -186,10 +186,10 @@ export default function StudentDashboard() {
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <h3 className="font-semibold text-gray-900">
-                        {schedule.exam_title || schedule.examTitle || schedule.exam?.title || 'Exam'}
+                        {schedule.examTitle || schedule.exam?.title || 'Exam'}
                       </h3>
                       <p className="text-sm text-gray-500">
-                        {schedule.durationMinutes || schedule.duration || schedule.exam?.duration ? `${schedule.durationMinutes || schedule.duration || schedule.exam?.duration} minutes` : ''}
+                        {schedule.durationMinutes || schedule.exam?.duration ? `${schedule.durationMinutes || schedule.exam?.duration} minutes` : ''}
                       </p>
                     </div>
                     {schedule.status === 'expired' ? (
@@ -204,14 +204,14 @@ export default function StudentDashboard() {
                   <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
                     <div className="flex items-center text-gray-600">
                       <Calendar className="h-4 w-4 mr-2" />
-                      {schedule.scheduledDate || schedule.scheduled_date
-                        ? new Date(schedule.scheduledDate || schedule.scheduled_date).toLocaleDateString()
+                      {schedule.scheduledDate
+                        ? new Date(schedule.scheduledDate).toLocaleDateString()
                         : '-'}
                     </div>
                     <div className="flex items-center text-gray-600">
                       <Clock className="h-4 w-4 mr-2" />
-                      {(schedule.startTime || schedule.start_time)
-                        ? `${(schedule.startTime || schedule.start_time).slice(0, 5)} - ${(schedule.endTime || schedule.end_time || '').slice(0, 5)}`
+                      {schedule.startTime
+                        ? `${schedule.startTime.slice(0, 5)} - ${(schedule.endTime || '').slice(0, 5)}`
                         : '-'}
                     </div>
                   </div>
@@ -223,7 +223,7 @@ export default function StudentDashboard() {
                   ) : (
                     <div className="flex justify-between items-center">
                       <p className="text-sm text-gray-500">
-                        Access code: <code className="bg-gray-100 px-2 py-1 rounded">{schedule.access_code || schedule.accessCode || '-'}</code>
+                        Access code: <code className="bg-gray-100 px-2 py-1 rounded">{schedule.accessCode || '-'}</code>
                       </p>
                       <Button
                         onClick={() => navigate(`/student/exam/${schedule.id}`)}
@@ -270,8 +270,8 @@ export default function StudentDashboard() {
                       {award.percentage >= 70 || award.rank <= 3 ? 'Excellence' : 'Participation'}
                     </Badge>
                   </div>
-                  <h3 className="font-bold text-slate-900 mb-1">{award.examTitle || award.exam_title || 'Competition Award'}</h3>
-                  <p className="text-xs text-slate-500 mb-4">Issued on {new Date(award.submittedAt || award.submitted_at || award.createdAt || award.created_at).toLocaleDateString()}</p>
+                  <h3 className="font-bold text-slate-900 mb-1">{award.examTitle || 'Competition Award'}</h3>
+                  <p className="text-xs text-slate-500 mb-4">Issued on {new Date(award.submittedAt || award.createdAt).toLocaleDateString()}</p>
                   <Button
                     variant="outline"
                     className="w-full border-amber-200 text-amber-700 hover:bg-amber-50"
@@ -312,7 +312,7 @@ export default function StudentDashboard() {
 
                 <div>
                   <p className="text-xl text-slate-600 mb-4">For outstanding performance in the competition</p>
-                  <h3 className="text-3xl font-bold text-indigo-900 mb-10">{printingAward.examTitle || printingAward.exam_title}</h3>
+                  <h3 className="text-3xl font-bold text-indigo-900 mb-10">{printingAward.examTitle}</h3>
 
                   <div className="flex justify-around items-end mt-12 px-20">
                     <div className="text-center border-t-2 border-slate-300 pt-2 w-48">
@@ -387,18 +387,18 @@ export default function StudentDashboard() {
                     </div>
                     <div>
                       <p className="font-medium text-gray-900">
-                        {result.exam_title || result.examTitle || 'Exam'}
+                        {result.examTitle || 'Exam'}
                       </p>
                       <p className="text-sm text-gray-500">
-                        {result.submitted_at || result.submittedAt
-                          ? `Submitted on ${new Date(result.submitted_at || result.submittedAt).toLocaleDateString()}`
+                        {result.submittedAt
+                          ? `Submitted on ${new Date(result.submittedAt).toLocaleDateString()}`
                           : ''}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="font-medium text-gray-900">
-                      {result.score || 0} / {result.totalMarks || result.total_marks || 0}
+                      {result.score || 0} / {result.totalMarks || 0}
                     </p>
                   </div>
                 </div>

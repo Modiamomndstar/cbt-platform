@@ -187,14 +187,14 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
           if (rewardAmount > 0) {
             // 1. Award credits to referrer
             await db.query(
-              "UPDATE payg_wallets SET balance = balance + $1 WHERE school_id = $2",
+              "UPDATE payg_wallets SET balance_credits = balance_credits + $1 WHERE school_id = $2",
               [rewardAmount, referrerId]
             );
 
             // 2. Log transaction
             await db.query(
               `INSERT INTO payg_ledger (school_id, type, credits, balance_after, description)
-               VALUES ($1, 'referral_reward', $2, (SELECT balance FROM payg_wallets WHERE school_id = $1), $3)`,
+               VALUES ($1, 'referral_reward', $2, (SELECT balance_credits FROM payg_wallets WHERE school_id = $1), $3)`,
               [referrerId, rewardAmount, `Reward for referring a school that upgraded to ${planType}`]
             );
 
@@ -384,10 +384,10 @@ router.post(
             const rewardAmount = parseInt(rewardRes.rows[0]?.value || '100');
 
             if (rewardAmount > 0) {
-              await db.query("UPDATE payg_wallets SET balance = balance + $1 WHERE school_id = $2", [rewardAmount, referrerId]);
+              await db.query("UPDATE payg_wallets SET balance_credits = balance_credits + $1 WHERE school_id = $2", [rewardAmount, referrerId]);
               await db.query(
                 `INSERT INTO payg_ledger (school_id, type, credits, balance_after, description)
-                 VALUES ($1, 'referral_reward', $2, (SELECT balance FROM payg_wallets WHERE school_id = $1), $3)`,
+                 VALUES ($1, 'referral_reward', $2, (SELECT balance_credits FROM payg_wallets WHERE school_id = $1), $3)`,
                 [referrerId, rewardAmount, `Reward for referring a school that upgraded via Paystack`]
               );
               await db.query("UPDATE schools SET referral_reward_granted = true WHERE id = $1", [user.schoolId]);

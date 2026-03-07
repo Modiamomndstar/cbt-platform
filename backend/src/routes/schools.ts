@@ -25,11 +25,12 @@ router.post('/register', [
   body('address').optional().trim(),
   body('description').optional().trim(),
   body('country').optional().trim(),
+  body('logo').optional().trim(),
   body('referralCode').optional().trim(),
   validate
 ], async (req, res, next) => {
   try {
-    const { name, username, password, email, phone, address, description, country, referralCode } = req.body;
+    const { name, username, password, email, phone, address, description, country, logo, referralCode } = req.body;
 
     // Check if username exists
     const usernameCheck = await db.query('SELECT id FROM schools WHERE username = $1', [username]);
@@ -65,14 +66,14 @@ router.post('/register', [
       const schoolResult = await client.query(
         `INSERT INTO schools (
           name, username, password_hash, email, phone, address,
-          description, country, plan_type, is_active,
+          description, logo_url, country, plan_type, is_active,
           is_email_verified, email_verification_token, referral_code, referred_by_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'freemium', false, false, $9, $10, $11)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'freemium', false, false, $10, $11, $12)
         RETURNING id, name, username, email, phone, plan_type, created_at`,
         [
           name, username, passwordHash, email, phone, address,
-          description, country || 'Nigeria', verificationToken,
+          description, logo, country || 'Nigeria', verificationToken,
           newSchoolReferralCode, referredById
         ]
       );

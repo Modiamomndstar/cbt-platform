@@ -8,20 +8,20 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 
 interface MarketplaceItem {
-  feature_key: string;
-  display_name: string;
-  credit_cost: number;
-  item_type: string;
+  featureKey: string;
+  displayName: string;
+  creditCost: number;
+  itemType: string;
   category: string;
-  is_active: boolean;
+  isActive: boolean;
 }
 
 interface PurchaseLog {
   id: string;
-  school_name: string;
-  feature_key: string;
+  schoolName: string;
+  featureKey: string;
   credits: number;
-  created_at: string;
+  createdAt: string;
   type: string;
 }
 
@@ -114,18 +114,18 @@ export default function MarketplaceManagement() {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {items.map((item) => (
-                  <tr key={item.feature_key} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-gray-900">{item.display_name}</td>
+                  <tr key={item.featureKey} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 font-medium text-gray-900">{item.displayName}</td>
                     <td className="px-6 py-4">
                       <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700 capitalize">
                         {item.category}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right font-semibold text-indigo-600">
-                      {item.credit_cost}
+                      {item.creditCost}
                     </td>
                     <td className="px-6 py-4">
-                      {item.is_active ? (
+                      {item.isActive ? (
                         <span className="text-green-600 flex items-center gap-1 text-sm font-medium">
                           <CheckCircle2 className="h-4 w-4" /> Active
                         </span>
@@ -163,13 +163,13 @@ export default function MarketplaceManagement() {
                   {history.map((log) => (
                     <tr key={log.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {log.created_at ? format(new Date(log.created_at), 'MMM d, HH:mm') : '—'}
+                        {log.createdAt ? format(new Date(log.createdAt), 'MMM d, HH:mm') : '—'}
                       </td>
-                      <td className="px-6 py-4 text-sm font-semibold text-gray-900">{log.school_name || 'School'}</td>
+                      <td className="px-6 py-4 text-sm font-semibold text-gray-900">{log.schoolName || 'School'}</td>
                       <td className="px-6 py-4 text-right">
                         <span className="text-red-600 font-medium">-{log.credits} Cr</span>
                       </td>
-                      <td className="px-6 py-4 text-right text-xs text-gray-500 uppercase">{log.feature_key}</td>
+                      <td className="px-6 py-4 text-right text-xs text-gray-500 uppercase">{log.featureKey}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -210,7 +210,7 @@ export default function MarketplaceManagement() {
                   onChange={(e) => setSelectedItem(e.target.value)}
                 >
                   <option value="" className="text-gray-900">Select feature...</option>
-                  {items.map(i => <option key={i.feature_key} value={i.feature_key} className="text-gray-900">{i.display_name}</option>)}
+                  {items.map(i => <option key={i.featureKey} value={i.featureKey} className="text-gray-900">{i.displayName}</option>)}
                 </select>
               </div>
 

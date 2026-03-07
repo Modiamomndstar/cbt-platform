@@ -53,42 +53,42 @@ export default function TutorDashboard() {
   const statCards = [
     {
       title: 'My Exams',
-      value: stats?.examCount || stats?.exam_count || stats?.totalExams || 0,
+      value: stats?.examCount || 0,
       icon: BookOpen,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50'
     },
     {
       title: 'My Students',
-      value: stats?.studentCount || stats?.student_count || stats?.totalStudents || 0,
+      value: stats?.studentCount || 0,
       icon: Users,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-50'
     },
     {
       title: 'Questions',
-      value: stats?.questionCount || stats?.question_count || stats?.totalQuestions || 0,
+      value: stats?.questionCount || 0,
       icon: FileQuestion,
       color: 'text-amber-600',
       bgColor: 'bg-amber-50'
     },
     {
       title: 'Completed',
-      value: stats?.completedExams || stats?.completed_exams || 0,
+      value: stats?.completedExams || 0,
       icon: CheckCircle,
       color: 'text-rose-600',
       bgColor: 'bg-rose-50'
     },
     {
       title: 'Upcoming',
-      value: stats?.upcomingExamsCount || stats?.upcomingExams?.length || stats?.upcoming_exams || 0,
+      value: stats?.upcomingExamsCount || 0,
       icon: Calendar,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50'
     },
     {
       title: 'Avg Score',
-      value: `${Math.round(stats?.averageScore || stats?.average_score || 0)}%`,
+      value: `${Math.round(stats?.averageScore || 0)}%`,
       icon: TrendingUp,
       color: 'text-cyan-600',
       bgColor: 'bg-cyan-50'
@@ -162,11 +162,11 @@ export default function TutorDashboard() {
                       </div>
                       <div>
                         <p className="font-medium text-gray-900">{exam.title}</p>
-                        <p className="text-sm text-gray-500">{exam.category || exam.category_name || ''}</p>
+                        <p className="text-sm text-gray-500">{exam.categoryName || ''}</p>
                       </div>
                     </div>
                     <span className="text-sm text-gray-500">
-                      {exam.totalQuestions || exam.total_questions || exam.questionCount || exam.question_count || 0} Qs
+                      {exam.totalQuestions || 0} Qs
                     </span>
                   </div>
                 ))}

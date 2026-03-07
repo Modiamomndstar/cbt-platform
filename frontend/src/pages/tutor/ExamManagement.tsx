@@ -179,12 +179,12 @@ export default function ExamManagement() {
                     <div className="flex-1">
                       <h3 className="font-semibold text-gray-900">{exam.title}</h3>
                       <div className="flex items-center gap-2 mt-1">
-                        {(exam.categoryName || exam.category_name) && (
-                           <Badge style={{ backgroundColor: exam.categoryColor || exam.category_color || '#8B5CF6', color: 'white' }} className="text-[10px] h-4 px-1 pb-0 shadow-sm border-none leading-none items-center">{exam.categoryName || exam.category_name}</Badge>
+                        {exam.categoryName && (
+                           <Badge style={{ backgroundColor: exam.categoryColor || '#8B5CF6', color: 'white' }} className="text-[10px] h-4 px-1 pb-0 shadow-sm border-none leading-none items-center">{exam.categoryName}</Badge>
                         )}
                         <span className="text-sm text-gray-500">{exam.duration} mins</span>
                         <span className="text-sm text-gray-500">
-                          • {exam.totalQuestions || exam.total_questions || exam.questionCount || exam.question_count || 0} questions
+                          • {exam.totalQuestions || 0} questions
                         </span>
                       </div>
                     </div>

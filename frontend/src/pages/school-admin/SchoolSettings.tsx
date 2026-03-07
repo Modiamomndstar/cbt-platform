@@ -6,20 +6,20 @@ import { toast } from 'sonner';
 import { Settings, Users, BookOpen, BellRing, Palette, ExternalLink, ToggleLeft, ToggleRight, Save } from 'lucide-react';
 
 interface SchoolSettings {
-  allow_external_students: boolean;
-  max_external_per_tutor: number;
-  allow_tutor_create_students: boolean;
-  allow_tutor_edit_categories: boolean;
-  student_portal_enabled: boolean;
-  result_release_mode: 'immediate' | 'manual';
-  allow_student_pdf_download: boolean;
-  default_exam_attempts: number;
-  email_on_exam_complete: boolean;
-  email_on_new_student: boolean;
-  email_on_results_release: boolean;
-  primary_color: string;
-  report_signature_title: string;
-  report_signature_name: string;
+  allowExternalStudents: boolean;
+  maxExternalPerTutor: number;
+  allowTutorCreateStudents: boolean;
+  allowTutorEditCategories: boolean;
+  studentPortalEnabled: boolean;
+  resultReleaseMode: 'immediate' | 'manual';
+  allowStudentPdfDownload: boolean;
+  defaultExamAttempts: number;
+  emailOnExamComplete: boolean;
+  emailOnNewStudent: boolean;
+  emailOnResultsRelease: boolean;
+  primaryColor: string;
+  reportSignatureTitle: string;
+  reportSignatureName: string;
 }
 
 function Toggle({ enabled, onChange, label, description }: {
@@ -73,22 +73,7 @@ export default function SchoolSettingsPage() {
     if (!settings || !dirty) return;
     setSaving(true);
     try {
-      await schoolSettingsAPI.update({
-        allowExternalStudents: settings.allow_external_students,
-        maxExternalPerTutor: settings.max_external_per_tutor,
-        allowTutorCreateStudents: settings.allow_tutor_create_students,
-        allowTutorEditCategories: settings.allow_tutor_edit_categories,
-        studentPortalEnabled: settings.student_portal_enabled,
-        resultReleaseMode: settings.result_release_mode,
-        allowStudentPdfDownload: settings.allow_student_pdf_download,
-        defaultExamAttempts: settings.default_exam_attempts,
-        emailOnExamComplete: settings.email_on_exam_complete,
-        emailOnNewStudent: settings.email_on_new_student,
-        emailOnResultsRelease: settings.email_on_results_release,
-        primaryColor: settings.primary_color,
-        reportSignatureTitle: settings.report_signature_title,
-        reportSignatureName: settings.report_signature_name,
-      });
+      await schoolSettingsAPI.update(settings);
       toast.success('Settings saved!');
       setDirty(false);
     } catch {
@@ -147,12 +132,12 @@ export default function SchoolSettingsPage() {
         </CardHeader>
         <CardContent>
           <Toggle
-            enabled={settings.allow_external_students}
-            onChange={(v) => update('allow_external_students', v)}
+            enabled={settings.allowExternalStudents}
+            onChange={(v) => update('allowExternalStudents', v)}
             label="Allow tutors to add external students"
             description="When ON, each tutor can enroll their own external students up to the limit below."
           />
-          {settings.allow_external_students && (
+          {settings.allowExternalStudents && (
             <div className="pl-0 pt-3">
               <label className="text-sm font-medium text-gray-700">Max external students per tutor</label>
               <div className="flex items-center gap-3 mt-2">
@@ -160,8 +145,8 @@ export default function SchoolSettingsPage() {
                   type="number"
                   min={0}
                   max={1000}
-                  value={settings.max_external_per_tutor}
-                  onChange={(e) => update('max_external_per_tutor', parseInt(e.target.value) || 0)}
+                  value={settings.maxExternalPerTutor}
+                  onChange={(e) => update('maxExternalPerTutor', parseInt(e.target.value) || 0)}
                   className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300 outline-none"
                 />
                 <span className="text-sm text-gray-500">students per tutor</span>
@@ -181,26 +166,26 @@ export default function SchoolSettingsPage() {
         </CardHeader>
         <CardContent>
           <Toggle
-            enabled={settings.allow_tutor_create_students}
-            onChange={(v) => update('allow_tutor_create_students', v)}
+            enabled={settings.allowTutorCreateStudents}
+            onChange={(v) => update('allowTutorCreateStudents', v)}
             label="Allow tutors to create internal students"
             description="When OFF, only school admins can create students."
           />
           <Toggle
-            enabled={settings.allow_tutor_edit_categories}
-            onChange={(v) => update('allow_tutor_edit_categories', v)}
+            enabled={settings.allowTutorEditCategories}
+            onChange={(v) => update('allowTutorEditCategories', v)}
             label="Allow tutors to edit school categories"
             description="When ON, tutors can create, edit, or delete central school categories."
           />
           <Toggle
-            enabled={settings.student_portal_enabled}
-            onChange={(v) => update('student_portal_enabled', v)}
+            enabled={settings.studentPortalEnabled}
+            onChange={(v) => update('studentPortalEnabled', v)}
             label="Enable student portal"
             description="Allow students to log in and view their results, history, and profile."
           />
           <Toggle
-            enabled={settings.allow_student_pdf_download}
-            onChange={(v) => update('allow_student_pdf_download', v)}
+            enabled={settings.allowStudentPdfDownload}
+            onChange={(v) => update('allowStudentPdfDownload', v)}
             label="Allow students to download result PDFs"
             description="Students can download their own exam result as a PDF."
           />
@@ -211,8 +196,8 @@ export default function SchoolSettingsPage() {
                 type="number"
                 min={1}
                 max={10}
-                value={settings.default_exam_attempts}
-                onChange={(e) => update('default_exam_attempts', parseInt(e.target.value) || 1)}
+                value={settings.defaultExamAttempts}
+                onChange={(e) => update('defaultExamAttempts', parseInt(e.target.value) || 1)}
                 className="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300 outline-none"
               />
               <span className="text-sm text-gray-500">attempt(s) per exam</span>
@@ -239,9 +224,9 @@ export default function SchoolSettingsPage() {
               {(['immediate', 'manual'] as const).map((mode) => (
                 <button
                   key={mode}
-                  onClick={() => { update('result_release_mode', mode); }}
+                  onClick={() => { update('resultReleaseMode', mode); }}
                   className={`flex-1 py-2.5 rounded-lg text-sm font-medium border-2 transition-colors capitalize ${
-                    settings.result_release_mode === mode
+                    settings.resultReleaseMode === mode
                       ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
                       : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
                   }`}
@@ -264,20 +249,20 @@ export default function SchoolSettingsPage() {
         </CardHeader>
         <CardContent>
           <Toggle
-            enabled={settings.email_on_new_student}
-            onChange={(v) => update('email_on_new_student', v)}
+            enabled={settings.emailOnNewStudent}
+            onChange={(v) => update('emailOnNewStudent', v)}
             label="Welcome email when a new student is created"
             description="Send login credentials to new students automatically."
           />
           <Toggle
-            enabled={settings.email_on_exam_complete}
-            onChange={(v) => update('email_on_exam_complete', v)}
+            enabled={settings.emailOnExamComplete}
+            onChange={(v) => update('emailOnExamComplete', v)}
             label="Email when a student completes an exam"
             description="Notify the school admin when exam submissions come in."
           />
           <Toggle
-            enabled={settings.email_on_results_release}
-            onChange={(v) => update('email_on_results_release', v)}
+            enabled={settings.emailOnResultsRelease}
+            onChange={(v) => update('emailOnResultsRelease', v)}
             label="Notify students when results are released"
             description="Send students an email when their results become visible."
           />
@@ -299,13 +284,13 @@ export default function SchoolSettingsPage() {
             <div className="flex items-center gap-3">
               <input
                 type="color"
-                value={settings.primary_color}
-                onChange={(e) => update('primary_color', e.target.value)}
+                value={settings.primaryColor}
+                onChange={(e) => update('primaryColor', e.target.value)}
                 className="h-10 w-16 rounded-lg border border-gray-300 cursor-pointer p-1"
               />
-              <span className="text-sm font-mono text-gray-600">{settings.primary_color}</span>
+              <span className="text-sm font-mono text-gray-600">{settings.primaryColor}</span>
               <button
-                onClick={() => update('primary_color', '#6366f1')}
+                onClick={() => update('primaryColor', '#6366f1')}
                 className="text-xs text-indigo-600 hover:underline"
               >
                 Reset to default
@@ -333,8 +318,8 @@ export default function SchoolSettingsPage() {
               <input
                 type="text"
                 placeholder="e.g. School Principal"
-                value={settings.report_signature_title || ''}
-                onChange={(e) => update('report_signature_title', e.target.value)}
+                value={settings.reportSignatureTitle || ''}
+                onChange={(e) => update('reportSignatureTitle', e.target.value)}
                 className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300 outline-none"
               />
             </div>
@@ -343,8 +328,8 @@ export default function SchoolSettingsPage() {
               <input
                 type="text"
                 placeholder="e.g. Dr. John Doe"
-                value={settings.report_signature_name || ''}
-                onChange={(e) => update('report_signature_name', e.target.value)}
+                value={settings.reportSignatureName || ''}
+                onChange={(e) => update('reportSignatureName', e.target.value)}
                 className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300 outline-none"
               />
             </div>

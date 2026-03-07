@@ -68,11 +68,11 @@ export default function TakeExam() {
           const dur = mySchedule.durationMinutes || mySchedule.duration || mySchedule.exam_duration || 60;
 
           setExam({
-            title: mySchedule.examTitle || mySchedule.exam_title || 'Exam',
+            title: mySchedule.examTitle || 'Exam',
             duration: dur,
-            category: mySchedule.examCategory || mySchedule.exam_category || '',
-            isCompetition: !!mySchedule.competition_id,
-            rules: mySchedule.competition_rules || '',
+            category: mySchedule.examCategory || '',
+            isCompetition: !!mySchedule.competitionId,
+            rules: mySchedule.competitionRules || '',
             isSecureMode: !!mySchedule.isSecureMode,
             maxViolations: mySchedule.maxViolations ?? 3
           });
@@ -80,8 +80,8 @@ export default function TakeExam() {
           setMaxViolations(mySchedule.maxViolations ?? 3);
           setTimeRemaining(dur * 60);
 
-          if (mySchedule.accessCode || mySchedule.access_code) {
-            setAccessCode(mySchedule.accessCode || mySchedule.access_code);
+          if (mySchedule.accessCode) {
+            setAccessCode(mySchedule.accessCode);
           }
         }
       }
@@ -205,8 +205,8 @@ export default function TakeExam() {
         const processedQuestions = examQuestions.map((q: any) => ({
           ...q,
           id: q.id,
-          questionText: q.question_text || q.questionText,
-          questionType: q.question_type || q.questionType,
+          questionText: q.questionText,
+          questionType: q.questionType,
           options: q.options || [],
           marks: q.marks || 5,
         }));
@@ -558,11 +558,11 @@ export default function TakeExam() {
               </div>
               <CardContent className="p-10">
                 <h2 className="text-2xl font-black text-slate-900 leading-snug mb-10">
-                  {currentQuestion.questionText || currentQuestion.question_text}
+                  {currentQuestion.questionText}
                 </h2>
 
                 <div className="space-y-4">
-                  {(currentQuestion.questionType || currentQuestion.question_type) === 'multiple_choice' && (
+                  {currentQuestion.questionType === 'multiple_choice' && (
                     (currentQuestion.options || []).map((option: string, index: number) => (
                       <label
                         key={index}
@@ -597,7 +597,7 @@ export default function TakeExam() {
                     ))
                   )}
 
-                  {(currentQuestion.questionType || currentQuestion.question_type) === 'true_false' && (
+                  {currentQuestion.questionType === 'true_false' && (
                     ['True', 'False'].map((option, index) => (
                       <label
                         key={index}
@@ -627,7 +627,7 @@ export default function TakeExam() {
                     ))
                   )}
 
-                  {(currentQuestion.questionType || currentQuestion.question_type) === 'fill_blank' && (
+                  {currentQuestion.questionType === 'fill_blank' && (
                     <input
                       type="text"
                       placeholder="Type your answer here..."

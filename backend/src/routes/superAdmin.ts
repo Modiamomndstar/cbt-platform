@@ -621,7 +621,7 @@ router.get('/export/:type', [
 // GET /api/super-admin/marketplace
 router.get('/marketplace', async (req, res, next) => {
   try {
-    const result = await db.query('SELECT * FROM payg_feature_pricing ORDER BY item_type DESC, display_name ASC');
+    const result = await db.query('SELECT * FROM marketplace_items ORDER BY item_type DESC, display_name ASC');
     ApiResponseHandler.success(res, result.rows, 'Marketplace items retrieved');
   } catch (error) { next(error); }
 });
@@ -634,20 +634,22 @@ router.put('/marketplace/:featureKey', [
   body('is_active').optional().isBoolean(),
   body('display_name').optional().trim().notEmpty(),
   body('category').optional().trim().notEmpty(),
+  body('description').optional().trim(),
   validate
 ], async (req: any, res: any, next: any) => {
   try {
     const { featureKey } = req.params;
-    const { credit_cost, is_active, display_name, category } = req.body;
-
+    const allowed = ['credit_cost', 'is_active', 'display_name', 'category', 'description', 'item_type'];
     const updates: string[] = [];
     const values: any[] = [];
     let p = 1;
 
-    if (credit_cost !== undefined) { updates.push(`credit_cost = $${p++}`); values.push(credit_cost); }
-    if (is_active !== undefined) { updates.push(`is_active = $${p++}`); values.push(is_active); }
-    if (display_name !== undefined) { updates.push(`display_name = $${p++}`); values.push(display_name); }
-    if (category !== undefined) { updates.push(`category = $${p++}`); values.push(category); }
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) {
+        updates.push(`${key} = $${p++}`);
+        values.push(req.body[key]);
+      }
+    }
 
     if (updates.length === 0) return ApiResponseHandler.badRequest(res, 'Nothing to update');
 
@@ -655,7 +657,7 @@ router.put('/marketplace/:featureKey', [
     values.push(featureKey);
 
     const result = await db.query(
-      `UPDATE payg_feature_pricing SET ${updates.join(', ')} WHERE feature_key = $${p} RETURNING *`,
+      `UPDATE marketplace_items SET ${updates.join(', ')} WHERE feature_key = $${p} RETURNING *`,
       values
     );
 
@@ -771,33 +773,7 @@ router.put('/settings/:key', [
 });
 
 
-// ================================================================
-//  MARKETPLACE ITEMS
-// ================================================================
-
-// GET /api/super-admin/marketplace
-router.get('/marketplace', async (req, res, next) => {
-  try {
-    const result = await db.query('SELECT * FROM marketplace_items ORDER BY display_name ASC');
-    ApiResponseHandler.success(res, result.rows, 'Marketplace items retrieved');
-  } catch (error) { next(error); }
-});
-
-// PUT /api/super-admin/marketplace/:featureKey
-router.put('/marketplace/:featureKey', [
-  param('featureKey').notEmpty(),
-  validate
-], async (req: any, res: any, next: any) => {
-  try {
-    const { featureKey } = req.params;
-    const allowed = ['credit_cost', 'is_active', 'display_name', 'description'];
-    const updates: string[] = [];
-    const values: any[] = [];
-    let p = 1;
-
-    for (const key of allowed) {
-      if (req.body[key] !== undefined) {
-        updates.push(`${key} = $${p++}`);
+// End of file cleanup -- removed duplicate marketplace routes
         values.push(req.body[key]);
       }
     }

@@ -102,12 +102,12 @@ export default function ExternalStudents() {
     setIsCreating(false);
     setEditingId(student.id);
     setFormData({
-      fullName: student.fullName || (student as any).full_name,
+      fullName: student.fullName,
       email: student.email || '',
       phone: student.phone || '',
-      levelClass: student.levelClass || (student as any).level_class || '',
-      categoryId: student.categoryId || (student as any).category_id || 'none',
-      isActive: student.isActive !== undefined ? student.isActive : (student as any).is_active,
+      levelClass: student.levelClass || '',
+      categoryId: student.categoryId || 'none',
+      isActive: student.isActive,
       sendEmail: false
     });
   };

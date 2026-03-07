@@ -53,7 +53,7 @@ export default function SchoolAnalytics() {
                 <BookOpen className="h-5 w-5 text-indigo-600" />
               </div>
             </div>
-            <p className="text-2xl font-bold mt-3">{stats?.exam_count || 0}</p>
+            <p className="text-2xl font-bold mt-3">{stats?.examCount || 0}</p>
             <p className="text-sm text-gray-600">Total Exams</p>
           </CardContent>
         </Card>
@@ -64,7 +64,7 @@ export default function SchoolAnalytics() {
                 <Users className="h-5 w-5 text-emerald-600" />
               </div>
             </div>
-            <p className="text-2xl font-bold mt-3">{stats?.student_count || 0}</p>
+            <p className="text-2xl font-bold mt-3">{stats?.studentCount || 0}</p>
             <p className="text-sm text-gray-600">Total Students</p>
           </CardContent>
         </Card>
@@ -75,7 +75,7 @@ export default function SchoolAnalytics() {
                 <TrendingUp className="h-5 w-5 text-amber-600" />
               </div>
             </div>
-            <p className="text-2xl font-bold mt-3">{stats?.completed_exams || stats?.upcoming_exams || 0}</p>
+            <p className="text-2xl font-bold mt-3">{stats?.completedExams || stats?.upcomingExams || 0}</p>
             <p className="text-sm text-gray-600">Exams Completed</p>
           </CardContent>
         </Card>
@@ -86,7 +86,7 @@ export default function SchoolAnalytics() {
                 <Award className="h-5 w-5 text-purple-600" />
               </div>
             </div>
-            <p className="text-2xl font-bold mt-3">{Math.round(stats?.average_score || 0)}%</p>
+            <p className="text-2xl font-bold mt-3">{Math.round(stats?.averageScore || 0)}%</p>
             <p className="text-sm text-gray-600">Average Score</p>
           </CardContent>
         </Card>
@@ -102,19 +102,19 @@ export default function SchoolAnalytics() {
             <div className="space-y-4">
               <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                 <span className="text-gray-600">Total Tutors</span>
-                <span className="font-bold text-lg">{stats?.tutor_count || 0}</span>
+                <span className="font-bold text-lg">{stats?.tutorCount || 0}</span>
               </div>
               <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                 <span className="text-gray-600">Total Students</span>
-                <span className="font-bold text-lg">{stats?.student_count || 0}</span>
+                <span className="font-bold text-lg">{stats?.studentCount || 0}</span>
               </div>
               <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                 <span className="text-gray-600">Total Exams</span>
-                <span className="font-bold text-lg">{stats?.exam_count || 0}</span>
+                <span className="font-bold text-lg">{stats?.examCount || 0}</span>
               </div>
               <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                 <span className="text-gray-600">Total Questions</span>
-                <span className="font-bold text-lg">{stats?.question_count || 0}</span>
+                <span className="font-bold text-lg">{stats?.questionCount || 0}</span>
               </div>
             </div>
           </CardContent>
@@ -128,15 +128,15 @@ export default function SchoolAnalytics() {
             <div className="space-y-4">
               <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                 <span className="text-gray-600">Scheduled Exams</span>
-                <span className="font-bold text-lg">{stats?.upcoming_exams || 0}</span>
+                <span className="font-bold text-lg">{stats?.upcomingExams || 0}</span>
               </div>
               <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                 <span className="text-gray-600">Completed Exams</span>
-                <span className="font-bold text-lg">{stats?.completed_exams || 0}</span>
+                <span className="font-bold text-lg">{stats?.completedExams || 0}</span>
               </div>
               <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                 <span className="text-gray-600">Average Score</span>
-                <span className="font-bold text-lg">{Math.round(stats?.average_score || 0)}%</span>
+                <span className="font-bold text-lg">{Math.round(stats?.averageScore || 0)}%</span>
               </div>
             </div>
           </CardContent>

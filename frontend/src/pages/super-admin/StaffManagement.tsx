@@ -15,19 +15,19 @@ interface StaffAccount {
   email: string;
   username: string;
   role: string;
-  is_active: boolean;
-  created_at: string;
-  last_login_at: string | null;
+  isActive: boolean;
+  createdAt: string;
+  lastLoginAt: string | null;
 }
 
 interface AuditLog {
   id: string;
-  actor_name: string;
+  actorName: string;
   action: string;
-  target_type: string;
-  target_name: string;
-  created_at: string;
-  ip_address: string;
+  targetType: string;
+  targetName: string;
+  createdAt: string;
+  ipAddress: string;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -207,7 +207,7 @@ export default function StaffManagement() {
               </thead>
               <tbody>
                 {staff.map((s) => (
-                  <tr key={s.id} className={`border-b ${!s.is_active ? 'bg-gray-50 opacity-60' : 'bg-white'}`}>
+                  <tr key={s.id} className={`border-b ${!s.isActive ? 'bg-gray-50 opacity-60' : 'bg-white'}`}>
                     <td className="px-6 py-4 font-medium text-gray-900">
                       {s.name}
                       <div className="text-xs text-gray-500 font-normal">@{s.username} - {s.email}</div>
@@ -218,21 +218,21 @@ export default function StaffManagement() {
                       </Badge>
                     </td>
                     <td className="px-6 py-4">
-                      {s.is_active ?
+                      {s.isActive ?
                         <Badge variant="secondary" className="bg-green-100 text-green-700 border-none"><CheckCircle className="w-3 h-3 mr-1" /> Active</Badge> :
                         <Badge variant="secondary" className="bg-red-100 text-red-700 border-none"><XCircle className="w-3 h-3 mr-1" /> Deactivated</Badge>
                       }
                     </td>
                     <td className="px-6 py-4">
-                      {s.last_login_at ? new Date(s.last_login_at).toLocaleDateString() : 'Never'}
+                      {s.lastLoginAt ? new Date(s.lastLoginAt).toLocaleDateString() : 'Never'}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <Button
-                        variant={s.is_active ? "destructive" : "outline"}
+                        variant={s.isActive ? "destructive" : "outline"}
                         size="sm"
-                        onClick={() => toggleStaffStatus(s.id, s.is_active)}
+                        onClick={() => toggleStaffStatus(s.id, s.isActive)}
                       >
-                        {s.is_active ? 'Deactivate' : 'Reactivate'}
+                        {s.isActive ? 'Deactivate' : 'Reactivate'}
                       </Button>
                     </td>
                   </tr>
@@ -267,20 +267,20 @@ export default function StaffManagement() {
                 {logs.map((log) => (
                   <tr key={log.id} className="border-b bg-white hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                      {log.created_at ? new Date(log.created_at).toLocaleString() : 'N/A'}
+                      {log.createdAt ? new Date(log.createdAt).toLocaleString() : 'N/A'}
                     </td>
                     <td className="px-6 py-4 font-medium">
-                      {log.actor_name}
+                      {log.actorName}
                     </td>
                     <td className="px-6 py-4">
                       <Badge variant="outline" className="font-mono text-xs">{log.action}</Badge>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-xs capitalize text-gray-400 mr-2">{log.target_type}</span>
-                      <span className="font-medium text-gray-700">{log.target_name || '(unknown)'}</span>
+                      <span className="text-xs capitalize text-gray-400 mr-2">{log.targetType}</span>
+                      <span className="font-medium text-gray-700">{log.targetName || '(unknown)'}</span>
                     </td>
                     <td className="px-6 py-4 text-xs font-mono text-gray-400">
-                      {log.ip_address}
+                      {log.ipAddress}
                     </td>
                   </tr>
                 ))}

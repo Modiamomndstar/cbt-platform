@@ -38,9 +38,9 @@ export default function Results() {
   };
 
   const filteredResults = results.filter(r =>
-    (r.studentName || r.student_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (r.examTitle || r.exam_title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (r.tutorName || r.tutor_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+    (r.studentName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (r.examTitle || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (r.tutorName || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getScoreColor = (score: number, passing: number) => {
@@ -96,8 +96,8 @@ export default function Results() {
                         <User className="h-5 w-5 text-indigo-600" />
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{result.studentName || result.student_name}</p>
-                        <p className="text-xs text-gray-500">ID: {result.studentIdNum || result.student_id_num || 'N/A'}</p>
+                        <p className="font-medium text-gray-900">{result.studentName}</p>
+                        <p className="text-xs text-gray-500">ID: {result.studentIdNum || 'N/A'}</p>
                       </div>
                     </div>
 
@@ -106,8 +106,8 @@ export default function Results() {
                         <BookOpen className="h-5 w-5 text-purple-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{result.examTitle || result.exam_title}</p>
-                        <p className="text-xs text-gray-500">Tutor: {result.tutorName || result.tutor_name}</p>
+                        <p className="text-sm font-medium text-gray-900">{result.examTitle}</p>
+                        <p className="text-xs text-gray-500">Tutor: {result.tutorName}</p>
                       </div>
                     </div>
 
@@ -117,12 +117,12 @@ export default function Results() {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-900">
-                          Score: <span className={getScoreColor((result.score / (result.totalMarks || result.total_marks)) * 100, result.passingScore || result.passing_score)}>
-                            {Math.round((result.score / (result.totalMarks || result.total_marks)) * 100)}%
+                          Score: <span className={getScoreColor((result.score / result.totalMarks) * 100, result.passingScore)}>
+                            {Math.round((result.score / result.totalMarks) * 100)}%
                           </span>
                         </p>
                         <p className="text-xs text-gray-500">
-                          {result.score}/{result.totalMarks || result.total_marks} marks
+                          {result.score}/{result.totalMarks} marks
                         </p>
                       </div>
                     </div>
@@ -133,7 +133,7 @@ export default function Results() {
                       </div>
                       <div>
                         <p className="text-xs font-medium text-gray-900">
-                          {new Date(result.completedAt || result.completed_at || result.createdAt || result.created_at).toLocaleDateString()}
+                          {new Date(result.completedAt || result.createdAt).toLocaleDateString()}
                         </p>
                         <Badge variant={result.status === 'graded' ? 'default' : 'secondary'} className="mt-1 text-[10px] h-4">
                           {result.status}

@@ -26,8 +26,8 @@ export default function StudentResults() {
         const allResults = (response.data.data || [])
           .filter((r: any) => r.status === 'completed')
           .sort((a: any, b: any) => {
-            const dateA = new Date(a.submittedAt || a.submitted_at || a.createdAt || a.created_at || 0).getTime();
-            const dateB = new Date(b.submittedAt || b.submitted_at || b.createdAt || b.created_at || 0).getTime();
+            const dateA = new Date(a.submittedAt || a.createdAt || 0).getTime();
+            const dateB = new Date(b.submittedAt || b.createdAt || 0).getTime();
             return dateB - dateA;
           });
 
@@ -37,7 +37,7 @@ export default function StudentResults() {
         if (allResults.length > 0) {
           const totalScore = allResults.reduce((sum: number, r: any) => sum + (r.percentage || 0), 0);
           const highest = Math.max(...allResults.map((r: any) => r.percentage || 0));
-          const totalTime = allResults.reduce((sum: number, r: any) => sum + (r.timeSpent || r.time_spent || 0), 0);
+          const totalTime = allResults.reduce((sum: number, r: any) => sum + (r.timeSpent || 0), 0);
 
           setStats({
             totalExams: allResults.length,
@@ -147,10 +147,10 @@ export default function StudentResults() {
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <h3 className="font-semibold text-gray-900">
-                        {result.examTitle || result.exam_title || 'Exam'}
+                        {result.examTitle || 'Exam'}
                       </h3>
                       <p className="text-sm text-gray-500">
-                        {result.examCategory || result.exam_category || ''}
+                        {result.examCategory || ''}
                       </p>
                     </div>
                     <div className={`px-4 py-2 rounded-lg ${getScoreBg(result.percentage || 0)}`}>
@@ -164,20 +164,20 @@ export default function StudentResults() {
                     <div>
                       <p className="text-gray-500">Score</p>
                       <p className="font-medium">
-                        {result.score || 0} / {result.totalMarks || result.total_marks || 0}
+                        {result.score || 0} / {result.totalMarks || 0}
                       </p>
                     </div>
                     <div>
                       <p className="text-gray-500">Time Spent</p>
                       <p className="font-medium">
-                        {Math.round((result.timeSpent || result.time_spent || 0) / 60)} minutes
+                        {Math.round((result.timeSpent || 0) / 60)} minutes
                       </p>
                     </div>
                     <div>
                       <p className="text-gray-500">Submitted</p>
                       <p className="font-medium">
-                        {result.submitted_at || result.submittedAt
-                          ? new Date(result.submitted_at || result.submittedAt).toLocaleDateString()
+                        {result.submittedAt
+                          ? new Date(result.submittedAt).toLocaleDateString()
                           : '-'}
                       </p>
                     </div>

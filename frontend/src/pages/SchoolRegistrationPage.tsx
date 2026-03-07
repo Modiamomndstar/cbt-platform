@@ -21,6 +21,15 @@ export default function SchoolRegistrationPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [searchParams] = useSearchParams();
+
+  // Auto-fill referral from URL
+  useEffect(() => {
+    const ref = searchParams.get('ref');
+    if (ref) {
+      setFormData(prev => ({ ...prev, referralCode: ref.toUpperCase() }));
+    }
+  }, [searchParams]);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -138,6 +147,7 @@ export default function SchoolRegistrationPage() {
         phone: formData.phone,
         address: formData.address,
         description: formData.description,
+        logo: formData.logo,
         referralCode: formData.referralCode,
       });
 

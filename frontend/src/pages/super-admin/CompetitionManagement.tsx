@@ -26,18 +26,18 @@ export default function CompetitionManagement() {
   const [isPromoModalOpen, setIsPromoModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [hubStats, setHubStats] = useState({
-    total_events: 0,
-    active_participants: 0,
-    regional_scope: 0,
-    awards_issued: 0
+    totalEvents: 0,
+    activeParticipants: 0,
+    regionalScope: 0,
+    awardsIssued: 0
   });
   const [promoForm, setPromoForm] = useState({
-    is_featured: false,
-    banner_url: '',
+    isFeatured: false,
+    bannerUrl: '',
     rewards: [] as any[],
-    competition_rules: '',
-    max_violations: 3,
-    negative_marking_rate: 0
+    competitionRules: '',
+    maxViolations: 3,
+    negativeMarkingRate: 0
   });
 
   const loadCompetitions = async () => {
@@ -74,12 +74,12 @@ export default function CompetitionManagement() {
   const handleOpenPromo = async (comp: any) => {
     setSelectedComp(comp);
     setPromoForm({
-      is_featured: comp.is_featured || false,
-      banner_url: comp.banner_url || '',
+      isFeatured: comp.isFeatured || false,
+      bannerUrl: comp.bannerUrl || '',
       rewards: [],
-      competition_rules: comp.competition_rules || '',
-      max_violations: comp.max_violations ?? 3,
-      negative_marking_rate: comp.negative_marking_rate || 0
+      competitionRules: comp.competitionRules || '',
+      maxViolations: comp.maxViolations ?? 3,
+      negativeMarkingRate: comp.negativeMarkingRate || 0
     });
 
     // Load rewards
@@ -106,11 +106,11 @@ export default function CompetitionManagement() {
 
       // Update featured status, rules, and proctoring
       await competitionAPI.updatePromotion(selectedComp.id, {
-        is_featured: promoForm.is_featured,
-        banner_url: promoForm.banner_url,
-        competition_rules: promoForm.competition_rules,
-        max_violations: promoForm.max_violations,
-        negative_marking_rate: promoForm.negative_marking_rate
+        isFeatured: promoForm.isFeatured,
+        bannerUrl: promoForm.bannerUrl,
+        competitionRules: promoForm.competitionRules,
+        maxViolations: promoForm.maxViolations,
+        negativeMarkingRate: promoForm.negativeMarkingRate
       });
 
       toast.success('Promotion settings updated successfully');
@@ -125,7 +125,7 @@ export default function CompetitionManagement() {
   const addReward = () => {
     setPromoForm(prev => ({
       ...prev,
-      rewards: [...prev.rewards, { rank_from: 1, rank_to: 1, reward_title: '', reward_description: '', reward_value: 0, reward_type: 'cash' }]
+      rewards: [...prev.rewards, { rankFrom: 1, rankTo: 1, rewardTitle: '', rewardDescription: '', rewardValue: 0, rewardType: 'cash' }]
     }));
   };
 
@@ -168,10 +168,10 @@ export default function CompetitionManagement() {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <StatCard title="Total Events" value={hubStats?.total_events || 0} icon={Layout} color="text-blue-600" />
-        <StatCard title="Active Participants" value={(hubStats?.active_participants || 0).toLocaleString()} icon={Users} color="text-indigo-600" />
-        <StatCard title="Regional Scope" value={`${hubStats?.regional_scope || 0} ${(hubStats?.regional_scope || 0) === 1 ? 'Country' : 'Countries'}`} icon={Globe} color="text-emerald-600" />
-        <StatCard title="Awards Issued" value={(hubStats?.awards_issued || 0).toLocaleString()} icon={Flag} color="text-purple-600" />
+        <StatCard title="Total Events" value={hubStats?.totalEvents || 0} icon={Layout} color="text-blue-600" />
+        <StatCard title="Active Participants" value={(hubStats?.activeParticipants || 0).toLocaleString()} icon={Users} color="text-indigo-600" />
+        <StatCard title="Regional Scope" value={`${hubStats?.regionalScope || 0} ${(hubStats?.regionalScope || 0) === 1 ? 'Country' : 'Countries'}`} icon={Globe} color="text-emerald-600" />
+        <StatCard title="Awards Issued" value={(hubStats?.awardsIssued || 0).toLocaleString()} icon={Flag} color="text-purple-600" />
 
       </div>
 
@@ -203,7 +203,7 @@ export default function CompetitionManagement() {
                       <div className="flex items-center gap-2">
                         {comp.scope === 'national' ? <Flag className="h-4 w-4 text-red-500" /> : <Globe className="h-4 w-4 text-indigo-500" />}
                         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                          {comp.scope} Event • {comp.target_countries?.join(', ') || comp.target_regions?.join(', ')}
+                          {comp.scope} Event • {comp.targetCountries?.join(', ') || comp.targetRegions?.join(', ')}
                         </span>
                       </div>
                       <CardTitle className="text-xl font-bold text-slate-800 leading-tight">
@@ -217,24 +217,24 @@ export default function CompetitionManagement() {
                   <div className="grid grid-cols-3 gap-4 mb-6">
                     <div className="bg-slate-50 p-3 rounded-lg text-center">
                       <p className="text-xs text-slate-500 font-medium mb-1 uppercase tracking-tighter">Categories</p>
-                      <p className="text-lg font-bold text-slate-900">{comp.categories_count}</p>
+                      <p className="text-lg font-bold text-slate-900">{comp.categoriesCount}</p>
                     </div>
                     <div className="bg-slate-50 p-3 rounded-lg text-center">
                       <p className="text-xs text-slate-500 font-medium mb-1 uppercase tracking-tighter">Stages</p>
-                      <p className="text-lg font-bold text-slate-900">{comp.stages_count}</p>
+                      <p className="text-lg font-bold text-slate-900">{comp.stagesCount}</p>
                     </div>
                     <div className="bg-slate-50 p-3 rounded-lg text-center">
                       <p className="text-xs text-slate-500 font-medium mb-1 uppercase tracking-tighter">Registered</p>
-                      <p className="text-lg font-bold text-slate-900">{comp.participants_count}</p>
+                      <p className="text-lg font-bold text-slate-900">{comp.participantsCount}</p>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between pt-4 border-t">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                        <Calendar className="h-3.5 w-3.5" /> Starts {comp.created_at ? new Date(comp.created_at).toLocaleDateString() : 'TBD'}
+                        <Calendar className="h-3.5 w-3.5" /> Starts {comp.createdAt ? new Date(comp.createdAt).toLocaleDateString() : 'TBD'}
                       </div>
-                      {comp.is_featured && (
+                      {comp.isFeatured && (
                         <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-none h-5 px-1.5">
                           <Star className="h-3 w-3 mr-1 fill-current" /> Featured
                         </Badge>
@@ -324,8 +324,8 @@ export default function CompetitionManagement() {
                       <p className="text-sm text-slate-500 text-pretty">Display this competition in the featured banner area.</p>
                     </div>
                     <Switch
-                      checked={promoForm.is_featured}
-                      onCheckedChange={(val) => setPromoForm(prev => ({ ...prev, is_featured: val }))}
+                      checked={promoForm.isFeatured}
+                      onCheckedChange={(val) => setPromoForm(prev => ({ ...prev, isFeatured: val }))}
                     />
                   </div>
                 </div>
@@ -334,8 +334,8 @@ export default function CompetitionManagement() {
                   <Label className="text-lg font-bold">Banner URL</Label>
                   <Input
                     placeholder="https://example.com/banner.jpg"
-                    value={promoForm.banner_url}
-                    onChange={(e) => setPromoForm(prev => ({ ...prev, banner_url: e.target.value }))}
+                    value={promoForm.bannerUrl}
+                    onChange={(e) => setPromoForm(prev => ({ ...prev, bannerUrl: e.target.value }))}
                   />
                   <p className="text-xs text-slate-500">Recommended size: 1200x400px</p>
                 </div>
@@ -351,8 +351,8 @@ export default function CompetitionManagement() {
                   </Label>
                   <Input
                     type="number"
-                    value={promoForm.max_violations}
-                    onChange={(e) => setPromoForm(prev => ({ ...prev, max_violations: parseInt(e.target.value) }))}
+                    value={promoForm.maxViolations}
+                    onChange={(e) => setPromoForm(prev => ({ ...prev, maxViolations: parseInt(e.target.value) }))}
                   />
                   <p className="text-xs text-slate-500">Max tab switches/blur before auto-disqualification.</p>
                 </div>
@@ -364,8 +364,8 @@ export default function CompetitionManagement() {
                   </Label>
                   <Input
                     type="number"
-                    value={promoForm.negative_marking_rate}
-                    onChange={(e) => setPromoForm(prev => ({ ...prev, negative_marking_rate: parseFloat(e.target.value) }))}
+                    value={promoForm.negativeMarkingRate}
+                    onChange={(e) => setPromoForm(prev => ({ ...prev, negativeMarkingRate: parseFloat(e.target.value) }))}
                   />
                   <p className="text-xs text-slate-500">Percentage of marks to deduct for each wrong answer.</p>
                 </div>
@@ -376,8 +376,8 @@ export default function CompetitionManagement() {
                 <Textarea
                   placeholder="Enter the official rules for this competition..."
                   className="h-32 rounded-xl border-slate-200"
-                  value={promoForm.competition_rules}
-                  onChange={(e) => setPromoForm(prev => ({ ...prev, competition_rules: e.target.value }))}
+                  value={promoForm.competitionRules}
+                  onChange={(e) => setPromoForm(prev => ({ ...prev, competitionRules: e.target.value }))}
                 />
                 <p className="text-xs text-slate-500">These will be shown to students before the exam starts.</p>
               </div>
@@ -399,10 +399,10 @@ export default function CompetitionManagement() {
                         <Label className="text-xs uppercase text-slate-500 font-bold">Rank From</Label>
                         <Input
                           type="number"
-                          value={reward.rank_from}
+                          value={reward.rankFrom}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                             const newRewards = [...promoForm.rewards];
-                            newRewards[idx].rank_from = parseInt(e.target.value);
+                            newRewards[idx].rankFrom = parseInt(e.target.value);
                             setPromoForm(prev => ({ ...prev, rewards: newRewards }));
                           }}
                         />
@@ -411,10 +411,10 @@ export default function CompetitionManagement() {
                         <Label className="text-xs uppercase text-slate-500 font-bold">Rank To</Label>
                         <Input
                           type="number"
-                          value={reward.rank_to}
+                          value={reward.rankTo}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                             const newRewards = [...promoForm.rewards];
-                            newRewards[idx].rank_to = parseInt(e.target.value);
+                            newRewards[idx].rankTo = parseInt(e.target.value);
                             setPromoForm(prev => ({ ...prev, rewards: newRewards }));
                           }}
                         />
@@ -423,10 +423,10 @@ export default function CompetitionManagement() {
                         <Label className="text-xs uppercase text-slate-500 font-bold">Reward Title</Label>
                         <Input
                           placeholder="Gold Prize"
-                          value={reward.reward_title}
+                          value={reward.rewardTitle}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                             const newRewards = [...promoForm.rewards];
-                            newRewards[idx].reward_title = e.target.value;
+                            newRewards[idx].rewardTitle = e.target.value;
                             setPromoForm(prev => ({ ...prev, rewards: newRewards }));
                           }}
                         />
@@ -438,10 +438,10 @@ export default function CompetitionManagement() {
                         <Label className="text-xs uppercase text-slate-500 font-bold">Description</Label>
                         <Input
                           placeholder="Full scholarship and $500 cash"
-                          value={reward.reward_description}
+                          value={reward.rewardDescription}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                             const newRewards = [...promoForm.rewards];
-                            newRewards[idx].reward_description = e.target.value;
+                            newRewards[idx].rewardDescription = e.target.value;
                             setPromoForm(prev => ({ ...prev, rewards: newRewards }));
                           }}
                         />
@@ -450,10 +450,10 @@ export default function CompetitionManagement() {
                         <Label className="text-xs uppercase text-slate-500 font-bold">Cash Value (USD)</Label>
                         <Input
                           type="number"
-                          value={reward.reward_value}
+                          value={reward.rewardValue}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                             const newRewards = [...promoForm.rewards];
-                            newRewards[idx].reward_value = parseFloat(e.target.value);
+                            newRewards[idx].rewardValue = parseFloat(e.target.value);
                             setPromoForm(prev => ({ ...prev, rewards: newRewards }));
                           }}
                         />

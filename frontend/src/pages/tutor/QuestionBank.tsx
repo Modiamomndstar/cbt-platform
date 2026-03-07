@@ -299,7 +299,7 @@ export default function QuestionBank() {
         numQuestions: aiForm.numQuestions,
         difficulty: aiForm.difficulty,
         questionType: aiForm.questionType,
-        subject: aiForm.subject || exam?.category || '',
+        subject: aiForm.subject || exam?.categoryName || '',
       };
 
       if (aiMode === 'topic') {

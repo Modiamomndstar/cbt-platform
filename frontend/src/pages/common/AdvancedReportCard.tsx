@@ -60,7 +60,6 @@ interface AdvancedReportData {
       email: string;
       phone: string;
       logoUrl?: string;
-      logo_url?: string;
     };
   };
   timeframe: string;
@@ -99,8 +98,8 @@ export default function AdvancedReportCard() {
 
     data.progression.forEach(level => {
       level.exams.forEach(exam => {
-        tutors.set(exam.tutorId || (exam as any).tutor_id, exam.tutor);
-        categories.set(exam.category, exam.category); // Using category name as key since category_id might be missing
+        tutors.set(exam.tutorId, exam.tutor);
+        categories.set(exam.category, exam.category); // Using category name as key since categoryId might be missing
       });
     });
 
@@ -132,8 +131,8 @@ export default function AdvancedReportCard() {
           setTimeframe(report.config.timeframe || 'all');
           setSelectedCategories(new Set(report.config.categories || []));
           setSelectedTutors(new Set(report.config.tutors || []));
-          setSignatureTitle(report.config.signatureTitle || report.config.signature_title || 'Principal');
-          setSignatureName(report.config.signatureName || report.config.signature_name || '');
+          setSignatureTitle(report.config.signatureTitle || 'Principal');
+          setSignatureName(report.config.signatureName || '');
         }
       }
     } catch (error: any) {
@@ -175,7 +174,7 @@ export default function AdvancedReportCard() {
         const uniqueCats = new Set<string>();
         result.progression.forEach((level: any) => {
           level.exams.forEach((exam: any) => {
-            uniqueTutors.add(exam.tutorId || exam.tutor_id);
+            uniqueTutors.add(exam.tutorId);
             uniqueCats.add(exam.category);
           });
         });
@@ -185,13 +184,13 @@ export default function AdvancedReportCard() {
 
       if (settingsRes.data.success) {
         const settings = settingsRes.data.data;
-        if (settings.reportSignatureTitle || settings.report_signature_title) {
-          setSignatureTitle(settings.reportSignatureTitle || settings.report_signature_title);
+        if (settings.reportSignatureTitle) {
+          setSignatureTitle(settings.reportSignatureTitle);
         } else {
           setSignatureTitle('Principal'); // fallback
         }
-        if (settings.reportSignatureName || settings.report_signature_name) {
-          setSignatureName(settings.reportSignatureName || settings.report_signature_name);
+        if (settings.reportSignatureName) {
+          setSignatureName(settings.reportSignatureName);
         }
       }
     } catch (error: any) {
@@ -214,7 +213,7 @@ export default function AdvancedReportCard() {
     return data.progression.map(level => ({
       ...level,
       exams: level.exams.filter(exam =>
-        selectedTutors.has(exam.tutorId || (exam as any).tutor_id) &&
+        selectedTutors.has(exam.tutorId) &&
         selectedCategories.has(exam.category)
       )
     })).filter(level => level.exams.length > 0);
@@ -601,9 +600,9 @@ export default function AdvancedReportCard() {
                <div className="relative group">
                  <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
                  <div className="relative w-24 h-24 bg-white rounded-full flex items-center justify-center border-4 border-white shadow-xl overflow-hidden print:shadow-none">
-                   {data.student.schoolDetails.logo_url ? (
+                   {data.student.schoolDetails.logoUrl ? (
                      <img
-                       src={data.student.schoolDetails.logo_url}
+                       src={data.student.schoolDetails.logoUrl}
                        alt={data.student.school}
                        className="w-full h-full object-cover"
                      />

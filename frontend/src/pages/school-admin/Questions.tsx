@@ -38,7 +38,7 @@ export default function Questions() {
 
   const filteredExams = exams.filter(exam =>
     exam.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (exam.tutor_name && exam.tutor_name.toLowerCase().includes(searchTerm.toLowerCase()))
+    (exam.tutorName && exam.tutorName.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   if (loading) {
@@ -87,11 +87,11 @@ export default function Questions() {
                       <h3 className="font-semibold text-gray-900">{exam.title}</h3>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="outline" className="text-[10px] h-4 px-1">
-                          Tutor: {exam.tutor_name || 'Assigned'}
+                          Tutor: {exam.tutorName || 'Assigned'}
                         </Badge>
                         <span className="text-sm text-gray-500">{exam.duration} mins</span>
                         <span className="text-sm text-gray-500">
-                          • {exam.question_count || 0} questions
+                          • {exam.questionCount || 0} questions
                         </span>
                       </div>
                     </div>

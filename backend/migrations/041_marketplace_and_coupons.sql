@@ -1,8 +1,15 @@
 -- Migration 041: Create marketplace_items and discount_coupons tables
 -- These tables are required by the /super-admin/marketplace and /super-admin/coupons endpoints.
 
+-- ── Cleanup Old PAYG Table ─────────────────────────────────────
+-- Drop the old table name to standardize on marketplace_items
+DROP TABLE IF EXISTS payg_feature_pricing CASCADE;
+
 -- ── Marketplace Items ──────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS marketplace_items (
+-- Drop existing implementation if it's missing the feature_key or is in an invalid state
+DROP TABLE IF EXISTS marketplace_items CASCADE;
+
+CREATE TABLE marketplace_items (
   feature_key    VARCHAR(100) PRIMARY KEY,
   display_name   VARCHAR(255) NOT NULL,
   description    TEXT,

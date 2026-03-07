@@ -42,7 +42,7 @@ export default function SchoolAdminDashboard() {
         if (dashRes?.data?.success) {
           const data = dashRes.data.data;
           setStats(data);
-          if ((data.tutorCount || data.tutor_count) === 0) {
+          if ((data.tutorCount) === 0) {
             setShowOnboarding(true);
           }
         }
@@ -64,42 +64,42 @@ export default function SchoolAdminDashboard() {
   const statCards = [
     {
       title: 'Total Tutors',
-      value: stats?.tutorCount || stats?.tutor_count || 0,
+      value: stats?.tutorCount || 0,
       icon: Users,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50'
     },
     {
       title: 'Total Students',
-      value: stats?.studentCount || stats?.student_count || 0,
+      value: stats?.studentCount || 0,
       icon: Users,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-50'
     },
     {
       title: 'Total Exams',
-      value: stats?.examCount || stats?.exam_count || 0,
+      value: stats?.examCount || 0,
       icon: BookOpen,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50'
     },
     {
       title: 'Total Questions',
-      value: stats?.questionCount || stats?.question_count || 0,
+      value: stats?.questionCount || 0,
       icon: FileQuestion,
       color: 'text-amber-600',
       bgColor: 'bg-amber-50'
     },
     {
       title: 'Completed Exams',
-      value: stats?.completedExams || stats?.completed_exams || 0,
+      value: stats?.completedExams || 0,
       icon: CheckCircle,
       color: 'text-rose-600',
       bgColor: 'bg-rose-50'
     },
     {
       title: 'Average Score',
-      value: `${Math.round(stats?.averageScore || stats?.average_score || 0)}%`,
+      value: `${Math.round(stats?.averageScore || 0)}%`,
       icon: TrendingUp,
       color: 'text-cyan-600',
       bgColor: 'bg-cyan-50'
@@ -170,20 +170,20 @@ export default function SchoolAdminDashboard() {
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
                         <span className="text-indigo-700 font-semibold">
-                          {(tutor.fullName || tutor.full_name || '?').charAt(0)}
+                          {(tutor.fullName || '?').charAt(0)}
                         </span>
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{tutor.fullName || tutor.full_name}</p>
+                        <p className="font-medium text-gray-900">{tutor.fullName}</p>
                         <p className="text-sm text-gray-500">{(tutor.subjects || []).join(', ') || 'No subjects'}</p>
                       </div>
                     </div>
                     <span className={`px-2 py-1 text-xs rounded-full ${
-                      (tutor.isActive ?? tutor.is_active) !== false
+                      (tutor.isActive) !== false
                         ? 'bg-emerald-100 text-emerald-700'
                         : 'bg-gray-100 text-gray-700'
                     }`}>
-                      {(tutor.isActive ?? tutor.is_active) !== false ? 'Active' : 'Inactive'}
+                      {(tutor.isActive) !== false ? 'Active' : 'Inactive'}
                     </span>
                   </div>
                 ))}
@@ -223,11 +223,11 @@ export default function SchoolAdminDashboard() {
                       </div>
                       <div>
                         <p className="font-medium text-gray-900">{exam.title}</p>
-                        <p className="text-sm text-gray-500">{exam.categoryName || exam.category_name || exam.category || ''} • {exam.duration} mins</p>
+                        <p className="text-sm text-gray-500">{exam.categoryName || exam.category || ''} • {exam.duration} mins</p>
                       </div>
                     </div>
                     <span className="text-sm text-gray-500">
-                      {exam.questionCount || exam.question_count || exam.total_questions || 0} Qs
+                      {exam.questionCount || 0} Qs
                     </span>
                   </div>
                 ))}

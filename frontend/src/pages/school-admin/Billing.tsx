@@ -448,8 +448,9 @@ export default function BillingPage() {
                                     className="rounded-xl font-bold bg-white text-indigo-600 hover:bg-indigo-50"
                                     onClick={() => {
                                         const code = status?.referralCode || '';
-                                        navigator.clipboard.writeText(code);
-                                        toast.success("Referral code copied!");
+                                        const link = `${window.location.origin}/register?ref=${code}`;
+                                        navigator.clipboard.writeText(link);
+                                        toast.success("Referral link copied!");
                                     }}
                                 >
                                     Copy Link

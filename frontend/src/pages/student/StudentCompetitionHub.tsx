@@ -75,7 +75,7 @@ export default function StudentCompetitionHub() {
                    <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-none font-bold uppercase text-[10px] tracking-widest">
                      {comp.scope}
                    </Badge>
-                   {comp.registration_status === 'approved' && (
+                   {comp.registrationStatus === 'approved' && (
                      <div className="flex items-center text-emerald-600 gap-1 text-xs font-bold">
                         <CheckCircle className="h-3.5 w-3.5" />
                         Confirmed
@@ -86,7 +86,7 @@ export default function StudentCompetitionHub() {
                   {comp.title}
                 </CardTitle>
                 <CardDescription className="font-bold text-indigo-500 uppercase text-[10px] tracking-tight mt-1">
-                   Category: {comp.category_name}
+                   Category: {comp.categoryName}
                 </CardDescription>
               </CardHeader>
               <CardContent>

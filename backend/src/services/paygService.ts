@@ -1,11 +1,11 @@
 import { db } from '../config/database';
 
-export interface FeaturePricing {
+export interface MarketplaceItem {
   feature_key: string;
   display_name: string;
   credit_cost: number;
-  item_type: 'consumption' | 'capacity';
-  batch_size: number;
+  item_type: 'feature' | 'slot' | 'credit_pack' | 'consumption' | 'capacity';
+  description?: string;
   category: string;
   is_active: boolean;
 }
@@ -17,12 +17,12 @@ export const paygService = {
   /**
    * Get pricing for all or a specific marketplace feature.
    */
-  getPricing: async (featureKey?: string): Promise<FeaturePricing[]> => {
+  getPricing: async (featureKey?: string): Promise<MarketplaceItem[]> => {
     if (featureKey) {
-      const res = await db.query('SELECT * FROM payg_feature_pricing WHERE feature_key = $1', [featureKey]);
+      const res = await db.query('SELECT * FROM marketplace_items WHERE feature_key = $1', [featureKey]);
       return res.rows;
     }
-    const res = await db.query('SELECT * FROM payg_feature_pricing ORDER BY category, credit_cost');
+    const res = await db.query('SELECT * FROM marketplace_items ORDER BY category, credit_cost');
     return res.rows;
   },
 
@@ -42,16 +42,17 @@ export const paygService = {
 
       // 1. Get pricing
       const pricingRes = await client.query(
-        'SELECT credit_cost, batch_size, display_name FROM payg_feature_pricing WHERE feature_key = $1',
+        'SELECT credit_cost, display_name FROM marketplace_items WHERE feature_key = $1',
         [featureKey]
       );
       if (pricingRes.rows.length === 0) {
         throw new Error(`Pricing not found for feature: ${featureKey}`);
       }
-      const { credit_cost, batch_size, display_name } = pricingRes.rows[0];
+      const { credit_cost, display_name } = pricingRes.rows[0];
 
       // 2. Calculate required credits
-      // batch_size = 10, itemCount = 45 -> ceil(45/10) * cost
+      // Legacy batch_size support (default to 1 since new schema doesn't have it explicitly as a col yet, will be 1 for items)
+      const batch_size = 1;
       const batches = Math.ceil(itemCount / batch_size);
       const totalRequired = batches * credit_cost;
 
@@ -117,7 +118,7 @@ export const paygService = {
       await client.query('BEGIN');
 
       const pricingRes = await client.query(
-        'SELECT display_name, batch_size, item_type FROM payg_feature_pricing WHERE feature_key = $1',
+        'SELECT display_name, item_type FROM marketplace_items WHERE feature_key = $1',
         [featureKey]
       );
       if (pricingRes.rows.length === 0) throw new Error('Feature not found');
@@ -132,16 +133,17 @@ export const paygService = {
       );
 
       // 2. Apply persistent capacity if applicable
-      if (p.item_type === 'capacity') {
+      if (p.item_type === 'capacity' || p.item_type === 'slot') {
         if (featureKey === 'extra_tutor_slot') {
           await client.query(
             'UPDATE school_subscriptions SET purchased_tutor_slots = purchased_tutor_slots + $1 WHERE school_id = $2',
             [quantity, schoolId]
           );
-        } else if (featureKey === 'extra_student_slot') {
+        } else if (featureKey === 'extra_student_slot' || featureKey === 'extra_student_pack') {
+          const packSize = featureKey === 'extra_student_pack' ? 100 : 50;
           await client.query(
             'UPDATE school_subscriptions SET purchased_student_slots = purchased_student_slots + ($1 * $2) WHERE school_id = $3',
-            [quantity, p.batch_size, schoolId]
+            [quantity, packSize, schoolId]
           );
         }
       }

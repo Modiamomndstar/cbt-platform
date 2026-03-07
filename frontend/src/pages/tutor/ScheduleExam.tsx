@@ -132,7 +132,7 @@ export default function ScheduleExam() {
       }
 
       if (externalRes.data?.success) {
-        setExternalStudents(externalRes.data.data.filter((s: any) => s.is_active));
+        setExternalStudents(externalRes.data.data.filter((s: any) => s.isActive));
       }
     } catch (err: any) {
       console.error('Failed to load schedule data:', err);
@@ -240,9 +240,9 @@ export default function ScheduleExam() {
   const handleReschedule = (schedule: any) => {
     setRescheduleData(schedule);
     setRescheduleForm({
-      date: schedule.scheduledDate ? new Date(schedule.scheduledDate).toISOString().split('T')[0] : (schedule.scheduled_date ? new Date(schedule.scheduled_date).toISOString().split('T')[0] : ''),
-      startTime: schedule.startTime || schedule.start_time || '',
-      endTime: schedule.endTime || schedule.end_time || '',
+      date: schedule.scheduledDate ? new Date(schedule.scheduledDate).toISOString().split('T')[0] : '',
+      startTime: schedule.startTime || '',
+      endTime: schedule.endTime || '',
     });
   };
 
@@ -349,7 +349,7 @@ export default function ScheduleExam() {
     const printContent = `
       <html>
         <head>
-          <title>Exam Credentials - ${schedule.studentName || schedule.firstName}</title>
+          <title>Exam Credentials - ${schedule.studentName}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 20px; }
             .card { border: 1px solid #ccc; padding: 20px; border-radius: 8px; max-width: 500px; margin: 0 auto; }
@@ -365,7 +365,7 @@ export default function ScheduleExam() {
               <h2>${exam.title}</h2>
               <p>Exam Schedule & Credentials</p>
             </div>
-            <div class="detail"><strong>Student:</strong> <span>${schedule.studentName || schedule.firstName + ' ' + schedule.lastName}</span></div>
+            <div class="detail"><strong>Student:</strong> <span>${schedule.studentName}</span></div>
             <div class="detail"><strong>Date:</strong> <span>${new Date(schedule.scheduledDate).toLocaleDateString()}</span></div>
             <div class="detail"><strong>Time:</strong> <span>${schedule.startTime} - ${schedule.endTime}</span></div>
 
@@ -392,8 +392,8 @@ export default function ScheduleExam() {
     // Create CSV content
     const headers = ['Student Name', 'Registration Number', 'Date', 'Time', 'Username', 'Password', 'Access Code', 'Status'];
     const rows = schedules.map(s => [
-      s.studentName || `${s.firstName} ${s.lastName}`,
-      s.registrationNumber || s.regNum || '',
+      s.studentName,
+      s.registrationNumber || '',
       new Date(s.scheduledDate).toLocaleDateString(),
       `${s.startTime} - ${s.endTime}`,
       s.examUsername,
@@ -597,10 +597,10 @@ export default function ScheduleExam() {
                           />
                           <div className="flex-1">
                             <p className="font-medium text-gray-900">
-                              {student.studentName || student.fullName || student.full_name}
+                               {student.studentName || student.fullName}
                             </p>
                             <div className="flex items-center gap-2 text-sm text-gray-500">
-                              <span>{student.registrationNumber || student.studentId || student.student_id || `@${student.username}`}</span>
+                               <span>{student.registrationNumber || student.studentId}</span>
                               {student.categoryName && (
                                 <Badge variant="secondary" className="text-xs h-5 px-1.5 font-normal">
                                   {student.categoryName}
@@ -665,7 +665,7 @@ export default function ScheduleExam() {
                       <td className="px-4 py-3">
                         <div>
                           <p className="font-medium text-gray-900">
-                            {schedule.studentName || `${schedule.firstName || schedule.first_name || ''} ${schedule.lastName || schedule.last_name || ''}`.trim() || 'Unknown Student'}
+                            {schedule.studentName}
                           </p>
                           <p className="text-sm text-gray-500">
                             {schedule.registrationNumber || ''} {schedule.email ? `• ${schedule.email}` : ''}

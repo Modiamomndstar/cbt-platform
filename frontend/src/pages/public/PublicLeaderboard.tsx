@@ -113,15 +113,15 @@ export default function PublicLeaderboard() {
                     <div className={`p-3 rounded-xl ${idx === 0 ? 'bg-yellow-50 text-yellow-600' : idx === 1 ? 'bg-slate-50 text-slate-600' : 'bg-amber-50 text-amber-600'}`}>
                       {idx === 0 ? <Trophy className="h-6 w-6" /> : <Award className="h-6 w-6" />}
                     </div>
-                    {reward.reward_value > 0 && (
-                      <span className="text-xl font-black text-indigo-900">${reward.reward_value}</span>
-                    )}
-                  </div>
-                  <h3 className="font-black text-slate-800 uppercase tracking-tight text-sm mb-1">{reward.reward_title}</h3>
-                  <p className="text-slate-500 text-xs font-medium leading-relaxed">{reward.reward_description}</p>
-                  <p className="mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    Rank {reward.rank_from} {reward.rank_to !== reward.rank_from ? `- ${reward.rank_to}` : ''}
-                  </p>
+                       {reward.rewardValue > 0 && (
+                       <span className="text-xl font-black text-indigo-900">${reward.rewardValue}</span>
+                     )}
+                   </div>
+                   <h3 className="font-black text-slate-800 uppercase tracking-tight text-sm mb-1">{reward.rewardTitle}</h3>
+                   <p className="text-slate-500 text-xs font-medium leading-relaxed">{reward.rewardDescription}</p>
+                   <p className="mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                     Rank {reward.rankFrom} {reward.rankTo !== reward.rankFrom ? `- ${reward.rankTo}` : ''}
+                   </p>
                 </CardContent>
               </Card>
             ))}
