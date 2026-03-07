@@ -12,7 +12,9 @@ import {
   ArrowRight,
   School,
   BookOpen,
-  BarChart3
+  BarChart3,
+  Smartphone,
+  Download
 } from 'lucide-react';
 
 export default function LandingPage() {
@@ -209,6 +211,65 @@ export default function LandingPage() {
                 <p className="text-sm text-gray-600">{item.description}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Mobile App Section */}
+      <section className="py-20 bg-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            <div className="order-2 md:order-1 flex justify-center">
+              <div className="relative w-64 h-[500px] bg-gray-900 rounded-[3rem] border-[8px] border-gray-800 shadow-2xl overflow-hidden">
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-gray-800 rounded-b-2xl z-10" />
+                <div className="p-4 pt-10 h-full flex flex-col justify-center items-center bg-indigo-600">
+                  <GraduationCap className="h-16 w-16 text-white mb-4" />
+                  <p className="text-white text-xl font-bold">CBT Mobile</p>
+                  <p className="text-indigo-100 text-sm text-center mt-2 px-4">
+                    Take your exams anywhere, anytime with our secure mobile app.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="order-1 md:order-2">
+              <h2 className="text-3xl font-bold text-gray-900 mb-6">
+                Take Exams on the Go
+              </h2>
+              <p className="text-lg text-gray-600 mb-8">
+                Access your student portal, view schedules, and take exams directly from
+                your Android or iOS device. Our mobile app is optimized for a
+                seamless and secure testing experience even on low bandwidth.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Button
+                  size="lg"
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                  onClick={() => window.open('/downloads/cbt-platform.apk', '_blank')}
+                >
+                  <div className="flex items-center text-left">
+                    <Download className="mr-3 h-6 w-6" />
+                    <div>
+                      <p className="text-[10px] uppercase font-bold leading-none">Download</p>
+                      <p className="text-lg font-bold">Android APK</p>
+                    </div>
+                  </div>
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                  disabled
+                >
+                  <div className="flex items-center text-left">
+                    <Smartphone className="mr-3 h-6 w-6" />
+                    <div>
+                      <p className="text-[10px] uppercase font-bold leading-none">Coming Soon</p>
+                      <p className="text-lg font-bold">Play Store</p>
+                    </div>
+                  </div>
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </section>

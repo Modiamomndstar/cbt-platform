@@ -8,7 +8,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Megaphone, X } from "lucide-react";
+import { Megaphone } from "lucide-react";
 import { messagesAPI } from "@/services/api";
 
 export function BroadcastAlert() {

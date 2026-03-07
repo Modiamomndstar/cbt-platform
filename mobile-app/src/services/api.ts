@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Update this with your backend URL
-const API_BASE_URL = 'http://10.122.202.12:5000/api';
+const API_BASE_URL = 'https://mycbtplatform.cc/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -40,11 +40,19 @@ api.interceptors.response.use(
 
 // Auth API
 export const authAPI = {
-  login: (username: string, password: string, accessCode?: string) =>
+  login: (username: string, password: string) =>
     api.post('/auth/student/portal-login', { username, password }),
   getMe: () => api.get('/auth/me'),
   changePassword: (currentPassword: string, newPassword: string) =>
     api.post('/auth/change-password', { currentPassword, newPassword }),
+};
+
+// Messaging & Notifications API
+export const messagesAPI = {
+  getInbox: () => api.get('/messages/inbox'),
+  getUnreadCount: () => api.get('/messages/unread-count'),
+  getLatestBroadcast: () => api.get('/messages/latest-broadcast'),
+  markBroadcastAsViewed: (id: string) => api.post(`/messages/broadcasts/${id}/view`),
 };
 
 // Schedule API
