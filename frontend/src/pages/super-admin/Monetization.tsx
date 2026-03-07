@@ -595,19 +595,25 @@ export default function MonetizationPage() {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [plansRes, flagsRes, couponsRes, marketplaceRes] = await Promise.all([
+      const [plansRes, flagsRes, couponsRes, marketplaceRes] = await Promise.allSettled([
         superAdminAPI.getPlans(),
         superAdminAPI.getFeatureFlags(),
         superAdminAPI.getCoupons(),
         superAdminAPI.getMarketplace(),
       ]);
-      if (plansRes.data.success) {
-        setPlans(PLAN_ORDER.map(pt => plansRes.data.data.find((p: Plan) => p.plan_type === pt)).filter(Boolean));
+
+      if (plansRes.status === 'fulfilled' && plansRes.value.data.success) {
+        const planData = plansRes.value.data.data || [];
+        setPlans(PLAN_ORDER.map(pt => planData.find((p: Plan) => p.plan_type === pt)).filter(Boolean));
+      } else if (plansRes.status === 'rejected') {
+        console.error('Plans API error:', plansRes.reason);
       }
-      if (flagsRes.data.success) setFlags(flagsRes.data.data);
-      if (couponsRes.data.success) setCoupons(couponsRes.data.data);
-      if (marketplaceRes.data.success) setMarketplace(marketplaceRes.data.data);
-    } catch {
+
+      if (flagsRes.status === 'fulfilled' && flagsRes.value.data.success) setFlags(flagsRes.value.data.data || []);
+      if (couponsRes.status === 'fulfilled' && couponsRes.value.data.success) setCoupons(couponsRes.value.data.data || []);
+      if (marketplaceRes.status === 'fulfilled' && marketplaceRes.value.data.success) setMarketplace(marketplaceRes.value.data.data || []);
+    } catch (err) {
+      console.error('Monetization load error:', err);
       toast.error('Failed to load monetization data');
     } finally {
       setLoading(false);

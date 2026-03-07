@@ -770,4 +770,143 @@ router.put('/settings/:key', [
   } catch (error) { next(error); }
 });
 
+
+// ================================================================
+//  MARKETPLACE ITEMS
+// ================================================================
+
+// GET /api/super-admin/marketplace
+router.get('/marketplace', async (req, res, next) => {
+  try {
+    const result = await db.query('SELECT * FROM marketplace_items ORDER BY display_name ASC');
+    ApiResponseHandler.success(res, result.rows, 'Marketplace items retrieved');
+  } catch (error) { next(error); }
+});
+
+// PUT /api/super-admin/marketplace/:featureKey
+router.put('/marketplace/:featureKey', [
+  param('featureKey').notEmpty(),
+  validate
+], async (req: any, res: any, next: any) => {
+  try {
+    const { featureKey } = req.params;
+    const allowed = ['credit_cost', 'is_active', 'display_name', 'description'];
+    const updates: string[] = [];
+    const values: any[] = [];
+    let p = 1;
+
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) {
+        updates.push(`${key} = $${p++}`);
+        values.push(req.body[key]);
+      }
+    }
+
+    if (updates.length === 0) return ApiResponseHandler.badRequest(res, 'No valid fields provided');
+
+    values.push(featureKey);
+    const result = await db.query(
+      `UPDATE marketplace_items SET ${updates.join(', ')}, updated_at = NOW() WHERE feature_key = $${p} RETURNING *`,
+      values
+    );
+
+    if (result.rows.length === 0) return ApiResponseHandler.notFound(res, 'Marketplace item not found');
+    await logAudit(req, 'marketplace_item_updated', 'marketplace', undefined, featureKey, req.body);
+    ApiResponseHandler.success(res, result.rows[0], 'Marketplace item updated');
+  } catch (error) { next(error); }
+});
+
+// POST /api/super-admin/marketplace/gift
+router.post('/marketplace/gift', [
+  body('schoolId').isUUID(),
+  body('featureKey').notEmpty(),
+  body('quantity').optional().isInt({ min: 1 }),
+  validate
+], async (req: any, res: any, next: any) => {
+  try {
+    const { schoolId, featureKey, quantity = 1 } = req.body;
+    // Record gifted marketplace feature (no credits deducted)
+    const result = await db.query(
+      `INSERT INTO marketplace_purchases (school_id, feature_key, credits_spent, is_gift, gifted_by_staff_id, quantity)
+       VALUES ($1, $2, 0, true, $3, $4) RETURNING *`,
+      [schoolId, featureKey, req.user.id, quantity]
+    );
+    await logAudit(req, 'marketplace_gift', 'school', schoolId, undefined, { featureKey, quantity });
+    ApiResponseHandler.success(res, result.rows[0], 'Item gifted successfully');
+  } catch (error) { next(error); }
+});
+
+// ================================================================
+//  COUPON CODES
+// ================================================================
+
+// GET /api/super-admin/coupons
+router.get('/coupons', async (req, res, next) => {
+  try {
+    const result = await db.query('SELECT * FROM discount_coupons ORDER BY created_at DESC');
+    ApiResponseHandler.success(res, result.rows, 'Coupons retrieved');
+  } catch (error) { next(error); }
+});
+
+// POST /api/super-admin/coupons
+router.post('/coupons', [
+  body('code').trim().notEmpty().withMessage('Code is required'),
+  body('name').trim().notEmpty().withMessage('Name is required'),
+  body('type').isIn(['percent_off', 'amount_off', 'free_months', 'bonus_credits']),
+  body('value').isNumeric(),
+  validate
+], async (req: any, res: any, next: any) => {
+  try {
+    const { code, name, description, type, value, maxUses, validUntil } = req.body;
+
+    const result = await db.query(
+      `INSERT INTO discount_coupons (code, name, description, discount_type, discount_value, max_uses, expires_at, created_by_staff_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [code.toUpperCase(), name, description || null, type, value, maxUses || null, validUntil || null, req.user.id]
+    );
+
+    await logAudit(req, 'coupon_created', 'coupon', result.rows[0].id, code, req.body);
+    ApiResponseHandler.success(res, result.rows[0], 'Coupon created');
+  } catch (error) { next(error); }
+});
+
+// PATCH /api/super-admin/coupons/:id
+router.patch('/coupons/:id', [
+  param('id').isUUID(),
+  validate
+], async (req: any, res: any, next: any) => {
+  try {
+    const { id } = req.params;
+    const allowed = ['is_active', 'name', 'description', 'max_uses', 'expires_at', 'discount_value'];
+    const updates: string[] = [];
+    const values: any[] = [];
+    let p = 1;
+
+    for (const key of allowed) {
+      const camelKey = key === 'is_active' ? 'isActive'
+        : key === 'max_uses' ? 'maxUses'
+        : key === 'expires_at' ? 'expiresAt'
+        : key === 'discount_value' ? 'discountValue'
+        : key;
+
+      const bodyVal = req.body[camelKey] ?? req.body[key];
+      if (bodyVal !== undefined) {
+        updates.push(`${key} = $${p++}`);
+        values.push(bodyVal);
+      }
+    }
+
+    if (updates.length === 0) return ApiResponseHandler.badRequest(res, 'No valid fields');
+    values.push(id);
+
+    const result = await db.query(
+      `UPDATE discount_coupons SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${p} RETURNING *`,
+      values
+    );
+
+    if (result.rows.length === 0) return ApiResponseHandler.notFound(res, 'Coupon not found');
+    ApiResponseHandler.success(res, result.rows[0], 'Coupon updated');
+  } catch (error) { next(error); }
+});
+
 export default router;
