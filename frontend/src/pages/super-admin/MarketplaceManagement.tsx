@@ -163,7 +163,7 @@ export default function MarketplaceManagement() {
                   {history.map((log) => (
                     <tr key={log.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {format(new Date(log.created_at), 'MMM d, HH:mm')}
+                        {log.created_at ? format(new Date(log.created_at), 'MMM d, HH:mm') : '—'}
                       </td>
                       <td className="px-6 py-4 text-sm font-semibold text-gray-900">{log.school_name || 'School'}</td>
                       <td className="px-6 py-4 text-right">
