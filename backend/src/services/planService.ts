@@ -9,6 +9,8 @@ export interface PlanLimits {
   maxExternalPerTutor: number | null;
   maxActiveExams: number | null;
   aiQueriesPerMonth: number;
+  maxAiQueriesPerStudent: number;
+  maxAiQueriesPerTutor: number;
   allowStudentPortal: boolean;
   allowExternalStudents: boolean;
   allowBulkImport: boolean;
@@ -111,6 +113,8 @@ function mapPlanDefinition(pd: any, status: string, pTutor: number = 0, pStudent
     maxExternalPerTutor: pd.max_external_per_tutor,
     maxActiveExams: pd.max_active_exams,
     aiQueriesPerMonth: (pd.ai_queries_per_month ?? 0) + (isFrozen ? 0 : pAi),
+    maxAiQueriesPerStudent: pd.max_ai_queries_per_student ?? 5,
+    maxAiQueriesPerTutor: pd.max_ai_queries_per_tutor ?? 50,
     allowStudentPortal: pd.allow_student_portal,
     allowExternalStudents: pd.allow_external_students,
     allowBulkImport: pd.allow_bulk_import,
@@ -199,7 +203,8 @@ export const getSchoolUsage = async (schoolId: string): Promise<PlanUsage> => {
     // Count AI queries this month (tracked in activity log)
     db.query(
       `SELECT COUNT(*) as count FROM activity_logs
-       WHERE school_id = $1::uuid AND (action = 'ai_question_generated' OR action = 'ai_generated')
+       WHERE school_id = $1::uuid
+       AND action IN ('ai_question_generated', 'ai_generated', 'ai_result_explained', 'ai_question_explained')
        AND created_at >= date_trunc('month', NOW())`,
       [schoolId]
     ).catch(() => ({ rows: [{ count: 0 }] }))
@@ -211,6 +216,20 @@ export const getSchoolUsage = async (schoolId: string): Promise<PlanUsage> => {
     examCount: parseInt(exams.rows[0].count),
     aiQueriesThisMonth: parseInt(aiQueries.rows[0].count),
   };
+};
+
+/**
+ * Get AI usage for a specific user this month.
+ */
+export const getUserAiUsage = async (userId: string): Promise<number> => {
+  const result = await db.query(
+    `SELECT COUNT(*) as count FROM activity_logs
+     WHERE user_id = $1::uuid
+     AND action IN ('ai_question_generated', 'ai_generated', 'ai_result_explained', 'ai_question_explained')
+     AND created_at >= date_trunc('month', NOW())`,
+    [userId]
+  );
+  return parseInt(result.rows[0].count);
 };
 
 /**

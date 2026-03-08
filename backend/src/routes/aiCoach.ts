@@ -4,7 +4,8 @@ import { authenticate } from "../middleware/auth";
 import { ApiResponseHandler } from "../utils/apiResponse";
 import { aiService } from "../services/aiService";
 import { logUserActivity } from "../utils/auditLogger";
-import { getSchoolPlan, getSchoolUsage, isFeatureAllowed } from "../services/planService";
+import { getSchoolPlan, getSchoolUsage, getUserAiUsage, isFeatureAllowed } from "../services/planService";
+import { paygService } from "../services/paygService";
 
 const router = Router();
 
@@ -31,11 +32,28 @@ router.post(
       ]);
 
       if (usage.aiQueriesThisMonth >= plan.aiQueriesPerMonth) {
+        // Fallback to PAYG
+        const consumption = await paygService.consumeCredits(user.schoolId!, 'ai_query_consumption');
+        if (!consumption.success) {
+          return ApiResponseHandler.error(
+            res,
+            "School AI Limit Reached. Please upgrade or top-up your PAYG wallet.",
+            403,
+            "LIMIT_REACHED"
+          );
+        }
+      }
+
+      // 1.1 Check Personal AI Limit
+      const personalUsage = await getUserAiUsage(user.id);
+      const personalLimit = user.role === 'student' ? plan.maxAiQueriesPerStudent : plan.maxAiQueriesPerTutor;
+
+      if (personalUsage >= personalLimit) {
         return ApiResponseHandler.error(
           res,
-          "AI Limit Reached. Please upgrade your subscription.",
+          `Personal AI Limit Reached. Your current plan allows ${personalLimit} requests per user per month.`,
           403,
-          "LIMIT_REACHED"
+          "PERSONAL_LIMIT_REACHED"
         );
       }
 
@@ -122,7 +140,24 @@ router.post(
       ]);
 
       if (usage.aiQueriesThisMonth >= plan.aiQueriesPerMonth) {
-        return ApiResponseHandler.error(res, "AI Limit Reached.", 403, "LIMIT_REACHED");
+        // Fallback to PAYG
+        const consumption = await paygService.consumeCredits(user.schoolId!, 'ai_query_consumption');
+        if (!consumption.success) {
+          return ApiResponseHandler.error(res, "School AI Limit Reached.", 403, "LIMIT_REACHED");
+        }
+      }
+
+      // Personal Limit Check
+      const personalUsage = await getUserAiUsage(user.id);
+      const personalLimit = user.role === 'student' ? plan.maxAiQueriesPerStudent : plan.maxAiQueriesPerTutor;
+
+      if (personalUsage >= personalLimit) {
+        return ApiResponseHandler.error(
+          res,
+          `Personal AI Limit Reached (${personalLimit}/mo).`,
+          403,
+          "PERSONAL_LIMIT_REACHED"
+        );
       }
 
       const client = await pool.connect();

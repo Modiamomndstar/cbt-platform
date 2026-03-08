@@ -189,7 +189,8 @@ router.put('/plans/:planType', [
       'allow_bulk_import', 'allow_email_notifications', 'allow_sms_notifications',
       'allow_advanced_analytics', 'allow_custom_branding', 'allow_api_access',
       'allow_result_pdf', 'allow_result_export', 'extra_internal_student_price_usd',
-      'extra_external_student_price_usd', 'is_active'
+      'extra_external_student_price_usd', 'is_active',
+      'max_ai_queries_per_student', 'max_ai_queries_per_tutor'
     ];
     const updates: string[] = [];
     const values: any[] = [];
@@ -795,7 +796,7 @@ router.get('/export/:type', [
 // GET /api/super-admin/marketplace
 router.get('/marketplace', async (req, res, next) => {
   try {
-    const result = await db.query('SELECT * FROM marketplace_items ORDER BY item_type DESC, display_name ASC');
+    const result = await db.query('SELECT * FROM payg_feature_pricing ORDER BY item_type DESC, display_name ASC');
     ApiResponseHandler.success(res, transformResult(result), 'Marketplace items retrieved');
   } catch (error) { next(error); }
 });
@@ -831,7 +832,7 @@ router.put('/marketplace/:featureKey', [
     values.push(featureKey);
 
     const result = await db.query(
-      `UPDATE marketplace_items SET ${updates.join(', ')} WHERE feature_key = $${p} RETURNING *`,
+      `UPDATE payg_feature_pricing SET ${updates.join(', ')} WHERE feature_key = $${p} RETURNING *`,
       values
     );
 

@@ -333,8 +333,9 @@ router.delete(
   },
 );
 
-import { getSchoolPlan, getSchoolUsage } from "../services/planService";
+import { getSchoolPlan, getSchoolUsage, getUserAiUsage } from "../services/planService";
 import { logUserActivity } from "../utils/auditLogger";
+import { paygService } from "../services/paygService";
 
 // AI Generate questions
 router.post(
@@ -354,11 +355,26 @@ router.post(
       ]);
 
       if (usage.aiQueriesThisMonth >= plan.aiQueriesPerMonth) {
+        // Fallback to PAYG
+        const consumption = await paygService.consumeCredits(user.schoolId!, 'ai_query_consumption');
+        if (!consumption.success) {
+          return ApiResponseHandler.error(
+            res,
+            "School AI Limit Reached. Top up your PAYG wallet to continue generating questions.",
+            403,
+            "LIMIT_REACHED"
+          );
+        }
+      }
+
+      // Check personal limit for tutor
+      const personalUsage = await getUserAiUsage(user.id);
+      if (personalUsage >= plan.maxAiQueriesPerTutor) {
         return ApiResponseHandler.error(
           res,
-          "AI Limit Reached. Your current plan allows for " + plan.aiQueriesPerMonth + " queries per month. Please upgrade your subscription or purchase an AI Query Pack from the Marketplace.",
+          `Personal AI Limit Reached (${plan.maxAiQueriesPerTutor}/mo).`,
           403,
-          "LIMIT_REACHED"
+          "PERSONAL_LIMIT_REACHED"
         );
       }
 

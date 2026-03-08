@@ -20,10 +20,10 @@ export const paygService = {
    */
   getPricing: async (featureKey?: string): Promise<MarketplaceItem[]> => {
     if (featureKey) {
-      const res = await db.query('SELECT * FROM marketplace_items WHERE feature_key = $1', [featureKey]);
+      const res = await db.query('SELECT * FROM payg_feature_pricing WHERE feature_key = $1', [featureKey]);
       return res.rows;
     }
-    const res = await db.query('SELECT * FROM marketplace_items ORDER BY category, credit_cost');
+    const res = await db.query('SELECT * FROM payg_feature_pricing ORDER BY category, credit_cost');
     return res.rows;
   },
 
@@ -43,7 +43,7 @@ export const paygService = {
 
       // 1. Get pricing
       const pricingRes = await client.query(
-        'SELECT credit_cost, display_name, batch_size FROM marketplace_items WHERE feature_key = $1',
+        'SELECT credit_cost, display_name, batch_size FROM payg_feature_pricing WHERE feature_key = $1',
         [featureKey]
       );
       if (pricingRes.rows.length === 0) {
@@ -117,7 +117,7 @@ export const paygService = {
       await client.query('BEGIN');
 
       const pricingRes = await client.query(
-        'SELECT display_name, item_type FROM marketplace_items WHERE feature_key = $1',
+        'SELECT display_name, item_type FROM payg_feature_pricing WHERE feature_key = $1',
         [featureKey]
       );
       if (pricingRes.rows.length === 0) throw new Error('Feature not found');

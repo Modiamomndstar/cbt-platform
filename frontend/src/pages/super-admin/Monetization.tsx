@@ -26,6 +26,8 @@ interface Plan {
   priceNgn: number; maxTutors: number | null;
   maxInternalStudents: number | null; maxActiveExams: number | null;
   aiQueriesPerMonth: number;
+  maxAiQueriesPerStudent: number;
+  maxAiQueriesPerTutor: number;
   allowStudentPortal: boolean; allowExternalStudents: boolean;
   allowBulkImport: boolean; allowEmailNotifications: boolean;
   allowAdvancedAnalytics: boolean; allowCustomBranding: boolean;
@@ -90,6 +92,8 @@ function PlanEditor({ plan, onSave }: { plan: Plan; onSave: (updated: Plan) => v
         allowApiAccess: draft.allowApiAccess,
         allowSmsNotifications: draft.allowSmsNotifications,
         allowResultExport: draft.allowResultExport,
+        maxAiQueriesPerStudent: draft.maxAiQueriesPerStudent,
+        maxAiQueriesPerTutor: draft.maxAiQueriesPerTutor,
       });
       onSave(draft);
       setEditing(false);
@@ -181,6 +185,8 @@ function PlanEditor({ plan, onSave }: { plan: Plan; onSave: (updated: Plan) => v
           {numField('Max students', 'maxInternalStudents')}
           {numField('Max active exams', 'maxActiveExams')}
           {numField('AI queries/month', 'aiQueriesPerMonth')}
+          {numField('Limit: AI/Student', 'maxAiQueriesPerStudent')}
+          {numField('Limit: AI/Tutor', 'maxAiQueriesPerTutor')}
         </div>
         <div className="space-y-0.5">
           {boolField('Student portal', 'allowStudentPortal')}
@@ -680,6 +686,7 @@ function SubscriptionSettings() {
   const discountActive = settings.find(s => s.key === 'yearly_discount_active');
   const usdtAddress = settings.find(s => s.key === 'usdt_trc20_address');
   const creditPriceUsd = settings.find(s => s.key === 'payg_credit_price_usd');
+  const referralCredits = settings.find(s => s.key === 'referral_reward_credits');
 
   return (
     <div className="space-y-6">
@@ -730,6 +737,17 @@ function SubscriptionSettings() {
                         onChange={(e) => setSettings(prev => prev.map(s => s.key === 'payg_credit_price_usd' ? { ...s, value: e.target.value } : s))}
                     />
                     <Button size="sm" onClick={() => handleUpdate('payg_credit_price_usd', creditPriceUsd?.value)}>Save</Button>
+                </div>
+             </div>
+             <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
+                <p className="text-sm font-semibold text-gray-800">Referral Reward Credits</p>
+                <div className="flex items-center gap-2">
+                    <Input
+                        type="number"
+                        value={referralCredits?.value || ''}
+                        onChange={(e) => setSettings(prev => prev.map(s => s.key === 'referral_reward_credits' ? { ...s, value: e.target.value } : s))}
+                    />
+                    <Button size="sm" onClick={() => handleUpdate('referral_reward_credits', referralCredits?.value)}>Save</Button>
                 </div>
              </div>
           </div>
