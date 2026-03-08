@@ -796,7 +796,7 @@ router.get('/export/:type', [
 // GET /api/super-admin/marketplace
 router.get('/marketplace', async (req, res, next) => {
   try {
-    const result = await db.query('SELECT * FROM payg_feature_pricing ORDER BY item_type DESC, display_name ASC');
+    const result = await db.query('SELECT * FROM marketplace_items ORDER BY item_type DESC, display_name ASC');
     ApiResponseHandler.success(res, transformResult(result), 'Marketplace items retrieved');
   } catch (error) { next(error); }
 });
@@ -832,7 +832,7 @@ router.put('/marketplace/:featureKey', [
     values.push(featureKey);
 
     const result = await db.query(
-      `UPDATE payg_feature_pricing SET ${updates.join(', ')} WHERE feature_key = $${p} RETURNING *`,
+      `UPDATE marketplace_items SET ${updates.join(', ')} WHERE feature_key = $${p} RETURNING *`,
       values
     );
 
