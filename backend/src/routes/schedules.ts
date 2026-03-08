@@ -438,7 +438,7 @@ router.post(
           let username = "";
           let isUnique = false;
           while (!isUnique) {
-            const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+            const randomSuffix = Math.random().toString(36).substring(2, 6).toLowerCase();
             username = `exam_${regNum}_${randomSuffix}`.replace(/[^a-zA-Z0-9_]/g, "");
 
             // Check if this username already exists in this exam's schedules (unlikely but safe)
@@ -541,7 +541,7 @@ router.post(
           let username = "";
           let isUnique = false;
           while (!isUnique) {
-            const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+            const randomSuffix = Math.random().toString(36).substring(2, 6).toLowerCase();
             username = `${baseUser}_${randomSuffix}`.replace(/[^a-zA-Z0-9_]/g, "");
 
             const dupCheck = await client.query(

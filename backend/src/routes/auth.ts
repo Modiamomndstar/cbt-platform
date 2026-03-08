@@ -319,7 +319,7 @@ router.post(
          LEFT JOIN external_students ext ON es.external_student_id = ext.id
          JOIN exams e ON es.exam_id = e.id
          JOIN schools sch ON COALESCE(s.school_id, ext.school_id) = sch.id
-         WHERE es.login_username = $1`,
+         WHERE LOWER(es.login_username) = $1`,
         [username],
       );
 
