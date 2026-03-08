@@ -549,6 +549,7 @@ router.get(
        LEFT JOIN exam_categories ec ON e.category_id = ec.id
        JOIN exam_schedules es ON se.exam_schedule_id = es.id
        JOIN tutors t ON e.tutor_id = t.id
+       LEFT JOIN exam_types et ON e.exam_type_id = et.id
        WHERE se.student_id = $1
        ORDER BY se.completed_at DESC
        LIMIT $2 OFFSET $3`,

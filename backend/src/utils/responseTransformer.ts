@@ -9,9 +9,11 @@ export const toCamelCase = (str: string): string => {
 };
 
 export const transformObject = (obj: any): any => {
+  if (obj === null || obj === undefined) return obj;
+
   if (Array.isArray(obj)) {
     return obj.map((v) => transformObject(v));
-  } else if (obj !== null && obj.constructor === Object) {
+  } else if (obj.constructor === Object) {
     return Object.keys(obj).reduce(
       (result, key) => ({
         ...result,
