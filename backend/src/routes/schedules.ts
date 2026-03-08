@@ -366,6 +366,33 @@ router.post(
         return ApiResponseHandler.forbidden(res, "Access denied");
       }
 
+      // Security check: Verify all students belong to the school/tutor
+      if (studentIds && studentIds.length > 0) {
+        let studentCheckQuery = "SELECT id FROM students WHERE id = ANY($1) AND school_id = $2";
+        const studentCheckParams = [studentIds, user.schoolId];
+        if (user.role === 'tutor') {
+            studentCheckQuery += " AND id IN (SELECT student_id FROM student_tutors WHERE tutor_id = $3)";
+            studentCheckParams.push(user.id);
+        }
+        const studentCheck = await client.query(studentCheckQuery, studentCheckParams);
+        if (studentCheck.rows.length !== studentIds.length) {
+            return ApiResponseHandler.badRequest(res, "One or more internal students are invalid or not authorized");
+        }
+      }
+
+      if (externalStudentIds && externalStudentIds.length > 0) {
+        let extCheckQuery = "SELECT id FROM external_students WHERE id = ANY($1) AND school_id = $2";
+        const extCheckParams = [externalStudentIds, user.schoolId];
+        if (user.role === 'tutor') {
+            extCheckQuery += " AND tutor_id = $3";
+            extCheckParams.push(user.id);
+        }
+        const extCheck = await client.query(extCheckQuery, extCheckParams);
+        if (extCheck.rows.length !== externalStudentIds.length) {
+            return ApiResponseHandler.badRequest(res, "One or more external students are invalid or not authorized");
+        }
+      }
+
       await client.query("BEGIN");
 
       const scheduledStudents: any[] = [];

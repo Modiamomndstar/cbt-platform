@@ -121,6 +121,17 @@ router.post('/', authorize('tutor'), [
     const tutorId = req.user!.tutorId;
     const schoolId = req.user!.schoolId;
 
+    // Security check: Verify category belongs to school
+    if (categoryId) {
+      const categoryCheck = await db.query(
+        "SELECT id FROM exam_categories WHERE id = $1 AND school_id = $2",
+        [categoryId, schoolId]
+      );
+      if (categoryCheck.rows.length === 0) {
+        return ApiResponseHandler.badRequest(res, "Invalid exam category");
+      }
+    }
+
     const result = await db.query(
       `INSERT INTO exams (school_id, tutor_id, title, description, category_id, duration, total_questions,
                           passing_score, shuffle_questions, shuffle_options, show_result_immediately,
@@ -156,7 +167,18 @@ router.put('/:id', [
   try {
     const { id } = req.params;
     const updates = req.body;
-    const { role, tutorId } = req.user!;
+    const { role, tutorId, schoolId } = req.user!;
+
+    // Security check: Verify category belongs to school if updating
+    if (updates.categoryId) {
+      const categoryCheck = await db.query(
+        "SELECT id FROM exam_categories WHERE id = $1 AND school_id = $2",
+        [updates.categoryId, schoolId]
+      );
+      if (categoryCheck.rows.length === 0) {
+        return ApiResponseHandler.badRequest(res, "Invalid exam category");
+      }
+    }
 
     const allowedFields = ['title', 'description', 'categoryId', 'duration', 'totalQuestions', 'passingScore', 'shuffleQuestions', 'shuffleOptions', 'showResultImmediately', 'isPublished', 'isSecureMode', 'maxViolations'];
     const setClauses: string[] = [];

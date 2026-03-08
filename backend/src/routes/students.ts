@@ -9,7 +9,7 @@ import { ApiResponseHandler } from "../utils/apiResponse";
 import { validate } from "../middleware/validation";
 import { getPaginationOptions, formatPaginationResponse } from "../utils/pagination";
 import { logUserActivity } from "../utils/auditLogger";
-import { generateUniqueUsername, splitFullName } from "../utils/userUtils";
+import { generateUniqueUsername, splitFullName, generateStudentID } from "../utils/userUtils";
 import { transformResult } from "../utils/responseTransformer";
 
 const router = Router();
@@ -182,7 +182,7 @@ router.get("/:id", [param("id").isUUID(), validate], async (req, res, next) => {
 router.post(
   "/",
   [
-    body("studentId").trim().notEmpty(),
+    body("studentId").optional({ checkFalsy: true }).trim(),
     body("fullName").trim().notEmpty(),
     body("email").optional({ checkFalsy: true }).isEmail(),
     body("phone").optional(),
@@ -219,17 +219,23 @@ router.post(
         }
       }
 
-      // Check student ID uniqueness
-      const check = await db.query(
-        "SELECT id FROM students WHERE school_id = $1 AND student_id = $2",
-        [querySchoolId, studentId],
-      );
-      if (check.rows.length > 0) {
-        return ApiResponseHandler.conflict(res, "Student ID already exists");
+      // Use studentId if provided, otherwise generate one
+      let finalStudentId = studentId;
+      if (!finalStudentId) {
+        finalStudentId = await generateStudentID(db, querySchoolId);
+      } else {
+        // Check student ID uniqueness if provided
+        const check = await db.query(
+          "SELECT id FROM students WHERE school_id = $1 AND student_id = $2",
+          [querySchoolId, finalStudentId],
+        );
+        if (check.rows.length > 0) {
+          return ApiResponseHandler.conflict(res, "Student ID already exists");
+        }
       }
 
       // Generate unique username
-      const username = await generateUniqueUsername(db, fullName, querySchoolId);
+      const username = await generateUniqueUsername(db, fullName, 'students');
 
       // Parse name parts
       const nameParts = fullName.trim().split(' ');
@@ -247,7 +253,7 @@ router.post(
         [
           querySchoolId,
           categoryId || null,
-          studentId,
+          finalStudentId,
           firstName,
           lastName,
           fullName,
@@ -282,7 +288,7 @@ router.post(
         targetType: 'student',
         targetId: studentData.id,
         targetName: fullName,
-        details: { email, student_id: studentId }
+        details: { email, student_id: finalStudentId }
       });
 
       ApiResponseHandler.created(res, studentData, "Student created");

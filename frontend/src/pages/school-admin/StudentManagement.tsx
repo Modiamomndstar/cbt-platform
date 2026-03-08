@@ -613,12 +613,12 @@ export default function StudentManagement() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="studentId">Student ID</Label>
+                <Label htmlFor="studentId">Student ID (Optional)</Label>
                 <Input
                   id="studentId"
                   value={formData.studentId}
                   onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-                  required
+                  placeholder="Leave blank to auto-generate"
                 />
               </div>
             </div>
@@ -761,7 +761,8 @@ export default function StudentManagement() {
           <div className="space-y-4 py-4">
              <div className="bg-blue-50 border border-blue-100 p-4 rounded-md text-sm text-blue-800">
                 <p className="font-semibold mb-1">CSV Format Required:</p>
-                <p>student_id, full_name, email, phone, level_class</p>
+                <li>Use column headers: <strong>student_id, full_name, email, phone, level_class</strong></li>
+                <li>The <strong>student_id</strong> is optional; it will be auto-generated if left blank.</li>
                 <a href={`${API_BASE_URL}/uploads/template/students`} download="students_template.csv" target="_blank" rel="noopener noreferrer" className="underline mt-2 inline-block">Download Template</a>
              </div>
              <div className="space-y-2">
@@ -833,7 +834,6 @@ export default function StudentManagement() {
                   id="editStudentId"
                   value={formData.studentId}
                   onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-                  required
                 />
               </div>
             </div>

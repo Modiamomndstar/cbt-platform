@@ -12,6 +12,7 @@ import { ApiResponseHandler } from '../utils/apiResponse';
 import { transformResult } from '../utils/responseTransformer';
 import { canAddExternalStudent } from '../services/planService';
 import { paygService } from '../services/paygService';
+import { generateUniqueUsername, generateStudentID, findOrCreateCategory } from '../utils/userUtils';
 
 const router = Router();
 
@@ -106,65 +107,6 @@ const generatePassword = (): string => {
   return password;
 };
 
-// Helper to generate unique username
-const generateUniqueUsername = async (client: any, fullName: string, schoolId: string, existingInBatch: Set<string> = new Set()) => {
-  // Normalize: lower case, remove spaces/special chars
-  let base = fullName.toLowerCase().replace(/[^a-z0-9]/g, "");
-  if (base.length < 3) base = base.padEnd(3, 'x'); // Ensure min length
-
-  let username = base;
-  let counter = 1;
-
-  // Check against DB and Batch
-  while (true) {
-    if (existingInBatch.has(username)) {
-       username = `${base}${counter}`;
-       counter++;
-       continue;
-    }
-
-    const result = await client.query(
-      `SELECT 1 FROM (
-        SELECT username FROM students WHERE username = $1
-        UNION
-        SELECT username FROM external_students WHERE username = $1
-      ) as combined_usernames`,
-      [username]
-    );
-
-    if (result.rows.length === 0) {
-      break;
-    }
-
-    username = `${base}${counter}`;
-    counter++;
-  }
-
-  return username;
-};
-
-// Helper: Find or Create Category
-const findOrCreateCategory = async (client: any, schoolId: string, categoryName: string) => {
-  if (!categoryName || !categoryName.trim()) return null;
-  const name = categoryName.trim();
-
-  // Check existence (case-insensitive)
-  const existing = await client.query(
-    "SELECT id FROM student_categories WHERE school_id = $1 AND LOWER(name) = LOWER($2) AND is_active = true",
-    [schoolId, name]
-  );
-
-  if (existing.rows.length > 0) {
-    return existing.rows[0].id;
-  }
-
-  // Create new
-  const result = await client.query(
-    "INSERT INTO student_categories (school_id, name, color, sort_order) VALUES ($1, $2, '#4F46E5', 0) RETURNING id",
-    [schoolId, name]
-  );
-  return result.rows[0].id;
-};
 
 // Upload students CSV
 router.post('/students', authenticate, requireRole(['school', 'tutor']), async (req: Request, res: Response) => {
@@ -225,31 +167,39 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
             continue;
         }
 
-        // Check if student_id is already taken in this school
-        if (studentIdRaw) {
-            const idCheck = await client.query(
-                'SELECT id FROM students WHERE student_id = $1 AND school_id = $2',
-                [studentIdRaw, schoolId]
+         // Use provided studentId or generate one
+        let finalStudentId = studentIdRaw;
+        if (!finalStudentId || !finalStudentId.trim()) {
+            finalStudentId = await generateStudentID(client, schoolId as string);
+        } else {
+            // Check student ID uniqueness if provided
+            const check = await client.query(
+                "SELECT id FROM students WHERE school_id = $1 AND student_id = $2",
+                [schoolId, finalStudentId.trim()],
             );
-            if (idCheck.rows.length > 0) {
+            if (check.rows.length > 0) {
                 results.failed.push({
                     record,
-                    reason: `Registration number ${studentIdRaw} already exists in this school`
+                    reason: `Registration number ${finalStudentId} already exists in this school`
                 });
                 continue;
             }
         }
 
-        // Check email uniqueness
-        const emailCheck = await client.query(
-          'SELECT id FROM students WHERE email = $1 AND school_id = $2',
-          [email, schoolId]
-        );
+        // Check email uniqueness if provided
+        let processedEmail = record.email?.trim().toLowerCase() || null;
+        if (processedEmail) {
+            const emailCheck = await client.query(
+                'SELECT id FROM students WHERE email = $1 AND school_id = $2',
+                [processedEmail, schoolId]
+            );
 
-        if (emailCheck.rows.length > 0) {
-          results.failed.push({ record, reason: `Email ${email} already exists` });
-          continue;
+            if (emailCheck.rows.length > 0) {
+                results.failed.push({ record, reason: `Email ${processedEmail} already exists` });
+                continue;
+            }
         }
+
 
         // Parse Name
         const nameParts = fullNameRaw.trim().split(' ');
@@ -257,20 +207,17 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
         const lastName = nameParts.slice(1).join(' ') || '.'; // Default to . if no last name
 
         // Handle Category (Level/Class)
-        let finalCategoryId = categoryId || null;
-        if (!finalCategoryId && levelClass) {
-            finalCategoryId = await findOrCreateCategory(client, schoolId as string, levelClass);
+        let catId = categoryId || null;
+        if (!catId && levelClass) {
+            catId = await findOrCreateCategory(client, schoolId as string, levelClass);
         }
 
         // Generate password
         const password = generatePassword();
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Student ID / Registration Number
-        const registrationNumber = studentIdRaw || `STU${Date.now()}${Math.floor(Math.random() * 1000)}`;
+        const passwordHash = await bcrypt.hash(password, 10);
 
         // Generate Username
-        const username = await generateUniqueUsername(client, fullNameRaw, schoolId as string, batchUsernames);
+        const username = await generateUniqueUsername(client, fullNameRaw, 'students', batchUsernames);
         batchUsernames.add(username);
 
         // Insert student
@@ -278,19 +225,8 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
           `INSERT INTO students (school_id, category_id, first_name, last_name, full_name, email,
            phone, student_id, username, password_hash, is_active)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true)
-           RETURNING *`,
-          [
-            schoolId,
-            finalCategoryId,
-            firstName,
-            lastName,
-            fullNameRaw,
-            email,
-            phone || null,
-            registrationNumber,
-            username,
-            hashedPassword
-          ]
+           RETURNING id, full_name`,
+          [schoolId, catId, firstName, lastName, fullNameRaw, processedEmail, record.phone || null, finalStudentId, username, passwordHash]
         );
 
         results.success.push({
@@ -631,11 +567,11 @@ router.post('/external-students', authenticate, requireRole(['tutor', 'school'])
         // Handle Category (Level/Class)
         let finalCategoryId = categoryId || null;
         if ((!finalCategoryId || finalCategoryId === 'none') && levelClass) {
-            finalCategoryId = await findOrCreateCategory(client, schoolId as string, levelClass);
+            finalCategoryId = await findOrCreateCategory(client, schoolId as string, levelClass, tutorId);
         }
 
         // Generate dummy login credentials since they take exams natively with access codes
-        const username = await generateUniqueUsername(client, fullNameRaw, schoolId as string, batchUsernames);
+        const username = await generateUniqueUsername(client, fullNameRaw, 'external_students', batchUsernames);
         batchUsernames.add(username);
         const password = generatePassword();
         const hashedPassword = await bcrypt.hash(password, 10);

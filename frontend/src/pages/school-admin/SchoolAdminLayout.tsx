@@ -16,7 +16,8 @@ import {
   MessageSquare,
   Calendar,
   FileText,
-  GraduationCap
+  GraduationCap,
+  Layers
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { schoolAPI } from '@/services/api';
@@ -59,6 +60,7 @@ export default function SchoolAdminLayout() {
     { name: 'Dashboard', href: '/school-admin/dashboard', icon: LayoutDashboard },
     { name: 'Messages', href: '/school-admin/messages', icon: MessageSquare, badge: unreadCount },
     { name: 'Tutors', href: '/school-admin/tutors', icon: Users },
+    { name: 'Student Categories', href: '/school-admin/categories', icon: Layers },
     { name: 'Internal Students', href: '/school-admin/students', icon: BookOpen },
     { name: 'Question Bank', href: '/school-admin/questions', icon: BookOpen },
     { name: 'Exam Schedules', href: '/school-admin/schedules', icon: Calendar },

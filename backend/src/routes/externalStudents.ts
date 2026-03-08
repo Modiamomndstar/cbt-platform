@@ -10,7 +10,7 @@ import { getPaginationOptions, formatPaginationResponse } from '../utils/paginat
 import { canAddExternalStudent } from '../services/planService';
 import { paygService } from '../services/paygService';
 import { sendStudentPortalCredentialsEmail } from '../services/email';
-import { splitFullName, generateUniqueUsername } from '../utils/userUtils';
+import { splitFullName, generateUniqueUsername, findOrCreateCategory } from '../utils/userUtils';
 
 const router = Router();
 
@@ -196,6 +196,23 @@ router.post('/', authorize('tutor'), [
       return ApiResponseHandler.badRequest(res, canAdd.reason || 'Student limit reached', { code: 'PLAN_LIMIT_EXCEEDED' });
     }
 
+    // Check email uniqueness if provided
+    if (email) {
+      const emailCheck = await db.query(
+        'SELECT id FROM external_students WHERE email = $1 AND school_id = $2',
+        [email, schoolId]
+      );
+      if (emailCheck.rows.length > 0) {
+        return ApiResponseHandler.badRequest(res, `External student with email ${email} already exists`);
+      }
+    }
+
+    // Handle Category (Level/Class)
+    let finalCategoryId = categoryId || null;
+    if (!finalCategoryId && levelClass) {
+      finalCategoryId = await findOrCreateCategory(db, schoolId, levelClass, tutorId);
+    }
+
     const username = await generateUniqueUsername(db, fullName, 'external_students');
 
     const password = Math.random().toString(36).slice(-8);
@@ -208,7 +225,7 @@ router.post('/', authorize('tutor'), [
       `INSERT INTO external_students (tutor_id, school_id, first_name, last_name, full_name, username, password_hash, email, phone, category_id, level_class)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING id, first_name, last_name, full_name, email, phone, username, is_active, created_at, category_id, level_class`,
-      [tutorId, schoolId, firstName, lastName, fullName, username, passwordHash, email, phone, categoryId || null, levelClass || null]
+      [tutorId, schoolId, firstName, lastName, fullName, username, passwordHash, email, phone, finalCategoryId, levelClass || null]
     );
 
     const student = result.rows[0];
