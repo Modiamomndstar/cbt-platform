@@ -24,7 +24,7 @@ router.get('/', authorize('tutor', 'school'), async (req, res, next) => {
       SELECT e.id, e.title, e.description, e.category_id, e.exam_type_id, e.duration, e.total_questions,
               e.passing_score, e.shuffle_questions, e.shuffle_options, e.show_result_immediately,
               e.is_published, e.created_at, e.exam_type, e.academic_session,
-              ec.name as category_name, ec.color as category_color,
+              ec.name as category_name,
               et.name as exam_type_name, et.color as exam_type_color,
               (SELECT COUNT(*) FROM questions WHERE exam_id = e.id) as question_count,
               (SELECT COUNT(*) FROM exam_schedules WHERE exam_id = e.id) as schedule_count
@@ -82,7 +82,7 @@ router.get('/:id', [
     const { role, schoolId, tutorId } = req.user!;
 
     let query = `SELECT e.*, s.name as school_name, t.full_name as tutor_name,
-                        ec.name as category_name, ec.color as category_color,
+                        ec.name as category_name,
                         et.name as exam_type_name, et.color as exam_type_color
                  FROM exams e
                  JOIN schools s ON e.school_id = s.id
