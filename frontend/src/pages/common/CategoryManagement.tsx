@@ -27,7 +27,8 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { toast } from "sonner";
-import { categoryAPI } from "@/services/api"; // Updated import path
+import { categoryAPI, examCategoryAPI, examTypeAPI } from "@/services/api";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Category {
   id: string;
@@ -38,7 +39,12 @@ interface Category {
   is_active: boolean;
 }
 
-export default function CategoryManagement() {
+interface CategoryManagementProps {
+  type?: 'student' | 'exam' | 'type';
+}
+
+export default function CategoryManagement({ type = 'student' }: CategoryManagementProps) {
+  const { user } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -52,18 +58,38 @@ export default function CategoryManagement() {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  // Determine which API to use
+  const getApi = () => {
+    if (type === 'exam') return examCategoryAPI;
+    if (type === 'type') return examTypeAPI;
+    return categoryAPI;
+  };
+  const api = getApi();
+
+  const title = type === 'exam'
+    ? 'Subject / Course Management'
+    : type === 'type'
+    ? 'Assessment Style Management'
+    : 'Student Category Management';
+
+  const subtitle = type === 'exam'
+    ? 'Create and manage academic subjects and courses (e.g. Mathematics, ENG 101).'
+    : type === 'type'
+    ? 'Define custom exam styles like CA Tests, Mocks, Semester Exams, or Practice.'
+    : 'Create and manage categories (e.g. JSS 1, SS 2, Science, Art) to organize students.';
+
   useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [type]); // Refetch if type changes
 
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const res = await categoryAPI.getAll();
-      setCategories(res.data.data);
+      const res = await api.getAll();
+      setCategories(res.data.data || []);
     } catch (error) {
-      console.error('Failed to fetch categories:', error);
-      toast.error("Failed to load categories");
+      console.error(`Failed to fetch ${type} categories:`, error);
+      toast.error(`Failed to load ${type} categories`);
     } finally {
       setLoading(false);
     }
@@ -75,10 +101,10 @@ export default function CategoryManagement() {
 
     try {
       if (editingCategory) {
-        await categoryAPI.update(editingCategory.id, formData);
+        await api.update(editingCategory.id, formData);
         toast.success("Category updated successfully");
       } else {
-        await categoryAPI.create(formData);
+        await api.create(formData);
         toast.success("Category created successfully");
       }
       setIsModalOpen(false);
@@ -96,7 +122,7 @@ export default function CategoryManagement() {
     if (!window.confirm(`Are you sure you want to delete category "${name}"?`)) return;
 
     try {
-      await categoryAPI.delete(id);
+      await api.delete(id);
       toast.success("Category deleted successfully");
       fetchCategories();
     } catch (error: any) {
@@ -134,9 +160,9 @@ export default function CategoryManagement() {
     <div className="space-y-6">
       <div className="flex justify-between items-center bg-white p-4 rounded-lg border shadow-sm">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight">Category Management</h2>
+          <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Create and manage categories (e.g. JSS 1, SS 2, Science, Art) to organize students.
+            {subtitle}
           </p>
         </div>
         <Button onClick={() => { resetForm(); setIsModalOpen(true); }}>
@@ -157,7 +183,7 @@ export default function CategoryManagement() {
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g. JSS 1, Year 7, Science Dept"
+                placeholder={type === 'type' ? 'e.g. First CA, Mock Exam, Finals' : 'e.g. JSS 1, Year 7, Science Dept'}
                 required
               />
             </div>
@@ -224,7 +250,7 @@ export default function CategoryManagement() {
               <TableHead className="w-[100px]">Color</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
-              <TableHead>Students</TableHead>
+              {type !== 'type' && <TableHead>Usage</TableHead>}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -265,29 +291,43 @@ export default function CategoryManagement() {
                       {category.description || '-'}
                     </span>
                   </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="font-normal">
-                      {category.student_count || 0} Students
-                    </Badge>
-                  </TableCell>
+                  {type !== 'type' && (
+                    <TableCell>
+                      <Badge variant="secondary" className="font-normal">
+                        {type === 'exam' ? `${category.student_count || 0} Exams` : `${category.student_count || 0} Students`}
+                      </Badge>
+                    </TableCell>
+                  )}
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                       <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(category)}
-                      >
-                        <Edit2 className="h-4 w-4 text-muted-foreground" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => handleDelete(category.id, category.name)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    {(() => {
+                      // Logic for edit/delete permissions
+                      const isSchoolAdmin = user?.role === 'school_admin';
+                      const ownerId = (category as any).tutorId || (category as any).tutor_id;
+                      const isOwner = user?.role === 'tutor' && ownerId === (user?.tutorId || user?.id);
+                      const canEditOrDelete = isSchoolAdmin || isOwner;
+
+                      if (!canEditOrDelete) return null;
+
+                      return (
+                        <div className="flex justify-end gap-2">
+                           <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(category)}
+                          >
+                            <Edit2 className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDelete(category.id, category.name)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      );
+                    })()}
                   </TableCell>
                 </TableRow>
               ))

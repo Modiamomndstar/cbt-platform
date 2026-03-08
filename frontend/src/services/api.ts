@@ -124,7 +124,7 @@ export const studentAPI = {
   resetPassword: (id: string, data?: { sendEmail: boolean }) => api.put(`/students/${id}/reset-password`, data),
 };
 
-// Category API
+// Category API (Student Categories)
 export const categoryAPI = {
   getAll: () => api.get("/categories"),
   getById: (id: string) => api.get(`/categories/${id}`),
@@ -136,6 +136,22 @@ export const categoryAPI = {
     api.post(`/categories/${id}/students`, { studentIds }),
   removeStudents: (id: string, studentIds: string[]) =>
     api.delete(`/categories/${id}/students`, { data: { studentIds } }),
+};
+
+// Exam Category API
+export const examCategoryAPI = {
+  getAll: () => api.get("/exam-categories"),
+  create: (data: any) => api.post("/exam-categories", data),
+  update: (id: string, data: any) => api.put(`/exam-categories/${id}`, data),
+  delete: (id: string) => api.delete(`/exam-categories/${id}`),
+};
+
+// Exam Type API (Assessment Styles)
+export const examTypeAPI = {
+  getAll: () => api.get("/exam-types"),
+  create: (data: any) => api.post("/exam-types", data),
+  update: (id: string, data: any) => api.put(`/exam-types/${id}`, data),
+  delete: (id: string) => api.delete(`/exam-types/${id}`),
 };
 
 // Exam API

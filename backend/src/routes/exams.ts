@@ -21,12 +21,16 @@ router.get('/', authorize('tutor', 'school'), async (req, res, next) => {
     const pagination = getPaginationOptions(req);
 
     let query = `
-      SELECT e.id, e.title, e.description, e.category_id, e.duration, e.total_questions,
+      SELECT e.id, e.title, e.description, e.category_id, e.exam_type_id, e.duration, e.total_questions,
               e.passing_score, e.shuffle_questions, e.shuffle_options, e.show_result_immediately,
-              e.is_published, e.created_at,
+              e.is_published, e.created_at, e.exam_type, e.academic_session,
+              ec.name as category_name, ec.color as category_color,
+              et.name as exam_type_name, et.color as exam_type_color,
               (SELECT COUNT(*) FROM questions WHERE exam_id = e.id) as question_count,
               (SELECT COUNT(*) FROM exam_schedules WHERE exam_id = e.id) as schedule_count
        FROM exams e
+       LEFT JOIN exam_categories ec ON e.category_id = ec.id
+       LEFT JOIN exam_types et ON e.exam_type_id = et.id
        WHERE 1=1`;
 
     const params: any[] = [];
@@ -77,10 +81,14 @@ router.get('/:id', [
     const { id } = req.params;
     const { role, schoolId, tutorId } = req.user!;
 
-    let query = `SELECT e.*, s.name as school_name, t.full_name as tutor_name
+    let query = `SELECT e.*, s.name as school_name, t.full_name as tutor_name,
+                        ec.name as category_name, ec.color as category_color,
+                        et.name as exam_type_name, et.color as exam_type_color
                  FROM exams e
                  JOIN schools s ON e.school_id = s.id
                  JOIN tutors t ON e.tutor_id = t.id
+                 LEFT JOIN exam_categories ec ON e.category_id = ec.id
+                 LEFT JOIN exam_types et ON e.exam_type_id = et.id
                  WHERE e.id = $1`;
     const params: any[] = [id];
 
@@ -113,9 +121,9 @@ router.post('/', authorize('tutor'), [
 ], async (req, res, next) => {
   try {
     const {
-      title, description, categoryId, duration, totalQuestions,
+      title, description, categoryId, examTypeId, duration, totalQuestions,
       passingScore, shuffleQuestions, shuffleOptions, showResultImmediately,
-      isSecureMode, maxViolations
+      isSecureMode, maxViolations, examType, academicSession
     } = req.body;
 
     const tutorId = req.user!.tutorId;
@@ -132,15 +140,26 @@ router.post('/', authorize('tutor'), [
       }
     }
 
+    // Security check: Verify exam type belongs to school
+    if (examTypeId) {
+      const typeCheck = await db.query(
+        "SELECT id FROM exam_types WHERE id = $1 AND school_id = $2",
+        [examTypeId, schoolId]
+      );
+      if (typeCheck.rows.length === 0) {
+        return ApiResponseHandler.badRequest(res, "Invalid exam type");
+      }
+    }
+
     const result = await db.query(
-      `INSERT INTO exams (school_id, tutor_id, title, description, category_id, duration, total_questions,
+      `INSERT INTO exams (school_id, tutor_id, title, description, category_id, exam_type_id, duration, total_questions,
                           passing_score, shuffle_questions, shuffle_options, show_result_immediately,
-                          is_secure_mode, max_violations)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                          is_secure_mode, max_violations, exam_type, academic_session)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        RETURNING *`,
-      [schoolId, tutorId, title, description, categoryId || null, duration, totalQuestions,
+      [schoolId, tutorId, title, description, categoryId || null, examTypeId || null, duration, totalQuestions,
        passingScore || 50, shuffleQuestions ?? true, shuffleOptions ?? true, showResultImmediately ?? true,
-       isSecureMode ?? false, maxViolations ?? 3]
+       isSecureMode ?? false, maxViolations ?? 3, examType || 'official', academicSession || null]
     );
 
     const exam = result.rows[0];
@@ -180,7 +199,17 @@ router.put('/:id', [
       }
     }
 
-    const allowedFields = ['title', 'description', 'categoryId', 'duration', 'totalQuestions', 'passingScore', 'shuffleQuestions', 'shuffleOptions', 'showResultImmediately', 'isPublished', 'isSecureMode', 'maxViolations'];
+    if (updates.examTypeId) {
+      const typeCheck = await db.query(
+        "SELECT id FROM exam_types WHERE id = $1 AND school_id = $2",
+        [updates.examTypeId, schoolId]
+      );
+      if (typeCheck.rows.length === 0) {
+        return ApiResponseHandler.badRequest(res, "Invalid exam type");
+      }
+    }
+
+    const allowedFields = ['title', 'description', 'categoryId', 'examTypeId', 'duration', 'totalQuestions', 'passingScore', 'shuffleQuestions', 'shuffleOptions', 'showResultImmediately', 'isPublished', 'isSecureMode', 'maxViolations', 'examType', 'academicSession'];
     const setClauses: string[] = [];
     const values: any[] = [];
     let paramIndex = 1;
@@ -189,6 +218,7 @@ router.put('/:id', [
       if (allowedFields.includes(key) && value !== undefined) {
         let dbField = key.replace(/[A-Z]/g, l => `_${l.toLowerCase()}`);
         if (key === 'categoryId') dbField = 'category_id';
+        if (key === 'examTypeId') dbField = 'exam_type_id';
 
         setClauses.push(`${dbField} = $${paramIndex++}`);
         values.push(value);

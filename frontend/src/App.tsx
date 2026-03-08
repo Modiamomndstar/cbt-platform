@@ -117,7 +117,9 @@ function AppRoutes() {
         <Route path="students" element={<SchoolStudentManagement />} />
         <Route path="analytics" element={<SchoolAnalytics />} />
         <Route path="competitions" element={<SchoolCompetitionHub />} />
-        <Route path="categories" element={<CategoryManagement />} />
+        <Route path="categories" element={<CategoryManagement type="student" />} />
+        <Route path="exam-categories" element={<CategoryManagement type="exam" />} />
+        <Route path="exam-types" element={<CategoryManagement type="type" />} />
         <Route path="billing" element={<BillingPage />} />
         <Route path="settings" element={<SchoolSettingsPage />} />
         <Route path="messages" element={<MessagesPage />} />
@@ -143,7 +145,9 @@ function AppRoutes() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<TutorDashboard />} />
         <Route path="exams" element={<ExamManagement />} />
-        <Route path="categories" element={<CategoryManagement />} />
+        <Route path="student-categories" element={<CategoryManagement type="student" />} />
+        <Route path="exam-categories" element={<CategoryManagement type="exam" />} />
+        <Route path="exam-types" element={<CategoryManagement type="type" />} />
         <Route path="exams/create" element={<CreateExam />} />
         <Route path="exams/:examId/questions" element={<QuestionBank />} />
         <Route path="exams/:examId/schedule" element={<ScheduleExam />} />

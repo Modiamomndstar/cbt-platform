@@ -28,6 +28,8 @@ interface ReportData {
     grade: string;
     remark: string;
     date: string;
+    examType?: string;
+    academicSession?: string;
   }>>;
   summary: {
     totalExams: number;
@@ -213,13 +215,9 @@ export default function StudentReportCard() {
               <span className="font-semibold text-muted-foreground">Reg. Number:</span>
               <span className="font-medium">{data.student.regNumber}</span>
             </div>
-            <div className="grid grid-cols-[120px_1fr]">
-              <span className="font-semibold text-muted-foreground">Level/Class:</span>
+            <div className="grid grid-cols-[140px_1fr]">
+              <span className="font-semibold text-muted-foreground">Student Group / Grade:</span>
               <span className="font-medium">{data.student.level}</span>
-            </div>
-            <div className="grid grid-cols-[120px_1fr]">
-              <span className="font-semibold text-muted-foreground">Category:</span>
-              <span className="font-medium">{data.student.category || 'N/A'}</span>
             </div>
             <div className="grid grid-cols-[120px_1fr]">
               <span className="font-semibold text-muted-foreground">Date:</span>
@@ -231,12 +229,20 @@ export default function StudentReportCard() {
           <div className="space-y-6">
             {Object.entries(data.results).map(([category, exams]) => (
               <div key={category}>
-                <h3 className="text-lg font-semibold mb-3 text-slate-800 bg-slate-100 p-2 rounded print:bg-gray-100">{category}</h3>
+                <div className="flex justify-between items-end mb-3 bg-slate-100 p-2 rounded print:bg-gray-100">
+                  <h3 className="text-lg font-semibold text-slate-800">Subject / Course: {category}</h3>
+                  {exams[0] && (
+                    <div className="flex gap-3 text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                      {exams[0].examType && <span>Type: {exams[0].examType}</span>}
+                      {exams[0].academicSession && <span>Session: {exams[0].academicSession}</span>}
+                    </div>
+                  )}
+                </div>
                 <div className="overflow-hidden border rounded-lg">
                   <table className="w-full text-sm">
                     <thead className="bg-slate-50 border-b print:bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 text-left font-semibold">Exam Title</th>
+                        <th className="px-4 py-3 text-left font-semibold">Title / Description</th>
                         <th className="px-4 py-3 text-center font-semibold">Score</th>
                         <th className="px-4 py-3 text-center font-semibold">Total</th>
                         <th className="px-4 py-3 text-center font-semibold">%</th>

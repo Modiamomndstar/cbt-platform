@@ -30,6 +30,7 @@ import superAdminRoutes from "./routes/superAdmin";
 import schoolSettingsRoutes from "./routes/schoolSettings";
 import externalStudentRoutes from "./routes/externalStudents";
 import examCategoryRoutes from "./routes/examCategories";
+import examTypeRoutes from "./routes/examTypes";
 import competitionRoutes from "./routes/competitions";
 import aiCoachRoutes from "./routes/aiCoach";
 import { initCronJobs } from "./services/cronService";
@@ -145,6 +146,7 @@ app.use("/api/super-admin", superAdminRoutes);
 app.use("/api/school-settings", schoolSettingsRoutes);
 app.use("/api/tutor/external-students", externalStudentRoutes);
 app.use("/api/exam-categories", examCategoryRoutes);
+app.use("/api/exam-types", examTypeRoutes);
 app.use("/api/competitions", competitionRoutes);
 app.use("/api/ai", aiCoachRoutes);
 

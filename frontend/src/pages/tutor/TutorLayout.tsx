@@ -14,7 +14,8 @@ import {
   X,
   UserPlus,
   TrendingUp,
-  MessageSquare
+  MessageSquare,
+  Layers
 } from 'lucide-react';
 import { useState } from 'react';
 import { useMessages } from '@/hooks/useMessages';
@@ -40,7 +41,9 @@ export default function TutorLayout() {
     { name: 'Dashboard', href: '/tutor/dashboard', icon: LayoutDashboard },
     { name: 'Messages', href: '/tutor/messages', icon: MessageSquare, badge: unreadCount },
     { name: 'Exams', href: '/tutor/exams', icon: BookOpen },
-    { name: 'Student Categories', href: '/tutor/categories', icon: GraduationCap },
+    { name: 'Student Groups', href: '/tutor/student-categories', icon: GraduationCap },
+    { name: 'Exam Categories', href: '/tutor/exam-categories', icon: BookOpen },
+    { name: 'Assessment Styles', href: '/tutor/exam-types', icon: Layers },
     { name: 'School Students', href: '/tutor/students', icon: Users },
     { name: 'External Students', href: '/tutor/external-students', icon: UserPlus },
     { name: 'Results', href: '/tutor/results', icon: BarChart3 },

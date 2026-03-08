@@ -583,11 +583,13 @@ router.get(
       // Fetch Completed Exam Results
       const resultsQuery = await client.query(
         `SELECT se.id, se.score, se.total_marks, se.percentage, se.status, se.completed_at,
-              e.title as exam_title,
-              ec.name as category_name
+              e.title as exam_title, e.exam_type, e.academic_session,
+              ec.name as category_name,
+              et.name as exam_type_name
        FROM student_exams se
        JOIN exams e ON se.exam_id = e.id
        LEFT JOIN exam_categories ec ON e.category_id = ec.id
+       LEFT JOIN exam_types et ON e.exam_type_id = et.id
        WHERE se.student_id = $1 AND se.status = 'completed'
        ORDER BY se.completed_at DESC`,
         [studentId],
@@ -630,8 +632,9 @@ router.get(
           grade,
           remark,
           date: row.completed_at,
+          examType: row.exam_type_name || row.exam_type,
+          academicSession: row.academic_session,
         });
-
         totalScore += parseFloat(row.score);
         totalPossible += parseFloat(row.total_marks);
       });
@@ -729,15 +732,18 @@ router.get(
       // Fetch Results - Consolidated across all tutors in the same school
       const resultsQuery = await client.query(
         `SELECT se.id, se.score, se.total_marks, se.percentage, se.status, se.completed_at,
-              se.historical_level_name as level,
-              e.title as exam_title, ec.name as exam_category, ec.id as exam_category_id,
-              t.id as tutor_id, t.first_name || ' ' || t.last_name as tutor_name
-       FROM student_exams se
-       JOIN exams e ON se.exam_id = e.id
-       JOIN tutors t ON e.tutor_id = t.id
-       LEFT JOIN exam_categories ec ON e.category_id = ec.id
-       WHERE se.student_id = $1 AND se.status = 'completed' ${filters}
-       ORDER BY se.completed_at DESC`,
+               se.historical_level_name as level,
+               e.title as exam_title, e.exam_type, e.academic_session,
+               ec.name as exam_category, ec.id as exam_category_id,
+               et.name as exam_type_name,
+               t.id as tutor_id, t.first_name || ' ' || t.last_name as tutor_name
+        FROM student_exams se
+        JOIN exams e ON se.exam_id = e.id
+        JOIN tutors t ON e.tutor_id = t.id
+        LEFT JOIN exam_categories ec ON e.category_id = ec.id
+        LEFT JOIN exam_types et ON e.exam_type_id = et.id
+        WHERE se.student_id = $1 AND se.status = 'completed' ${filters}
+        ORDER BY se.completed_at DESC`,
         queryParams,
       );
 
@@ -762,6 +768,8 @@ router.get(
           totalMarks: row.total_marks,
           percentage: row.percentage,
           date: row.completed_at,
+          examType: row.exam_type_name || row.exam_type,
+          academicSession: row.academic_session,
         });
       });
 

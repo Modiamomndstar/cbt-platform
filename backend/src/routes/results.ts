@@ -297,9 +297,14 @@ router.get(
       const result = await client.query(
         `SELECT se.*,
                e.title as exam_title, e.description, e.duration, e.total_questions as exam_total_marks, e.passing_score,
-               es.scheduled_date, es.start_time, es.end_time as schedule_end_time
-        FROM student_exams se
-        JOIN exams e ON se.exam_id = e.id
+                e.exam_type, e.academic_session,
+                ec.name as exam_category,
+                et.name as exam_type_name,
+                es.scheduled_date, es.start_time, es.end_time as schedule_end_time
+         FROM student_exams se
+         JOIN exams e ON se.exam_id = e.id
+         LEFT JOIN exam_categories ec ON e.category_id = ec.id
+         LEFT JOIN exam_types et ON e.exam_type_id = et.id
         JOIN exam_schedules es ON se.exam_schedule_id = es.id
         WHERE se.exam_schedule_id = $1 AND (se.student_id = $2 OR se.external_student_id = $2)`,
         [scheduleId, user.id],
@@ -314,6 +319,9 @@ router.get(
       ApiResponseHandler.success(res, transformResult({
         id: row.id,
         examTitle: row.exam_title,
+        examCategory: row.exam_category,
+        examType: row.exam_type_name || row.exam_type,
+        academicSession: row.academic_session,
         description: row.description,
         score: row.score,
         totalMarks: row.total_marks,
@@ -350,11 +358,15 @@ router.get(
       const result = await client.query(
         `SELECT se.*,
               e.title as exam_title, e.duration, e.total_questions as exam_total_marks, e.passing_score,
+              ec.name as exam_category,
+              et.name as exam_type_name,
                COALESCE(s.full_name, NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), ''), ext_s.full_name, NULLIF(TRIM(CONCAT(ext_s.first_name, ' ', ext_s.last_name)), '')) as student_full_name,
               COALESCE(s.student_id, ext_s.username) as reg_number,
               COALESCE(s.email, ext_s.email) as student_email
          FROM student_exams se
-         JOIN exams e ON se.exam_id = e.id
+          JOIN exams e ON se.exam_id = e.id
+          LEFT JOIN exam_categories ec ON e.category_id = ec.id
+          LEFT JOIN exam_types et ON e.exam_type_id = et.id
          LEFT JOIN students s ON se.student_id = s.id
          LEFT JOIN external_students ext_s ON se.external_student_id = ext_s.id
          JOIN tutors t ON e.tutor_id = t.id
@@ -396,6 +408,8 @@ router.get(
         studentName: row.student_full_name || 'Unknown',
         registrationNumber: row.reg_number,
         examTitle: row.exam_title,
+        examCategory: row.exam_category,
+        examType: row.exam_type_name || row.exam_type,
         score: parseFloat(row.score),
         totalMarks: parseFloat(row.total_marks),
         percentage: parseFloat(row.percentage),
@@ -526,10 +540,13 @@ router.get(
       const result = await client.query(
         `SELECT se.*,
               e.title as exam_title, e.description, e.duration, e.passing_score,
+              ec.name as exam_category,
+              et.name as exam_type_name,
               es.scheduled_date, se.started_at, se.completed_at,
              COALESCE(t.full_name, NULLIF(TRIM(CONCAT(t.first_name, ' ', t.last_name)), ''), t.username) as tutor_name
       FROM student_exams se
        JOIN exams e ON se.exam_id = e.id
+       LEFT JOIN exam_categories ec ON e.category_id = ec.id
        JOIN exam_schedules es ON se.exam_schedule_id = es.id
        JOIN tutors t ON e.tutor_id = t.id
        WHERE se.student_id = $1
@@ -550,6 +567,8 @@ router.get(
         result.rows.map((row) => ({
           id: row.id,
           examTitle: row.exam_title,
+          examCategory: row.exam_category,
+          examType: row.exam_type_name || row.exam_type,
           description: row.description,
           tutorName: row.tutor_name || 'Tutor',
           score: row.score,

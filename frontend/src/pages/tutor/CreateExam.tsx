@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ArrowLeft, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
-import api, { examAPI } from '@/services/api';
+import api, { examAPI, examTypeAPI } from '@/services/api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function CreateExam() {
@@ -31,6 +31,9 @@ export default function CreateExam() {
     showResultImmediately: true,
     isSecureMode: false,
     maxViolations: 3,
+    examTypeId: 'none',
+    examType: '', // Fallback for display
+    academicSession: '',
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -43,16 +46,29 @@ export default function CreateExam() {
   };
 
   const [categories, setCategories] = useState<any[]>([]);
+  const [examTypes, setExamTypes] = useState<any[]>([]);
 
-  useState(() => {
-    const loadCats = async () => {
+  useEffect(() => {
+    const loadMetadata = async () => {
       try {
-        const res = await api.get('/exam-categories');
-        setCategories(res.data.data || []);
-      } catch (err) {}
+        const [catsRes, typesRes] = await Promise.all([
+          api.get('/exam-categories'),
+          examTypeAPI.getAll()
+        ]);
+        setCategories(catsRes.data.data || []);
+        const types = typesRes.data.data || [];
+        setExamTypes(types);
+
+        // Auto-select first type if available
+        if (types.length > 0) {
+          setFormData(p => ({ ...p, examTypeId: types[0].id, examType: types[0].name }));
+        }
+      } catch (err) {
+        console.error("Failed to load metadata:", err);
+      }
     };
-    loadCats();
-  });
+    loadMetadata();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,6 +92,9 @@ export default function CreateExam() {
         showResultImmediately: formData.showResultImmediately,
         isSecureMode: formData.isSecureMode,
         maxViolations: formData.maxViolations,
+        examTypeId: formData.examTypeId !== 'none' ? formData.examTypeId : null,
+        examType: formData.examType,
+        academicSession: formData.academicSession,
       };
 
       if (formData.categoryId !== 'none') {
@@ -156,18 +175,51 @@ export default function CreateExam() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="categoryId">Category/Tag (Optional)</Label>
+                <Label htmlFor="categoryId">Subject / Course (Optional)</Label>
                 <Select value={formData.categoryId} onValueChange={(val) => setFormData(p => ({...p, categoryId: val}))}>
                   <SelectTrigger id="categoryId">
-                    <SelectValue placeholder="No Category" />
+                    <SelectValue placeholder="No Subject / Course" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No Category</SelectItem>
+                    <SelectItem value="none">General / No Subject</SelectItem>
                     {categories.map((c) => (
                       <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="examTypeId">Exam Type / Style</Label>
+                  <Select
+                    value={formData.examTypeId}
+                    onValueChange={(val) => {
+                      const selected = examTypes.find(t => t.id === val);
+                      setFormData(p => ({...p, examTypeId: val, examType: selected?.name || ''}));
+                    }}
+                  >
+                    <SelectTrigger id="examTypeId">
+                      <SelectValue placeholder="Select Style" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {examTypes.length === 0 && <SelectItem value="none">No Styles Defined</SelectItem>}
+                      {examTypes.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="academicSession">Academic Session / Term</Label>
+                  <Input
+                    id="academicSession"
+                    name="academicSession"
+                    placeholder="e.g., 2024/2025 First Term"
+                    value={formData.academicSession}
+                    onChange={handleInputChange}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>

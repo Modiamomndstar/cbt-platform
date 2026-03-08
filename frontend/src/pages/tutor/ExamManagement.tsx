@@ -115,13 +115,13 @@ export default function ExamManagement() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Exam Management</h1>
-          <p className="text-gray-600">Create and manage your exams</p>
+          <h1 className="text-2xl font-bold text-gray-900">Exam & Course Management</h1>
+          <p className="text-gray-600">Create and manage your exams and courses</p>
         </div>
         <div className="flex space-x-2">
           <Button variant="outline" onClick={() => setIsCategoryModalOpen(true)}>
             <FolderOpen className="w-4 h-4 mr-2" />
-            Manage Categories
+            Manage Subjects / Courses
           </Button>
           <Button onClick={() => navigate('/tutor/exams/create')}>
             <Plus className="h-4 w-4 mr-2" />
@@ -133,18 +133,18 @@ export default function ExamManagement() {
       <Dialog open={isCategoryModalOpen} onOpenChange={setIsCategoryModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Exam Categories</DialogTitle>
-            <DialogDescription>Create tags (e.g., Practice, Assignment, CA Test, Termly) to group your exams automatically in analytics.</DialogDescription>
+            <DialogTitle>Subjects / Courses</DialogTitle>
+            <DialogDescription>Define your academic subjects or courses (e.g., Mathematics, ENG101). These represent the knowledge area being assessed.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="bg-muted p-4 rounded-md">
               <form onSubmit={handleCreateCategory} className="space-y-3">
                 <div className="flex gap-2">
-                  <Input placeholder="Category Name" value={categoryName} onChange={e => setCategoryName(e.target.value)} required/>
+                  <Input placeholder="Subject/Course Name (e.g. Mathematics)" value={categoryName} onChange={e => setCategoryName(e.target.value)} required/>
                   <Input type="color" value={categoryColor} onChange={e => setCategoryColor(e.target.value)} className="w-14 px-1" title="Badge Color"/>
                 </div>
                 <Input placeholder="Description (optional)" value={categoryDesc} onChange={e => setCategoryDesc(e.target.value)} />
-                <Button type="submit" className="w-full" size="sm">Create Category</Button>
+                <Button type="submit" className="w-full" size="sm">Create Subject/Course</Button>
               </form>
             </div>
             <div className="max-h-[300px] overflow-y-auto space-y-2">
@@ -180,9 +180,18 @@ export default function ExamManagement() {
                       <h3 className="font-semibold text-gray-900">{exam.title}</h3>
                       <div className="flex items-center gap-2 mt-1">
                         {exam.categoryName && (
-                           <Badge style={{ backgroundColor: exam.categoryColor || '#8B5CF6', color: 'white' }} className="text-[10px] h-4 px-1 pb-0 shadow-sm border-none leading-none items-center">{exam.categoryName}</Badge>
+                           <Badge style={{ backgroundColor: exam.categoryColor || '#8B5CF6', color: 'white' }} className="text-[10px] h-4 px-2 pb-0 shadow-sm border-none leading-none items-center">{exam.categoryName}</Badge>
                         )}
-                        <span className="text-sm text-gray-500">{exam.duration} mins</span>
+                        {exam.examTypeName && (
+                           <Badge style={{ backgroundColor: exam.examTypeColor || '#4F46E5', color: 'white' }} className="text-[10px] h-4 px-2 pb-0 shadow-sm border-none leading-none items-center">{exam.examTypeName}</Badge>
+                        )}
+                        {!exam.examTypeName && exam.examType && (
+                           <Badge variant="outline" className="text-[10px] h-4 px-2 pb-0 border-indigo-200 text-indigo-700 leading-none items-center capitalize">{exam.examType.replace('_', ' ')}</Badge>
+                        )}
+                        {exam.academicSession && (
+                           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{exam.academicSession}</span>
+                        )}
+                        <span className="text-sm text-gray-500">• {exam.duration} mins</span>
                         <span className="text-sm text-gray-500">
                           • {exam.totalQuestions || 0} questions
                         </span>

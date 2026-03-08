@@ -161,11 +161,14 @@ export default function StudentResultDetail() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-white/50 rounded-2xl border border-indigo-100/50">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 p-4 bg-white/50 rounded-2xl border border-indigo-100/50">
+            <StatItem label="Subject" value={result.examCategory || 'General'} />
+            <StatItem label="Type" value={result.examType || 'Official'} />
+            <StatItem label="Session" value={result.academicSession || 'N/A'} />
             <StatItem label="Score" value={`${result.score} / ${result.totalMarks}`} />
             <StatItem label="Time Spent" value={`${result.timeSpentMinutes} Minutes`} />
-            <StatItem label="Rank" value={result.rank ? `Rank #${result.rank}` : 'N/A'} />
             <StatItem label="Date" value={new Date(result.submittedAt).toLocaleDateString()} />
+            <StatItem label="Rank" value={result.rank ? `Rank #${result.rank}` : 'N/A'} />
           </div>
 
           {aiAnalysis && (

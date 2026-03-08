@@ -21,6 +21,7 @@ import {
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { examAPI, questionAPI } from '@/services/api';
 import {
   parseCSV,
@@ -38,6 +39,7 @@ import {
   BookOpen,
   Sparkles,
   Loader2,
+  Edit2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -56,6 +58,13 @@ export default function QuestionBank() {
   const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Bulk selection
+  const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false);
+
+  // Edit mode
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
 
   // Add question form
   const [newQuestion, setNewQuestion] = useState<{
@@ -127,6 +136,7 @@ export default function QuestionBank() {
       const response = await questionAPI.getByExam(examId);
       if (response.data.success) {
         setQuestions(response.data.data || []);
+        setSelectedQuestions([]); // Clear selection on reload
       }
     } catch (err) {
       console.error('Failed to load questions:', err);
@@ -156,17 +166,29 @@ export default function QuestionBank() {
     }
 
     try {
-      await questionAPI.create({
-        examId,
-        questionText: newQuestion.questionText,
-        questionType: newQuestion.questionType,
-        options,
-        correctAnswer,
-        marks: newQuestion.marks,
-        difficulty: newQuestion.difficulty,
-      });
+      if (editingQuestionId) {
+        await questionAPI.update(editingQuestionId, {
+          questionText: newQuestion.questionText,
+          questionType: newQuestion.questionType,
+          options,
+          correctAnswer,
+          marks: newQuestion.marks,
+          difficulty: newQuestion.difficulty,
+        });
+        toast.success('Question updated successfully');
+      } else {
+        await questionAPI.create({
+          examId,
+          questionText: newQuestion.questionText,
+          questionType: newQuestion.questionType,
+          options,
+          correctAnswer,
+          marks: newQuestion.marks,
+          difficulty: newQuestion.difficulty,
+        });
+        toast.success('Question added successfully');
+      }
 
-      toast.success('Question added successfully');
       setNewQuestion({
         questionText: '',
         questionType: 'multiple_choice',
@@ -175,12 +197,26 @@ export default function QuestionBank() {
         marks: 5,
         difficulty: 'medium',
       });
+      setEditingQuestionId(null);
       setIsAddDialogOpen(false);
       loadQuestions();
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Failed to add question';
+      const msg = err?.response?.data?.message || 'Failed to save question';
       toast.error(msg);
     }
+  };
+
+  const handleEditQuestion = (question: any) => {
+    setEditingQuestionId(question.id);
+    setNewQuestion({
+      questionText: question.question_text || question.questionText,
+      questionType: question.question_type || question.questionType,
+      options: question.options || ['', '', '', ''],
+      correctAnswer: (question.correct_answer ?? question.correctAnswer ?? '0').toString(),
+      marks: question.marks || 5,
+      difficulty: question.difficulty || 'medium',
+    });
+    setIsAddDialogOpen(true);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -271,6 +307,41 @@ export default function QuestionBank() {
       toast.error('Failed to delete question');
     } finally {
       setQuestionToDelete(null);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedQuestions.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedQuestions.length} questions?`)) return;
+
+    setIsDeletingBulk(true);
+    try {
+      // The API might not have a bulk delete endpoint, so we do it sequentially
+      // or check if it exists. Looking at our implementation, it doesn't.
+      // We could add one, but for now we'll do it sequentially for simplicity
+      // unless the user complains about performance.
+      await Promise.all(selectedQuestions.map(id => questionAPI.delete(id)));
+      toast.success(`${selectedQuestions.length} questions deleted`);
+      loadQuestions();
+    } catch (err: any) {
+      toast.error('Failed to delete some questions');
+      loadQuestions();
+    } finally {
+      setIsDeletingBulk(false);
+    }
+  };
+
+  const toggleSelectQuestion = (id: string) => {
+    setSelectedQuestions(prev =>
+      prev.includes(id) ? prev.filter(qId => qId !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedQuestions.length === questions.length) {
+      setSelectedQuestions([]);
+    } else {
+      setSelectedQuestions(questions.map(q => q.id));
     }
   };
 
@@ -667,16 +738,39 @@ export default function QuestionBank() {
               </Dialog>
 
               {/* Manual Add Dialog */}
-              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
+                setIsAddDialogOpen(open);
+                if (!open) {
+                  setEditingQuestionId(null);
+                  setNewQuestion({
+                    questionText: '',
+                    questionType: 'multiple_choice',
+                    options: ['', '', '', ''],
+                    correctAnswer: '0',
+                    marks: 5,
+                    difficulty: 'medium',
+                  });
+                }
+              }}>
                 <DialogTrigger asChild>
-                  <Button>
+                  <Button onClick={() => {
+                    setEditingQuestionId(null);
+                    setNewQuestion({
+                      questionText: '',
+                      questionType: 'multiple_choice',
+                      options: ['', '', '', ''],
+                      correctAnswer: '0',
+                      marks: 5,
+                      difficulty: 'medium',
+                    });
+                  }}>
                     <Plus className="h-4 w-4 mr-2" />
                     Add Question
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
-                    <DialogTitle>Add New Question</DialogTitle>
+                    <DialogTitle>{editingQuestionId ? 'Edit Question' : 'Add New Question'}</DialogTitle>
                   </DialogHeader>
                   <form onSubmit={handleAddQuestion} className="space-y-4">
                     <div className="space-y-2">
@@ -791,9 +885,14 @@ export default function QuestionBank() {
                       />
                     </div>
 
-                    <Button type="submit" className="w-full">
-                      Add Question
-                    </Button>
+                    <div className="flex justify-end space-x-2 pt-4">
+                      <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button type="submit">
+                        {editingQuestionId ? 'Update Question' : 'Add Question'}
+                      </Button>
+                    </div>
                   </form>
                 </DialogContent>
               </Dialog>
@@ -802,64 +901,110 @@ export default function QuestionBank() {
         </div>
       </div>
 
+      {/* Bulk Actions Bar */}
+      {questions.length > 0 && !isSchoolAdmin && (
+        <div className="flex items-center justify-between bg-white p-3 rounded-lg border shadow-sm">
+          <div className="flex items-center space-x-3">
+            <Checkbox
+              checked={selectedQuestions.length === questions.length && questions.length > 0}
+              onCheckedChange={toggleSelectAll}
+            />
+            <span className="text-sm font-medium">
+              {selectedQuestions.length > 0
+                ? `${selectedQuestions.length} questions selected`
+                : 'Select all questions'}
+            </span>
+          </div>
+          {selectedQuestions.length > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleBulkDelete}
+              disabled={isDeletingBulk}
+            >
+              {isDeletingBulk ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Delete Selected
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Questions List */}
       <div className="space-y-4">
         {questions.length > 0 ? (
           questions.map((question: any, index: number) => (
-            <Card key={question.id}>
+            <Card key={question.id} className={selectedQuestions.includes(question.id) ? 'ring-2 ring-indigo-500 ring-inset' : ''}>
               <CardContent className="p-4">
                 <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <span className="text-sm font-medium text-gray-500">Q{index + 1}</span>
-                      <Badge variant={
-                        question.difficulty === 'easy' ? 'secondary' :
-                        question.difficulty === 'medium' ? 'default' : 'destructive'
-                      }>
-                        {question.difficulty}
-                      </Badge>
-                      <Badge variant="outline">{question.marks} marks</Badge>
-                      <Badge variant="outline">{(question.question_type || question.questionType || '').replace('_', ' ')}</Badge>
-                    </div>
-                    <p className="text-gray-900 mb-3">{question.question_text || question.questionText}</p>
-
-                    {(question.options || []).length > 0 && (
-                      <div className="space-y-1 ml-4">
-                        {question.options.map((option: string, i: number) => (
-                          <div
-                            key={i}
-                            className={`text-sm ${
-                              i === (typeof question.correct_answer === 'number' ? question.correct_answer :
-                                     typeof question.correctAnswer === 'number' ? question.correctAnswer : 0)
-                                ? 'text-emerald-600 font-medium'
-                                : 'text-gray-600'
-                            }`}
-                          >
-                            {String.fromCharCode(65 + i)}. {option}
-                            {i === (typeof question.correct_answer === 'number' ? question.correct_answer :
-                                    typeof question.correctAnswer === 'number' ? question.correctAnswer : 0) && (
-                              <span className="ml-2 text-xs">(Correct)</span>
-                            )}
-                          </div>
-                        ))}
+                  <div className="flex space-x-4 flex-1">
+                    {!isSchoolAdmin && (
+                      <div className="pt-1">
+                        <Checkbox
+                          checked={selectedQuestions.includes(question.id)}
+                          onCheckedChange={() => toggleSelectQuestion(question.id)}
+                        />
                       </div>
                     )}
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="text-sm font-medium text-gray-500">Q{index + 1}</span>
+                        <Badge variant={
+                          question.difficulty === 'easy' ? 'secondary' :
+                          question.difficulty === 'medium' ? 'default' : 'destructive'
+                        }>
+                          {question.difficulty}
+                        </Badge>
+                        <Badge variant="outline">{question.marks} marks</Badge>
+                        <Badge variant="outline">{(question.question_type || question.questionType || '').replace('_', ' ')}</Badge>
+                      </div>
+                      <p className="text-gray-900 mb-3">{question.question_text || question.questionText}</p>
 
-                    {(question.question_type || question.questionType) === 'fill_blank' && (
-                      <p className="text-sm text-emerald-600 ml-4">
-                        Answer: {question.correct_answer || question.correctAnswer}
-                      </p>
-                    )}
+                      {(question.options || []).length > 0 && (
+                        <div className="space-y-1 ml-4">
+                          {question.options.map((option: string, i: number) => (
+                            <div
+                              key={i}
+                              className={`text-sm ${
+                                i === Number(question.correct_answer ?? question.correctAnswer ?? -1)
+                                  ? 'text-emerald-600 font-medium'
+                                  : 'text-gray-600'
+                              }`}
+                            >
+                              {String.fromCharCode(65 + i)}. {option}
+                              {i === Number(question.correct_answer ?? question.correctAnswer ?? -1) && (
+                                <span className="ml-2 text-xs">(Correct)</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {(question.question_type || question.questionType) === 'fill_blank' && (
+                        <p className="text-sm text-emerald-600 ml-4">
+                          Answer: {question.correct_answer || question.correctAnswer}
+                        </p>
+                      )}
+                    </div>
                   </div>
                   {!isSchoolAdmin && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setQuestionToDelete(question.id)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex space-x-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditQuestion(question)}
+                        className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setQuestionToDelete(question.id)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   )}
                 </div>
               </CardContent>

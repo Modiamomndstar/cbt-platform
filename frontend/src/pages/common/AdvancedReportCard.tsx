@@ -40,7 +40,8 @@ interface ExamResult {
   score: string;
   totalMarks: string;
   percentage: string;
-  date: string;
+  examType?: string;
+  academicSession?: string;
 }
 
 interface LevelProgression {
@@ -440,7 +441,7 @@ export default function AdvancedReportCard() {
           <div className="flex items-center justify-between">
             <Label className="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
               <Layers className="h-3 w-3" />
-              Categories
+              Subjects / Exam Categories
             </Label>
             <button
               onClick={() => setSelectedCategories(new Set(metadata.categories.map(c => c.id)))}
@@ -659,7 +660,7 @@ export default function AdvancedReportCard() {
               </div>
               <div className="space-y-4">
                 <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Current Tier</span>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Student Group</span>
                   <span className="font-bold text-slate-800">{data.student.currentLevel}</span>
                 </div>
                 <div className="flex justify-between items-center border-b border-slate-200 pb-2">
@@ -701,7 +702,17 @@ export default function AdvancedReportCard() {
                           <tbody className="divide-y divide-slate-100">
                             {level.exams.map((exam) => (
                               <motion.tr layout key={exam.id} className="hover:bg-slate-50 transition-colors">
-                                <td className="px-6 py-4 font-bold text-slate-800">{exam.category}</td>
+                                <td className="px-6 py-4">
+                                  <div className="font-bold text-slate-800">{exam.category}</div>
+                                  <div className="flex gap-2 mt-1">
+                                    {exam.examType && (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-bold uppercase tracking-wider">{exam.examType}</span>
+                                    )}
+                                    {exam.academicSession && (
+                                      <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-tighter">{exam.academicSession}</span>
+                                    )}
+                                  </div>
+                                </td>
                                 <td className="px-6 py-4 text-slate-500">{exam.tutor}</td>
                                 <td className="px-6 py-4 text-center font-bold">
                                   <span className={parseFloat(exam.percentage) >= 50 ? 'text-emerald-600' : 'text-rose-600'}>
