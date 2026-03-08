@@ -64,6 +64,7 @@ export default function ScheduleExam() {
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [debugError, setDebugError] = useState<string | null>(null);
+  const [studentTypeMap, setStudentTypeMap] = useState<Record<string, boolean>>({});
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
@@ -94,6 +95,7 @@ export default function ScheduleExam() {
   });
 
   const [scheduleToCancel, setScheduleToCancel] = useState<string | null>(null);
+  const [studentTypeFilter, setStudentTypeFilter] = useState<'all' | 'internal' | 'external'>('all');
 
   useEffect(() => {
     if (examId) {
@@ -148,7 +150,15 @@ export default function ScheduleExam() {
     try {
       const res = await scheduleAPI.getAvailableStudents(examId, selectedCategory);
       if (res.data.success) {
-        setStudents(res.data.data || []);
+        const fetchedStudents = res.data.data || [];
+        setStudents(fetchedStudents);
+
+        // Update studentTypeMap with the fetched results
+        const newMap = { ...studentTypeMap };
+        fetchedStudents.forEach((s: any) => {
+          newMap[s.id] = !!s.isExternal;
+        });
+        setStudentTypeMap(newMap);
       }
     } catch (err) {
       console.error('Failed to load available students:', err);
@@ -193,9 +203,9 @@ export default function ScheduleExam() {
 
     try {
       // Partition selected students into Internal and External correctly
-      // We check against the full externalStudents list which we have already loaded
-      const externalIds = selectedStudents.filter((id: string) => externalStudents.some((s: any) => s.id === id));
-      const internalIds = selectedStudents.filter((id: string) => !externalIds.includes(id));
+      // We use the studentTypeMap which is populated during loadAvailableStudents
+      const externalIds = selectedStudents.filter((id: string) => studentTypeMap[id] === true);
+      const internalIds = selectedStudents.filter((id: string) => studentTypeMap[id] === false);
 
       const payload: any = {
         examId,
@@ -368,6 +378,7 @@ export default function ScheduleExam() {
               <p>Exam Schedule & Credentials</p>
             </div>
             <div class="detail"><strong>Student:</strong> <span>${schedule.studentName}</span></div>
+            <div class="detail"><strong>Type:</strong> <span>${schedule.isExternal ? 'External' : 'Internal'}</span></div>
             <div class="detail"><strong>Date:</strong> <span>${formatDate(schedule.scheduledDate)}</span></div>
             <div class="detail"><strong>Time:</strong> <span>${schedule.startTime} - ${schedule.endTime}</span></div>
 
@@ -392,9 +403,10 @@ export default function ScheduleExam() {
     if (schedules.length === 0) return;
 
     // Create CSV content
-    const headers = ['Student Name', 'Registration Number', 'Date', 'Time', 'Username', 'Password', 'Access Code', 'Status'];
+    const headers = ['Student Name', 'Type', 'Registration Number', 'Date', 'Time', 'Username', 'Password', 'Access Code', 'Status'];
     const rows = schedules.map(s => [
       s.studentName,
+      s.isExternal ? 'External' : 'Internal',
       s.registrationNumber || '',
       formatDate(s.scheduledDate),
       `${s.startTime} - ${s.endTime}`,
@@ -639,11 +651,24 @@ export default function ScheduleExam() {
 
       {/* Scheduled Students */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-lg flex items-center">
             <Calendar className="h-5 w-5 mr-2" />
             Scheduled Students ({schedules.length})
           </CardTitle>
+          <div className="flex items-center space-x-2">
+            <Filter className="h-4 w-4 text-gray-500" />
+            <Select value={studentTypeFilter} onValueChange={(val: any) => setStudentTypeFilter(val)}>
+              <SelectTrigger className="w-[150px] h-8 text-xs">
+                <SelectValue placeholder="All Students" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Students</SelectItem>
+                <SelectItem value="internal">Internal Only</SelectItem>
+                <SelectItem value="external">External Only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
           {schedules.length > 0 ? (
@@ -662,13 +687,31 @@ export default function ScheduleExam() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {schedules.map((schedule: any) => (
+                  {schedules
+                    .filter(s => {
+                      if (studentTypeFilter === 'all') return true;
+                      if (studentTypeFilter === 'external') return s.isExternal;
+                      if (studentTypeFilter === 'internal') return !s.isExternal;
+                      return true;
+                    })
+                    .map((schedule: any) => (
                     <tr key={schedule.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3">
-                        <div>
-                          <p className="font-medium text-gray-900">
-                            {schedule.studentName}
-                          </p>
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-gray-900">
+                              {schedule.studentName}
+                            </p>
+                            {schedule.isExternal ? (
+                              <Badge variant="outline" className="text-[10px] h-4 px-1 text-indigo-600 bg-indigo-50 border-indigo-200">
+                                External
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] h-4 px-1 text-emerald-600 bg-emerald-50 border-emerald-200">
+                                Internal
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-sm text-gray-500">
                             {schedule.registrationNumber || ''} {schedule.email ? `• ${schedule.email}` : ''}
                           </p>

@@ -30,7 +30,8 @@ export default function ExamResults() {
     search: '',
     startDate: '',
     endDate: '',
-    status: 'all'
+    status: 'all',
+    studentType: 'all' as 'all' | 'internal' | 'external'
   });
 
   const [stats, setStats] = useState({
@@ -298,6 +299,17 @@ export default function ExamResults() {
                  title="End Date"
                />
             </div>
+
+            <Select value={filters.studentType} onValueChange={(val) => handleFilterChange('studentType', val)}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Students" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Student Types</SelectItem>
+                <SelectItem value="internal">Internal Students</SelectItem>
+                <SelectItem value="external">External Students</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -334,10 +346,21 @@ export default function ExamResults() {
                   {results.map((result: any) => (
                     <tr key={result.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3">
-                        <div>
-                          <p className="font-medium text-gray-900">
-                            {result.studentName || 'Unknown Student'}
-                          </p>
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-gray-900">
+                              {result.studentName || 'Unknown Student'}
+                            </p>
+                            {result.isExternal ? (
+                              <Badge variant="outline" className="text-[10px] h-4 px-1 text-indigo-600 bg-indigo-50 border-indigo-200">
+                                External
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] h-4 px-1 text-emerald-600 bg-emerald-50 border-emerald-200">
+                                Internal
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-sm text-gray-500">
                             {result.registrationNumber || ''}
                             {result.email && result.registrationNumber ? ' • ' : ''}
@@ -442,7 +465,7 @@ export default function ExamResults() {
             <div className="text-center py-12">
               <TrendingUp className="h-12 w-12 mx-auto mb-3 text-gray-300" />
               <p className="text-gray-500">No results found matching your filters</p>
-              <Button variant="link" onClick={() => setFilters({ examId: 'all', search: '', startDate: '', endDate: '', status: 'all' })}>
+              <Button variant="link" onClick={() => setFilters({ examId: 'all', search: '', startDate: '', endDate: '', status: 'all', studentType: 'all' })}>
                 Clear all filters
               </Button>
             </div>

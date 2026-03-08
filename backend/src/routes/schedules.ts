@@ -111,6 +111,7 @@ router.get(
           registrationNumber: s.student_id,
           categoryId: s.category_id,
           categoryName: s.category_name,
+          isExternal: false
         }))),
         "Available students retrieved",
       );
@@ -237,6 +238,7 @@ router.get(
             completedAt: row.completed_at || row.se_end_time,
             autoSubmitted: row.auto_submitted || row.se_auto_submitted || false,
             createdAt: row.created_at,
+            isExternal: !!row.external_student_id
           };
         })),
         "Exam schedules retrieved",
@@ -317,6 +319,7 @@ router.get(
           endTime: row.end_time,
           status: row.status,
           username: row.login_username,
+          isExternal: !!row.external_student_id
         }))),
         "School schedules retrieved"
       );

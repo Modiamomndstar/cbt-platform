@@ -439,7 +439,7 @@ router.get(
     const client = await pool.connect();
     try {
       const { examId } = req.params;
-      const { search, status, categoryId } = req.query;
+      const { search, status, categoryId, studentType } = req.query;
       const user = req.user!;
 
       // Verify exam belongs to user's school
@@ -456,14 +456,17 @@ router.get(
 
       let query = `
       SELECT se.*,
-             COALESCE(s.full_name, NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), ''), s.email, s.student_id, 'Unknown Student') as full_name,
+             COALESCE(s.full_name, ext.full_name, NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), ''), s.email, s.student_id, 'Unknown Student') as full_name,
              s.first_name, s.last_name, s.email, s.student_id,
-             sc.name as category_name,
+             COALESCE(sc.name, ext_sc.name) as category_name,
              es.scheduled_date, es.start_time as schedule_started_at, es.completed_at, es.auto_submitted as schedule_auto_submitted,
-             e.passing_score
+             e.passing_score,
+             es.external_student_id
       FROM student_exams se
-      JOIN students s ON se.student_id = s.id
+      LEFT JOIN students s ON se.student_id = s.id
+      LEFT JOIN external_students ext ON se.external_student_id = ext.id
       LEFT JOIN student_categories sc ON s.category_id = sc.id
+      LEFT JOIN student_categories ext_sc ON ext.category_id = ext_sc.id
       JOIN exam_schedules es ON se.exam_schedule_id = es.id
       JOIN exams e ON se.exam_id = e.id
       WHERE se.exam_id = $1
@@ -488,6 +491,12 @@ router.get(
         query += ` AND s.category_id = $${paramIndex}`;
         params.push(categoryId);
         paramIndex++;
+      }
+
+      if (studentType === 'external') {
+        query += ` AND es.external_student_id IS NOT NULL`;
+      } else if (studentType === 'internal') {
+        query += ` AND es.student_id IS NOT NULL`;
       }
 
       query += ` ORDER BY se.score DESC, s.last_name`;
@@ -516,6 +525,7 @@ router.get(
           autoSubmitted: row.schedule_auto_submitted || row.auto_submitted || false,
           scheduledDate: row.scheduled_date,
           submittedAt: row.end_time,
+          isExternal: !!row.external_student_id
         };
       })), "Exam results retrieved");
     } catch (error) {
@@ -551,14 +561,14 @@ router.get(
        JOIN exam_schedules es ON se.exam_schedule_id = es.id
        JOIN tutors t ON e.tutor_id = t.id
        LEFT JOIN exam_types et ON e.exam_type_id = et.id
-       WHERE se.student_id = $1
+       WHERE (se.student_id = $1 OR se.external_student_id = $1)
        ORDER BY se.completed_at DESC
        LIMIT $2 OFFSET $3`,
         [user.id, pagination.limit, pagination.offset],
       );
 
       const countResult = await client.query(
-        `SELECT COUNT(*) FROM student_exams WHERE student_id = $1`,
+        `SELECT COUNT(*) FROM student_exams WHERE student_id = $1 OR external_student_id = $1`,
         [user.id],
       );
 
@@ -770,26 +780,29 @@ router.get(
     const client = await pool.connect();
     try {
       const user = req.user!;
-      const { search, status, categoryId, examId, startDate, endDate } = req.query;
+      const { search, status, categoryId, examId, startDate, endDate, studentType } = req.query;
       const pagination = getPaginationOptions(req, 20);
 
       let query = `
       SELECT se.*,
-             COALESCE(s.full_name,
+             COALESCE(s.full_name, ext.full_name,
                NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), ''),
                s.email,
                s.student_id,
                'Unknown Student'
              ) as student_name,
              s.email, s.student_id,
-             sc.name as category_name,
+             COALESCE(sc.name, ext_sc.name) as category_name,
              e.title as exam_title,
              ec.name as exam_category,
              es.scheduled_date, es.start_time as schedule_started_at, es.completed_at, es.auto_submitted as schedule_auto_submitted,
-             e.passing_score, e.total_questions as exam_total_marks
+             e.passing_score, e.total_questions as exam_total_marks,
+             es.external_student_id
       FROM student_exams se
-      JOIN students s ON se.student_id = s.id
+      LEFT JOIN students s ON se.student_id = s.id
+      LEFT JOIN external_students ext ON se.external_student_id = ext.id
       LEFT JOIN student_categories sc ON s.category_id = sc.id
+      LEFT JOIN student_categories ext_sc ON ext.category_id = ext_sc.id
       JOIN exam_schedules es ON se.exam_schedule_id = es.id
       JOIN exams e ON se.exam_id = e.id
       LEFT JOIN exam_categories ec ON e.category_id = ec.id

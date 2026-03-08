@@ -96,7 +96,18 @@ export default function Results() {
                         <User className="h-5 w-5 text-indigo-600" />
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{result.studentName}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-gray-900">{result.studentName}</p>
+                          {result.isExternal ? (
+                            <Badge variant="outline" className="text-[10px] h-4 px-1 text-indigo-600 bg-indigo-50 border-indigo-200">
+                              External
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] h-4 px-1 text-emerald-600 bg-emerald-50 border-emerald-200">
+                              Internal
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-xs text-gray-500">ID: {result.studentIdNum || 'N/A'}</p>
                       </div>
                     </div>
