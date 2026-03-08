@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { resultAPI } from '@/services/api';
@@ -6,6 +7,7 @@ import { Award, CheckCircle, Clock, TrendingUp } from 'lucide-react';
 
 export default function StudentResults() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -142,7 +144,8 @@ export default function StudentResults() {
               {results.map((result: any) => (
                 <div
                   key={result.id}
-                  className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                  className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => navigate(`/student/results/${result.id}`)}
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div>

@@ -4,7 +4,7 @@ import { authenticate } from "../middleware/auth";
 import { ApiResponseHandler } from "../utils/apiResponse";
 import { aiService } from "../services/aiService";
 import { logUserActivity } from "../utils/auditLogger";
-import { getSchoolPlan, getSchoolUsage } from "../services/planService";
+import { getSchoolPlan, getSchoolUsage, isFeatureAllowed } from "../services/planService";
 
 const router = Router();
 
@@ -17,6 +17,12 @@ router.post(
     try {
       const { resultId } = req.params;
       const user = req.user!;
+
+      // 0. Check Feature Flag
+      const isAllowed = await isFeatureAllowed(user.schoolId!, 'ai_result_analysis');
+      if (!isAllowed) {
+        return ApiResponseHandler.error(res, "This feature is not available on your current plan.", 403, "FEATURE_LOCKED");
+      }
 
       // 1. Check AI Limits
       const [plan, usage] = await Promise.all([
@@ -102,6 +108,12 @@ router.post(
     try {
       const { questionId, studentAnswer, correctAnswer } = req.body;
       const user = req.user!;
+
+      // 0. Check Feature Flag
+      const isAllowed = await isFeatureAllowed(user.schoolId!, 'ai_coach');
+      if (!isAllowed) {
+        return ApiResponseHandler.error(res, "This feature is not available on your current plan.", 403, "FEATURE_LOCKED");
+      }
 
       // Add limit check here as well
       const [plan, usage] = await Promise.all([

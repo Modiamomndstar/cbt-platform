@@ -52,6 +52,7 @@ import StudentResults from '@/pages/student/StudentResults';
 import StudentProfile from '@/pages/student/StudentProfile';
 import StudentPerformance from '@/pages/student/StudentPerformance';
 import StudentCompetitionHub from '@/pages/student/StudentCompetitionHub';
+import StudentResultDetail from '@/pages/student/StudentResultDetail';
 
 // Common Pages
 import StudentReportCard from './pages/common/StudentReportCard';
@@ -167,6 +168,7 @@ function AppRoutes() {
         <Route path="profile" element={<StudentProfile />} />
         <Route path="exam/:scheduleId" element={<TakeExam />} />
         <Route path="results" element={<StudentResults />} />
+        <Route path="results/:resultId" element={<StudentResultDetail />} />
         <Route path="performance" element={<StudentPerformance />} />
         <Route path="competitions" element={<StudentCompetitionHub />} />
         <Route path="messages" element={<MessagesPage />} />

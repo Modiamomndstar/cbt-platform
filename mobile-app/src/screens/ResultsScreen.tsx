@@ -7,12 +7,22 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
-import { resultAPI } from '../services/api';
+import { resultAPI, aiAPI } from '../services/api';
+import {
+  Modal,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Alert
+} from 'react-native';
 
 export default function ResultsScreen() {
   const { colors, spacing, fontSize } = useTheme();
   const [results, setResults] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [isAiModalVisible, setAiModalVisible] = useState(false);
 
   const loadResults = async () => {
     try {
@@ -35,6 +45,27 @@ export default function ResultsScreen() {
     loadResults();
   }, []);
 
+  const handleExplainResult = async (resultId: string) => {
+    try {
+      setAiLoading(true);
+      setAiModalVisible(true);
+      const response = await aiAPI.explainResult(resultId);
+      if (response.data.success) {
+        setAiAnalysis(response.data.data.explanation);
+      }
+    } catch (error: any) {
+      console.error('AI Explain failed:', error);
+      setAiModalVisible(false);
+      if (error.response?.status === 403) {
+        Alert.alert('Premium Feature', 'This feature is available on Advanced and Enterprise plans.');
+      } else {
+        Alert.alert('Error', 'Failed to generate AI analysis. Please try again later.');
+      }
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const renderResult = ({ item }: { item: any }) => (
     <View style={styles.resultCard}>
       <View style={styles.resultHeader}>
@@ -46,7 +77,7 @@ export default function ResultsScreen() {
           <Text style={styles.statusText}>{item.passed ? 'PASSED' : 'FAILED'}</Text>
         </View>
       </View>
-      
+
       <View style={styles.scoreContainer}>
         <View style={styles.scoreItem}>
           <Text style={styles.scoreValue}>{item.score}</Text>
@@ -61,10 +92,17 @@ export default function ResultsScreen() {
           <Text style={styles.scoreLabel}>Percentage</Text>
         </View>
       </View>
-      
+
       <Text style={styles.dateText}>
         Taken on: {new Date(item.submittedAt).toLocaleDateString()}
       </Text>
+
+      <TouchableOpacity
+        style={styles.aiButton}
+        onPress={() => handleExplainResult(item.id)}
+      >
+        <Text style={styles.aiButtonText}>✨ AI Performance Analysis</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -139,6 +177,59 @@ export default function ResultsScreen() {
       marginTop: spacing.xl,
       fontSize: fontSize.md,
     },
+    aiButton: {
+      marginTop: spacing.md,
+      backgroundColor: colors.primary,
+      padding: spacing.sm,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    aiButtonText: {
+      color: '#fff',
+      fontWeight: 'bold',
+      fontSize: fontSize.sm,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: spacing.lg,
+    },
+    modalContent: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      width: '100%',
+      maxHeight: '80%',
+      padding: spacing.lg,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 10,
+      elevation: 5,
+    },
+    modalTitle: {
+      fontSize: fontSize.xl,
+      fontWeight: 'bold',
+      color: colors.primary,
+      marginBottom: spacing.md,
+    },
+    aiResultText: {
+      fontSize: fontSize.md,
+      lineHeight: 22,
+      color: colors.text,
+    },
+    closeButton: {
+      marginTop: spacing.lg,
+      backgroundColor: colors.primary,
+      padding: spacing.md,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    closeButtonText: {
+      color: '#fff',
+      fontWeight: 'bold',
+    },
   });
 
   return (
@@ -154,6 +245,42 @@ export default function ResultsScreen() {
           <Text style={styles.emptyText}>No exam results yet</Text>
         }
       />
+
+      <Modal
+        visible={isAiModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setAiModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>AI Performance Insight</Text>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {aiLoading ? (
+                <View style={{ padding: spacing.xl }}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text style={[styles.emptyText, { marginTop: spacing.md }]}>Analyzing your performance...</Text>
+                </View>
+              ) : (
+                <Text style={styles.aiResultText}>{aiAnalysis}</Text>
+              )}
+            </ScrollView>
+
+            {!aiLoading && (
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => {
+                  setAiModalVisible(false);
+                  setAiAnalysis(null);
+                }}
+              >
+                <Text style={styles.closeButtonText}>Close</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

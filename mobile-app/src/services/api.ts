@@ -79,4 +79,11 @@ export const analyticsAPI = {
   getStudentDashboard: () => api.get('/analytics/student/dashboard'),
 };
 
+// AI API
+export const aiAPI = {
+  explainResult: (resultId: string) => api.post(`/ai/explain-result/${resultId}`),
+  explainQuestion: (data: { questionId: string; studentAnswer: string; correctAnswer: string }) =>
+    api.post("/ai/explain-question", data),
+};
+
 export default api;

@@ -241,6 +241,13 @@ export const resultAPI = {
     api.get(`/results/leaderboard/${competitionId}`, { params: { categoryId } }),
 };
 
+// AI API
+export const aiAPI = {
+  explainResult: (resultId: string) => api.post(`/ai/explain-result/${resultId}`),
+  explainQuestion: (data: { questionId: string; studentAnswer: string; correctAnswer: string }) =>
+    api.post("/ai/explain-question", data),
+};
+
 // Billing & Subscription API is shifted down to line 350 for logical grouping
 
 // Payment API (Old/Legacy - keeping for compatibility)

@@ -175,6 +175,8 @@ export const isFeatureAllowed = async (schoolId: string, featureKey: string): Pr
     result_pdf:          'allowResultPdf',
     result_export:       'allowResultExport',
     external_students:   'allowExternalStudents',
+    ai_result_analysis:  'aiQueriesPerMonth', // Simplified mapping for now
+    ai_coach:            'aiQueriesPerMonth',
   };
 
   // Special case for AI — check queries per month (includes purchased packs)
