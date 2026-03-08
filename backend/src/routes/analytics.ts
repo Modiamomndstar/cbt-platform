@@ -3,6 +3,7 @@ import { pool } from "../config/database";
 import { authenticate, requireRole } from "../middleware/auth";
 import { requireFeature } from "../middleware/planGuard";
 import { ApiResponseHandler } from "../utils/apiResponse";
+import { transformResult } from "../utils/responseTransformer";
 
 const router = Router();
 
@@ -94,7 +95,7 @@ router.get(
 
       ApiResponseHandler.success(
         res,
-        {
+        transformResult({
           totalTutors: parseInt(tutorCount.rows[0].count),
           totalStudents: parseInt(studentCount.rows[0].count),
           totalExams: parseInt(examCount.rows[0].count),
@@ -121,7 +122,7 @@ router.get(
             examCount: parseInt(m.exam_count),
             averagePercentage: parseFloat(m.average_percentage || 0).toFixed(2),
           })),
-        },
+        }),
         "School dashboard analytics retrieved",
       );
     } catch (error) {
@@ -215,7 +216,7 @@ router.get(
 
       ApiResponseHandler.success(
         res,
-        {
+        transformResult({
           totalExams: parseInt(examStats.rows[0].total_exams),
           publishedExams: parseInt(examStats.rows[0].published_exams),
           totalStudents: parseInt(studentStats.rows[0].total_students),
@@ -242,7 +243,7 @@ router.get(
             highestPercentage: parseFloat(e.highest_percentage || 0).toFixed(2),
             lowestPercentage: parseFloat(e.lowest_percentage || 0).toFixed(2),
           })),
-        },
+        }),
         "Tutor dashboard analytics retrieved",
       );
     } catch (error) {
@@ -379,7 +380,7 @@ router.get(
 
       ApiResponseHandler.success(
         res,
-        {
+        transformResult({
           totalExams: parseInt(examStats.rows[0].total_exams),
           passedCount: parseInt(examStats.rows[0].passed_count),
           failedCount: parseInt(examStats.rows[0].failed_count),
@@ -423,7 +424,7 @@ router.get(
             name: new Date(m.month).toLocaleDateString('en-US', { month: 'short' }), // Map for line chart
             score: parseFloat(m.average_percentage || 0).toFixed(1), // Map for line chart
           })),
-        },
+        }),
         "Student dashboard analytics retrieved",
       );
     } catch (error) {
@@ -500,7 +501,7 @@ router.get(
 
       ApiResponseHandler.success(
         res,
-        {
+        transformResult({
           totalSchools: parseInt(schoolCount.rows[0].count),
           totalTutors: parseInt(tutorCount.rows[0].count),
           totalStudents: parseInt(studentCount.rows[0].count),
@@ -517,7 +518,7 @@ router.get(
             revenue: parseFloat(r.revenue),
             currency: r.currency,
           })),
-        },
+        }),
         "Super admin analytics overview retrieved",
       );
     } catch (error) {
@@ -637,7 +638,7 @@ router.get(
 
       ApiResponseHandler.success(
         res,
-        {
+        transformResult({
           student: {
             name: student.full_name,
             regNumber: student.reg_number,
@@ -656,7 +657,7 @@ router.get(
                 ? ((totalScore / totalPossible) * 100).toFixed(1)
                 : 0,
           },
-        },
+        }),
         "Report card generated successfully",
       );
     } catch (error) {
@@ -774,7 +775,7 @@ router.get(
 
       ApiResponseHandler.success(
         res,
-        {
+        transformResult({
           student: {
             id: student.id,
             name: student.full_name,
@@ -799,7 +800,7 @@ router.get(
             totalMarksObtained: totalScore.toFixed(2),
             totalPossibleMarks: totalPossible.toFixed(2),
           },
-        },
+        }),
         "Advanced report card generated successfully",
       );
     } catch (error) {
@@ -878,7 +879,7 @@ router.get(
         [studentId]
       );
 
-      ApiResponseHandler.success(res, result.rows, "Issued reports retrieved");
+      ApiResponseHandler.success(res, transformResult(result), "Issued reports retrieved");
     } catch (error) {
       console.error("Get issued reports error:", error);
       ApiResponseHandler.serverError(res, "Failed to retrieve issued reports");
@@ -914,7 +915,7 @@ router.get(
         return ApiResponseHandler.forbidden(res, "Unauthorized");
       }
 
-      ApiResponseHandler.success(res, report, "Issued report retrieved");
+      ApiResponseHandler.success(res, transformResult(report), "Issued report retrieved");
     } catch (error) {
       console.error("Get issued report error:", error);
       ApiResponseHandler.serverError(res, "Failed to retrieve issued report");

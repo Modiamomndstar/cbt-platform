@@ -12,6 +12,7 @@ import {
 } from "../utils/pagination";
 import { logUserActivity } from "../utils/auditLogger";
 import { splitFullName } from "../utils/userUtils";
+import { transformResult } from "../utils/responseTransformer";
 
 const router = Router();
 
@@ -39,7 +40,7 @@ router.get(
 
       ApiResponseHandler.success(
         res,
-        result.rows,
+        transformResult(result),
         "Tutors retrieved",
         formatPaginationResponse(
           parseInt(countResult.rows[0].count),
@@ -81,7 +82,7 @@ router.get(
 
       ApiResponseHandler.success(
         res,
-        result.rows[0],
+        transformResult(result.rows[0]),
         "Tutor profile retrieved",
       );
     } catch (error) {
@@ -117,7 +118,7 @@ router.put(
 
       ApiResponseHandler.success(
         res,
-        result.rows[0],
+        transformResult(result.rows[0]),
         `Tutor ${is_active ? "unpaused" : "paused"} successfully`,
       );
     } catch (error) {
@@ -172,7 +173,7 @@ router.get(
 
       const result = await db.query(query, params);
 
-      ApiResponseHandler.success(res, result.rows, "Students retrieved");
+      ApiResponseHandler.success(res, transformResult(result), "Students retrieved");
     } catch (error) {
       next(error);
     }
@@ -203,7 +204,7 @@ router.get(
         [id],
       );
 
-      ApiResponseHandler.success(res, result.rows, "Exams retrieved");
+      ApiResponseHandler.success(res, transformResult(result), "Categories retrieved");
     } catch (error) {
       next(error);
     }
@@ -525,7 +526,7 @@ router.get(
 
       ApiResponseHandler.success(
         res,
-        responseData,
+        transformResult(responseData),
         "Dashboard stats retrieved",
       );
     } catch (error) {

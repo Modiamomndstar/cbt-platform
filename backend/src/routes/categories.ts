@@ -3,6 +3,7 @@ import { body, param, validationResult } from 'express-validator';
 import { db } from '../config/database';
 import { authenticate, authorize } from '../middleware/auth';
 import { ApiResponseHandler } from '../utils/apiResponse';
+import { transformResult } from '../utils/responseTransformer';
 
 const router = Router();
 
@@ -60,7 +61,7 @@ router.get('/', async (req, res, next) => {
 
     const result = await db.query(query, params);
 
-    ApiResponseHandler.success(res, result.rows, 'Categories retrieved');
+    ApiResponseHandler.success(res, transformResult(result.rows), 'Categories retrieved');
   } catch (error) {
     next(error);
   }
@@ -110,10 +111,10 @@ router.get('/:id', [
       [id]
     );
 
-    ApiResponseHandler.success(res, {
+    ApiResponseHandler.success(res, transformResult({
       ...categoryResult.rows[0],
       students: studentsResult.rows
-    }, 'Category retrieved');
+    }), 'Category retrieved');
   } catch (error) {
     next(error);
   }
@@ -170,16 +171,16 @@ router.post('/', authorize('school', 'tutor'), [
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, name, description, color, sort_order, is_active, tutor_id, created_at`,
       [
-        querySchoolId, 
-        name, 
-        description, 
-        color || '#4F46E5', 
+        querySchoolId,
+        name,
+        description,
+        color || '#4F46E5',
         sortOrder || 0,
         role === 'tutor' ? req.user!.tutorId : null
       ]
     );
 
-    ApiResponseHandler.created(res, result.rows[0], 'Category created successfully');
+    ApiResponseHandler.created(res, transformResult(result.rows[0]), 'Category created successfully');
   } catch (error) {
     next(error);
   }
@@ -218,7 +219,7 @@ router.post('/find-or-create', authorize('school', 'tutor'), [
     );
 
     if (existing.rows.length > 0) {
-      return ApiResponseHandler.success(res, existing.rows[0], 'Category found', false);
+      return ApiResponseHandler.success(res, transformResult(existing.rows[0]), 'Category found', false);
     }
 
     // Create new category
@@ -229,7 +230,7 @@ router.post('/find-or-create', authorize('school', 'tutor'), [
       [querySchoolId, name, '#4F46E5', 0]
     );
 
-    ApiResponseHandler.created(res, result.rows[0], 'Category created', true);
+    ApiResponseHandler.created(res, transformResult(result.rows[0]), 'Category created', true);
   } catch (error) {
     next(error);
   }
@@ -327,7 +328,7 @@ router.put('/:id', authorize('school', 'tutor'), [
     values.push(querySchoolId);
 
     let updateQuery = `UPDATE student_categories SET ${updates.join(', ')} WHERE id = $${paramIndex} AND school_id = $${paramIndex + 1}`;
-    
+
     if (role === 'tutor' && tutorId) {
       updateQuery += ` AND tutor_id = $${paramIndex + 2}`;
       values.push(tutorId);
@@ -338,7 +339,7 @@ router.put('/:id', authorize('school', 'tutor'), [
       values
     );
 
-    ApiResponseHandler.success(res, result.rows[0], 'Category updated successfully');
+    ApiResponseHandler.success(res, transformResult(result.rows[0]), 'Category updated successfully');
   } catch (error) {
     next(error);
   }
@@ -448,7 +449,7 @@ router.post('/:id/students', [
       [id, studentIds, querySchoolId]
     );
 
-    ApiResponseHandler.success(res, result.rows, `${result.rowCount} students added to category`);
+    ApiResponseHandler.success(res, transformResult(result.rows), `${result.rowCount} students added to category`);
   } catch (error) {
     next(error);
   }

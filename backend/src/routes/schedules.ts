@@ -4,6 +4,7 @@ import { authenticate, requireRole } from "../middleware/auth";
 import { sendExamCredentials } from "../services/email";
 import { ApiResponseHandler } from "../utils/apiResponse";
 import { ScheduleService } from "../services/scheduleService";
+import { transformResult } from "../utils/responseTransformer";
 
 function shuffleArray(array: any[]) {
   for (let i = array.length - 1; i > 0; i--) {
@@ -73,7 +74,7 @@ router.get(
 
           return ApiResponseHandler.success(
             res,
-            extResult.rows.map((s) => ({
+            transformResult(extResult.rows.map((s) => ({
               id: s.id,
               studentName: s.full_name || `${s.first_name || ""} ${s.last_name || ""}`.trim() || "Unknown",
               firstName: s.first_name,
@@ -83,7 +84,7 @@ router.get(
               categoryId: s.category_id,
               categoryName: s.category_name,
               isExternal: true
-            })),
+            }))),
             "Available external students retrieved"
           );
         } else {
@@ -98,7 +99,7 @@ router.get(
 
       ApiResponseHandler.success(
         res,
-        result.rows.map((s) => ({
+        transformResult(result.rows.map((s) => ({
           id: s.id,
           studentName:
             s.full_name ||
@@ -110,7 +111,7 @@ router.get(
           registrationNumber: s.student_id,
           categoryId: s.category_id,
           categoryName: s.category_name,
-        })),
+        }))),
         "Available students retrieved",
       );
     } catch (error) {
@@ -186,7 +187,7 @@ router.get(
 
       ApiResponseHandler.success(
         res,
-        result.rows.map((row) => {
+        transformResult(result.rows.map((row) => {
           const passed =
             row.percentage !== null
               ? parseFloat(row.percentage) >= examPassMark
@@ -237,7 +238,7 @@ router.get(
             autoSubmitted: row.auto_submitted || row.se_auto_submitted || false,
             createdAt: row.created_at,
           };
-        }),
+        })),
         "Exam schedules retrieved",
       );
     } catch (error) {
@@ -305,7 +306,7 @@ router.get(
 
       ApiResponseHandler.success(
         res,
-        result.rows.map((row) => ({
+        transformResult(result.rows.map((row) => ({
           id: row.id,
           examId: row.exam_id,
           examTitle: row.exam_title,
@@ -316,7 +317,7 @@ router.get(
           endTime: row.end_time,
           status: row.status,
           username: row.login_username,
-        })),
+        }))),
         "School schedules retrieved"
       );
     } catch (error) {

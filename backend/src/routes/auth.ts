@@ -8,6 +8,7 @@ import { ApiResponseHandler } from "../utils/apiResponse";
 import { validate } from "../middleware/validation";
 import crypto from "crypto";
 import { sendVerificationEmail } from "../services/email";
+import { transformResult } from "../utils/responseTransformer";
 
 const router = Router();
 
@@ -78,7 +79,7 @@ router.post(
         [school.id, "school", school.id, "login", { ip: req.ip }],
       );
 
-      ApiResponseHandler.success(res, {
+      ApiResponseHandler.success(res, transformResult({
         token,
         user: {
           id: school.id,
@@ -88,7 +89,7 @@ router.post(
           planType: school.plan_type,
           role: "school_admin",
         },
-      }, "Login successful");
+      }), "Login successful");
     } catch (error) {
       next(error);
     }
@@ -269,7 +270,7 @@ router.post(
         [tutor.id, "tutor", tutor.school_id, "login", { ip: req.ip }],
       );
 
-      ApiResponseHandler.success(res, {
+      ApiResponseHandler.success(res, transformResult({
         token,
         user: {
           id: tutor.id,
@@ -281,7 +282,7 @@ router.post(
           schoolName: tutor.school_name,
           role: "tutor",
         },
-      }, "Login successful");
+      }), "Login successful");
     } catch (error) {
       next(error);
     }
@@ -390,7 +391,7 @@ router.post(
         isExternal: !!schedule.external_student_id
       });
 
-      ApiResponseHandler.success(res, {
+      ApiResponseHandler.success(res, transformResult({
         token,
         user: {
           id: effectiveStudentId,
@@ -409,7 +410,7 @@ router.post(
           status: schedule.status,
           isAvailable: studentNowDate >= scheduleStartDate && studentNowDate <= scheduleEndDate,
         },
-      }, "Login successful");
+      }), "Login successful");
     } catch (error) {
       next(error);
     }
@@ -480,7 +481,7 @@ router.post(
         [student.id, "student", student.school_id, "portal_login", { ip: req.ip }],
       );
 
-      ApiResponseHandler.success(res, {
+      ApiResponseHandler.success(res, transformResult({
         token,
         user: {
           id: student.id,
@@ -491,7 +492,7 @@ router.post(
           schoolName: student.school_name,
           role: "student",
         },
-      }, "Login successful");
+      }), "Login successful");
     } catch (error) {
       next(error);
     }
@@ -525,14 +526,14 @@ router.post(
         role: "super_admin",
       });
 
-      ApiResponseHandler.success(res, {
+      ApiResponseHandler.success(res, transformResult({
         token,
         user: {
           id: "00000000-0000-0000-0000-000000000000",
           name: "Super Administrator",
           role: "super_admin",
         },
-      }, "Login successful");
+      }), "Login successful");
     } else {
       ApiResponseHandler.unauthorized(res, "Invalid credentials");
     }
@@ -595,10 +596,10 @@ router.get("/me", authenticate, async (req, res, next) => {
         break;
     }
 
-      ApiResponseHandler.success(res, {
+      ApiResponseHandler.success(res, transformResult({
         user: { ...userData, role },
         role,
-      }, "Profile retrieved");
+      }), "Profile retrieved");
   } catch (error) {
     next(error);
   }
@@ -663,7 +664,7 @@ router.post(
         // Silently fail audit log on login if table missing or schema mismatch for some reason
       }
 
-      ApiResponseHandler.success(res, {
+      ApiResponseHandler.success(res, transformResult({
         token,
         user: {
           id: staff.id,
@@ -673,7 +674,7 @@ router.post(
           role: "super_admin",
           staffRole: staff.role
         },
-      }, "Login successful");
+      }), "Login successful");
     } catch (error) {
       next(error);
     }

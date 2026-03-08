@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { db } from "../config/database";
 import { authenticate, authorize } from "../middleware/auth";
 import { ApiResponseHandler } from "../utils/apiResponse";
+import { transformResult } from "../utils/responseTransformer";
 import Stripe from "stripe";
 import axios from "axios";
 import crypto from "crypto";
@@ -31,7 +32,7 @@ router.get("/plans", async (req: Request, res: Response) => {
        ORDER BY price_usd ASC`,
     );
 
-    ApiResponseHandler.success(res, result.rows, "Payment plans retrieved");
+    ApiResponseHandler.success(res, transformResult(result.rows), "Payment plans retrieved");
   } catch (error) {
     console.error("Get plans error:", error);
     ApiResponseHandler.serverError(res, "Failed to fetch plans");
@@ -47,7 +48,7 @@ router.get("/config", async (req: Request, res: Response) => {
     const settings: Record<string, string> = {};
     settingsRes.rows.forEach(r => settings[r.key] = r.value);
 
-    ApiResponseHandler.success(res, {
+    ApiResponseHandler.success(res, transformResult({
       crypto: {
         address: settings.crypto_usdt_trc20_address,
         network: settings.crypto_usdt_network || 'TRC20'
@@ -56,7 +57,7 @@ router.get("/config", async (req: Request, res: Response) => {
         priceUsd: parseFloat(settings.credit_price_usd || '0.1'),
         priceNgn: parseFloat(settings.credit_price_ngn || '100')
       }
-    }, "Payment configuration retrieved");
+    }), "Payment configuration retrieved");
   } catch (error) {
     console.error("Get payment config error:", error);
     ApiResponseHandler.serverError(res, "Failed to fetch config");

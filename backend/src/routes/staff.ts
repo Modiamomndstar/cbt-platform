@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { authenticate, authorize } from '../middleware/auth';
 import { db } from '../config/database';
 import { ApiResponseHandler } from '../utils/apiResponse';
+import { transformResult } from '../utils/responseTransformer';
 import { validate } from '../middleware/validation';
 import { getPaginationOptions, formatPaginationResponse } from '../utils/pagination';
 import { logActivity, logUserActivity } from '../utils/auditLogger';
@@ -31,7 +32,7 @@ router.get('/', async (req, res, next) => {
 
     ApiResponseHandler.success(
       res,
-      result.rows,
+      transformResult(result.rows),
       'Staff accounts retrieved',
       formatPaginationResponse(totalCount, pagination)
     );
@@ -74,7 +75,7 @@ router.post('/', [
     // Audit log
     await logAudit(req, 'staff_created', 'staff', result.rows[0].id, name);
 
-    ApiResponseHandler.created(res, result.rows[0], 'Staff account created');
+    ApiResponseHandler.created(res, transformResult(result.rows[0]), 'Staff account created');
   } catch (error) {
     next(error);
   }
@@ -113,7 +114,7 @@ router.patch('/:id', [
     );
 
     await logAudit(req, 'staff_updated', 'staff', id, result.rows[0]?.name);
-    ApiResponseHandler.success(res, result.rows[0], 'Staff account updated');
+    ApiResponseHandler.success(res, transformResult(result.rows[0]), 'Staff account updated');
   } catch (error) {
     next(error);
   }
@@ -158,7 +159,7 @@ router.get('/audit-log', async (req, res, next) => {
 
     ApiResponseHandler.success(
       res,
-      result.rows,
+      transformResult(result.rows),
       'Audit log retrieved',
       formatPaginationResponse(totalCount, pagination)
     );

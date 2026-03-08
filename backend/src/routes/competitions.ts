@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { competitionService } from '../services/competitionService';
 import { authenticate, requireCompetitionAccess } from '../middleware/auth';
 import { ApiResponseHandler } from '../utils/apiResponse';
+import { transformResult } from '../utils/responseTransformer';
 
 const router = Router();
 
@@ -12,7 +13,7 @@ router.use(authenticate);
 router.get('/featured', async (req, res) => {
   try {
     const competitions = await competitionService.getFeaturedCompetitions();
-    ApiResponseHandler.success(res, competitions);
+    ApiResponseHandler.success(res, transformResult(competitions));
   } catch (err: any) {
     ApiResponseHandler.serverError(res, err.message);
   }
@@ -21,7 +22,7 @@ router.get('/featured', async (req, res) => {
 router.get('/hub-stats', requireCompetitionAccess, async (req, res) => {
   try {
     const stats = await competitionService.getHubStats();
-    ApiResponseHandler.success(res, stats);
+    ApiResponseHandler.success(res, transformResult(stats));
   } catch (err: any) {
     ApiResponseHandler.serverError(res, err.message);
   }
@@ -30,7 +31,7 @@ router.get('/hub-stats', requireCompetitionAccess, async (req, res) => {
 router.get('/:id/rewards', async (req, res) => {
   try {
     const rewards = await competitionService.getRewards(req.params.id);
-    ApiResponseHandler.success(res, rewards);
+    ApiResponseHandler.success(res, transformResult(rewards));
   } catch (err: any) {
     ApiResponseHandler.serverError(res, err.message);
   }
@@ -41,7 +42,7 @@ router.post('/', requireCompetitionAccess, async (req, res) => {
   try {
     const staffId = req.user!.id;
     const competition = await competitionService.createCompetition(req.body, staffId);
-    ApiResponseHandler.success(res, competition, 'Competition created successfully', 201);
+    ApiResponseHandler.success(res, transformResult(competition), 'Competition created successfully', 201);
   } catch (err: any) {
     ApiResponseHandler.serverError(res, err.message);
   }
@@ -69,7 +70,7 @@ router.patch('/:id/promotion', requireCompetitionAccess, async (req, res) => {
 router.get('/', requireCompetitionAccess, async (req, res) => {
   try {
     const competitions = await competitionService.getAllCompetitions();
-    ApiResponseHandler.success(res, competitions);
+    ApiResponseHandler.success(res, transformResult(competitions));
   } catch (err: any) {
     ApiResponseHandler.serverError(res, err.message);
   }
@@ -92,7 +93,7 @@ router.get('/:id', async (req, res) => {
       return { ...cat, stages };
     }));
 
-    ApiResponseHandler.success(res, { ...competition, categories: enrichedCategories });
+    ApiResponseHandler.success(res, transformResult({ ...competition, categories: enrichedCategories }));
   } catch (err: any) {
     ApiResponseHandler.serverError(res, err.message);
   }
@@ -105,7 +106,7 @@ router.get('/:id', async (req, res) => {
 router.post('/:id/categories', async (req, res) => {
   try {
     const category = await competitionService.addCategory(req.params.id, req.body);
-    ApiResponseHandler.success(res, category, 'Category added successfully', 201);
+    ApiResponseHandler.success(res, transformResult(category), 'Category added successfully', 201);
   } catch (err: any) {
     ApiResponseHandler.serverError(res, err.message);
   }
@@ -118,7 +119,7 @@ router.post('/:id/categories', async (req, res) => {
 router.post('/categories/:catId/stages', async (req, res) => {
   try {
     const stage = await competitionService.addStage(req.params.catId, req.body);
-    ApiResponseHandler.success(res, stage, 'Stage added successfully', 201);
+    ApiResponseHandler.success(res, transformResult(stage), 'Stage added successfully', 201);
   } catch (err: any) {
     ApiResponseHandler.serverError(res, err.message);
   }
@@ -146,7 +147,7 @@ router.get('/available/school', async (req, res) => {
   try {
     const schoolId = req.user!.schoolId || req.user!.id;
     const competitions = await competitionService.getAvailableCompetitionsForSchool(schoolId);
-    ApiResponseHandler.success(res, competitions);
+    ApiResponseHandler.success(res, transformResult(competitions));
   } catch (err: any) {
     ApiResponseHandler.serverError(res, err.message);
   }

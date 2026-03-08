@@ -27,6 +27,9 @@ interface PlanStatus {
     allowAdvancedAnalytics: boolean;
     allowCustomBranding: boolean;
     allowResultPdf: boolean;
+    allowResultExport: boolean;
+    allowApiAccess: boolean;
+    allowSmsNotifications: boolean;
   };
   subscription: {
     status: string;
@@ -270,6 +273,16 @@ export default function BillingPage() {
                     <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${PLAN_COLORS[plan.planType]}`}>
                       {plan.displayName}
                     </span>
+                    {plan.planType !== 'enterprise' && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2 text-[10px] font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 border border-indigo-100"
+                        onClick={() => navigate(`/school-admin/checkout?type=upgrade&planType=${plan.planType === 'freemium' ? 'basic' : 'advanced'}`)}
+                      >
+                        Upgrade Plan
+                      </Button>
+                    )}
                     <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${STATUS_BADGES[subscription.status]?.class || 'bg-gray-100 text-gray-500'}`}>
                       {STATUS_BADGES[subscription.status]?.label || subscription.status}
                     </span>

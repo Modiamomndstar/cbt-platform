@@ -4,6 +4,7 @@ import { authenticate, requireRole } from "../middleware/auth";
 import OpenAI from "openai";
 import { ApiResponseHandler } from "../utils/apiResponse";
 import { getPaginationOptions, formatPaginationResponse } from "../utils/pagination";
+import { transformResult } from "../utils/responseTransformer";
 
 const router = Router();
 
@@ -47,11 +48,11 @@ router.get(
 
       ApiResponseHandler.success(
         res,
-        result.rows.map((q) => ({
+        transformResult(result.rows.map((q) => ({
           ...q,
           options: q.options,
           correctAnswer: user.role === "student" ? undefined : q.correct_answer,
-        })),
+        }))),
         "Questions retrieved",
         formatPaginationResponse(parseInt(countResult.rows[0].count), pagination)
       );

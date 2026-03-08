@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { authenticate, authorize } from '../middleware/auth';
 import { db } from '../config/database';
 import { ApiResponseHandler } from '../utils/apiResponse';
+import { transformResult } from '../utils/responseTransformer';
 import { validate } from '../middleware/validation';
 import { getPaginationOptions, formatPaginationResponse } from '../utils/pagination';
 import { canAddExternalStudent } from '../services/planService';
@@ -39,7 +40,7 @@ router.get('/categories', authorize('tutor', 'school'), async (req: any, res: an
        WHERE tutor_id = $1 ORDER BY name ASC`,
       [tutorId]
     );
-    ApiResponseHandler.success(res, result.rows, 'External student categories retrieved');
+    ApiResponseHandler.success(res, transformResult(result.rows), 'External student categories retrieved');
   } catch (error) { next(error); }
 });
 
@@ -160,7 +161,7 @@ router.get('/', authorize('tutor', 'school'), async (req: any, res: any, next: a
 
     ApiResponseHandler.success(
       res,
-      result.rows,
+      transformResult(result.rows),
       'External students retrieved',
       formatPaginationResponse(totalCount, pagination)
     );
@@ -226,7 +227,7 @@ router.post('/', authorize('tutor'), [
       }
     }
 
-    ApiResponseHandler.created(res, student, 'External student added successfully');
+    ApiResponseHandler.created(res, transformResult(student), 'External student added successfully');
   } catch (error) {
     next(error);
   }
@@ -291,7 +292,7 @@ router.patch('/:id', authorize('tutor'), [
       values
     );
 
-    ApiResponseHandler.success(res, result.rows[0], 'Student updated successfully');
+    ApiResponseHandler.success(res, transformResult(result.rows[0]), 'Student updated successfully');
   } catch (error) {
     next(error);
   }

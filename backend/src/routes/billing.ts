@@ -8,6 +8,7 @@ import { validate } from '../middleware/validation';
 import { getPaginationOptions, formatPaginationResponse } from '../utils/pagination';
 
 import { paygService } from '../services/paygService';
+import { transformResult } from '../utils/responseTransformer';
 
 const router = Router();
 
@@ -22,7 +23,7 @@ router.get('/status', authenticate, authorize('school', 'tutor', 'student'), asy
        return ApiResponseHandler.badRequest(res, 'School ID not found in session');
     }
     const status = await getSchoolBillingStatus(schoolId);
-    ApiResponseHandler.success(res, status, 'Billing status retrieved');
+    ApiResponseHandler.success(res, transformResult(status), 'Billing status retrieved');
   } catch (error) {
     next(error);
   }
@@ -34,7 +35,7 @@ router.get('/status', authenticate, authorize('school', 'tutor', 'student'), asy
 router.get('/marketplace', authenticate, authorize('school'), async (req, res, next) => {
   try {
     const pricing = await paygService.getPricing();
-    ApiResponseHandler.success(res, pricing, 'Marketplace pricing retrieved');
+    ApiResponseHandler.success(res, transformResult(pricing), 'Marketplace pricing retrieved');
   } catch (error) {
     next(error);
   }
@@ -114,7 +115,7 @@ router.post('/payg/consume', authenticate, authorize('school'), [
       return ApiResponseHandler.badRequest(res, result.reason || 'Failed to consume credits');
     }
 
-    ApiResponseHandler.success(res, { creditsDeducted: result.creditsDeducted }, 'Credits consumed');
+    ApiResponseHandler.success(res, transformResult({ creditsDeducted: result.creditsDeducted }), 'Credits consumed');
   } catch (error) {
     next(error);
   }
@@ -183,7 +184,7 @@ router.get('/payg/balance', authenticate, authorize('school'), async (req, res, 
       'SELECT balance_credits, auto_topup_enabled, auto_topup_threshold, auto_topup_amount FROM payg_wallets WHERE school_id = $1',
       [schoolId]
     );
-    ApiResponseHandler.success(res, result.rows[0] ?? { balance_credits: 0 }, 'PAYG balance retrieved');
+    ApiResponseHandler.success(res, transformResult(result.rows[0] ?? { balance_credits: 0 }), 'PAYG balance retrieved');
   } catch (error) {
     next(error);
   }
@@ -208,7 +209,7 @@ router.get('/payg/history', authenticate, authorize('school'), async (req, res, 
 
     ApiResponseHandler.success(
       res,
-      result.rows,
+      transformResult(result.rows),
       'PAYG history retrieved',
       formatPaginationResponse(totalCount, pagination)
     );
@@ -236,13 +237,13 @@ router.get('/plans', async (req, res, next) => {
       settings[row.key] = row.value;
     });
 
-    ApiResponseHandler.success(res, {
+    ApiResponseHandler.success(res, transformResult({
       plans: plansResult.rows,
       yearlyDiscount: {
         percentage: parseInt(settings.yearly_discount_percentage || '0'),
         isActive: settings.yearly_discount_active === 'true'
       }
-    }, 'Plans retrieved');
+    }), 'Plans retrieved');
   } catch (error) {
     next(error);
   }

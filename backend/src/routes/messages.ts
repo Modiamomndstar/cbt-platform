@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { db } from "../config/database";
 import { authenticate, authorize } from "../middleware/auth";
 import { ApiResponseHandler } from "../utils/apiResponse";
+import { transformResult } from "../utils/responseTransformer";
 
 const router = Router();
 const PLATFORM_SUPPORT_ID = "00000000-0000-0000-0000-000000000000";
@@ -45,7 +46,7 @@ router.get("/recipients", authenticate, async (req: Request, res: Response) => {
       recipients = [...school.rows, ...tutors.rows];
     }
 
-    ApiResponseHandler.success(res, recipients);
+    ApiResponseHandler.success(res, transformResult(recipients));
   } catch (error) {
     console.error("Recipients error:", error);
     ApiResponseHandler.serverError(res, "Failed to fetch recipients");
@@ -80,7 +81,7 @@ router.post("/send", authenticate, async (req: Request, res: Response) => {
       [user.id, user.role, finalReceiverId, finalReceiverRole, content]
     );
 
-    ApiResponseHandler.success(res, result.rows[0], "Message sent successfully");
+    ApiResponseHandler.success(res, transformResult(result.rows[0]), "Message sent successfully");
   } catch (error) {
     console.error("Send message error:", error);
     ApiResponseHandler.serverError(res, "Failed to send message");
@@ -127,10 +128,10 @@ router.get("/inbox", authenticate, async (req: Request, res: Response) => {
       [user.role, user.schoolId || user.id]
     );
 
-    ApiResponseHandler.success(res, {
+    ApiResponseHandler.success(res, transformResult({
       messages: directMessages.rows,
       broadcasts: broadcasts.rows
-    }, "Inbox retrieved");
+    }), "Inbox retrieved");
   } catch (error) {
     console.error("Get inbox error:", error);
     ApiResponseHandler.serverError(res, "Failed to retrieve inbox");
@@ -174,7 +175,7 @@ router.get("/unread-count", authenticate, async (req: Request, res: Response) =>
       : [user.id];
 
     const result = await db.query(query, params);
-    ApiResponseHandler.success(res, { count: parseInt(result.rows[0].count) });
+    ApiResponseHandler.success(res, transformResult({ count: parseInt(result.rows[0].count) }));
   } catch (error) {
     console.error("Unread count error:", error);
     ApiResponseHandler.serverError(res, "Failed to get unread count");
@@ -194,7 +195,7 @@ router.post("/broadcast", authenticate, authorize("super_admin", "school"), asyn
       [user.id, user.role, title, content, targetRole || null, targetSchoolId || null]
     );
 
-    ApiResponseHandler.success(res, result.rows[0], "Broadcast sent successfully");
+    ApiResponseHandler.success(res, transformResult(result.rows[0]), "Broadcast sent successfully");
   } catch (error) {
     console.error("Broadcast error:", error);
     ApiResponseHandler.serverError(res, "Failed to send broadcast");
@@ -219,7 +220,7 @@ router.get("/latest-broadcast", authenticate, async (req: Request, res: Response
       [user.id, user.role, user.schoolId || user.id]
     );
 
-    ApiResponseHandler.success(res, result.rows[0] || null);
+    ApiResponseHandler.success(res, transformResult(result.rows[0] || null));
   } catch (error) {
     console.error("Latest broadcast error:", error);
     ApiResponseHandler.serverError(res, "Failed to fetch latest broadcast");

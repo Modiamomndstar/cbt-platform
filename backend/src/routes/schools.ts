@@ -6,6 +6,7 @@ import { db } from '../config/database';
 import { authenticate, authorize } from '../middleware/auth';
 import { startTrial } from '../services/planService';
 import { ApiResponseHandler } from '../utils/apiResponse';
+import { transformResult } from '../utils/responseTransformer';
 import { sendWelcomeEmail, sendVerificationEmail } from '../services/email';
 import { validate } from '../middleware/validation';
 import { getPaginationOptions, formatPaginationResponse } from '../utils/pagination';
@@ -151,7 +152,7 @@ router.get('/profile', authorize('school'), async (req, res, next) => {
       return ApiResponseHandler.notFound(res, 'School not found');
     }
 
-    ApiResponseHandler.success(res, result.rows[0], 'Profile retrieved');
+    ApiResponseHandler.success(res, transformResult(result.rows[0]), 'Profile retrieved');
   } catch (error) {
     next(error);
   }
@@ -188,7 +189,7 @@ router.put('/profile', authorize('school'), async (req, res, next) => {
       values
     );
 
-    ApiResponseHandler.success(res, result.rows[0], 'Profile updated');
+    ApiResponseHandler.success(res, transformResult(result.rows[0]), 'Profile updated');
   } catch (error) {
     next(error);
   }
@@ -211,7 +212,7 @@ router.get('/dashboard', authorize('school'), async (req, res, next) => {
       [schoolId]
     );
 
-    ApiResponseHandler.success(res, stats.rows[0], 'Dashboard stats retrieved');
+    ApiResponseHandler.success(res, transformResult(stats.rows[0]), 'Dashboard stats retrieved');
   } catch (error) {
     next(error);
   }
@@ -238,7 +239,7 @@ router.get('/', authenticate, authorize('super_admin'), async (req, res, next) =
 
     ApiResponseHandler.success(
       res,
-      result.rows,
+      transformResult(result.rows),
       'Schools retrieved',
       formatPaginationResponse(totalCount, pagination)
     );

@@ -5,6 +5,7 @@ import { ApiResponseHandler } from "../utils/apiResponse";
 import { validateAnswer } from "../utils/answerValidator";
 import { getPaginationOptions, formatPaginationResponse } from "../utils/pagination";
 import { promotionService } from "../services/promotionService";
+import { transformResult } from "../utils/responseTransformer";
 
 const router = Router();
 
@@ -198,7 +199,7 @@ router.post(
       const showResult = await client.query(`SELECT show_result_immediately FROM exams WHERE id = $1`, [schedule.exam_id]);
       const shouldShow = showResult.rows[0]?.show_result_immediately;
 
-      ApiResponseHandler.success(res, shouldShow ? {
+      ApiResponseHandler.success(res, transformResult(shouldShow ? {
         score: finalScore,
         totalMarks: totalPossibleMarks,
         percentage: percentage.toFixed(2),
@@ -212,7 +213,7 @@ router.post(
       } : {
         status,
         isDisqualified
-      }, isDisqualified ? "Student disqualified due to security violations." : (needsManualGrading ? "Exam submitted. Some questions require manual grading." : "Exam submitted successfully"));
+      }), isDisqualified ? "Student disqualified due to security violations." : (needsManualGrading ? "Exam submitted. Some questions require manual grading." : "Exam submitted successfully"));
     } catch (error) {
       await client.query("ROLLBACK");
       console.error("Submit exam error:", error);
@@ -260,7 +261,7 @@ router.get(
 
       const result = await client.query(query, params);
 
-      ApiResponseHandler.success(res, result.rows.map((row, index) => ({
+      ApiResponseHandler.success(res, transformResult(result.rows.map((row, index) => ({
         rank: index + 1,
         studentName: row.student_name,
         schoolName: row.school_name,
@@ -272,7 +273,7 @@ router.get(
         stage: row.stage_title,
         timeSpent: row.time_spent_minutes,
         completedAt: row.completed_at
-      })), "Leaderboard retrieved successfully");
+      }))), "Leaderboard retrieved successfully");
     } catch (error) {
       console.error("Get leaderboard error:", error);
       ApiResponseHandler.serverError(res, "Failed to fetch leaderboard");
@@ -310,7 +311,7 @@ router.get(
 
       const row = result.rows[0];
 
-      ApiResponseHandler.success(res, {
+      ApiResponseHandler.success(res, transformResult({
         id: row.id,
         examTitle: row.exam_title,
         description: row.description,
@@ -324,7 +325,7 @@ router.get(
         scheduledDate: row.scheduled_date,
         answers: row.answers,
         passed: row.percentage >= row.passing_score,
-      }, "Result retrieved");
+      }), "Result retrieved");
     } catch (error) {
       console.error("Get result error:", error);
       ApiResponseHandler.serverError(res, "Failed to fetch result");
@@ -390,7 +391,7 @@ router.get(
         };
       });
 
-      ApiResponseHandler.success(res, {
+      ApiResponseHandler.success(res, transformResult({
         id: row.id,
         studentName: row.student_full_name || 'Unknown',
         registrationNumber: row.reg_number,
@@ -404,7 +405,7 @@ router.get(
         submittedAt: row.completed_at,
         startedAt: row.started_at,
         questions: detailedQuestions
-      }, "Detailed result retrieved");
+      }), "Detailed result retrieved");
     } catch (error) {
       console.error("Get detailed result error:", error);
       ApiResponseHandler.serverError(res, "Failed to fetch detailed result");
@@ -478,7 +479,7 @@ router.get(
 
       const result = await client.query(query, params);
 
-      ApiResponseHandler.success(res, result.rows.map((row) => {
+      ApiResponseHandler.success(res, transformResult(result.rows.map((row) => {
         const passed = row.percentage !== null ? parseFloat(row.percentage) >= (row.passing_score || 50) : null;
         return {
           id: row.id,
@@ -501,7 +502,7 @@ router.get(
           scheduledDate: row.scheduled_date,
           submittedAt: row.end_time,
         };
-      }), "Exam results retrieved");
+      })), "Exam results retrieved");
     } catch (error) {
       console.error("Get exam results error:", error);
       ApiResponseHandler.serverError(res, "Failed to fetch results");
@@ -720,7 +721,7 @@ router.get(
         [examId],
       );
 
-      ApiResponseHandler.success(res, {
+      ApiResponseHandler.success(res, transformResult({
         totalStudents: parseInt(stats.total_students),
         completedCount: parseInt(stats.completed_count),
         failedCount: parseInt(stats.failed_count),
@@ -730,7 +731,7 @@ router.get(
         lowestScore: parseFloat(stats.lowest_score || 0).toFixed(2),
         averagePercentage: parseFloat(stats.average_percentage || 0).toFixed(2),
         gradeDistribution: gradeDistribution.rows,
-      }, "Exam statistics retrieved");
+      }), "Exam statistics retrieved");
     } catch (error) {
       console.error("Get exam statistics error:", error);
       ApiResponseHandler.serverError(res, "Failed to fetch statistics");

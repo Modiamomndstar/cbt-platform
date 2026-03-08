@@ -9,6 +9,7 @@ import fs from 'fs';
 import type { UploadedFile } from 'express-fileupload';
 import { sendStudentPortalCredentialsEmail } from '../services/email';
 import { ApiResponseHandler } from '../utils/apiResponse';
+import { transformResult } from '../utils/responseTransformer';
 import { canAddExternalStudent } from '../services/planService';
 import { paygService } from '../services/paygService';
 
@@ -56,7 +57,7 @@ router.post(
 
       const publicUrl = `/uploads/logos/${uniqueName}`;
 
-      ApiResponseHandler.success(res, { url: publicUrl }, 'Image uploaded successfully');
+      ApiResponseHandler.success(res, transformResult({ url: publicUrl }), 'Image uploaded successfully');
     } catch (error) {
       console.error('Image upload error:', error);
       ApiResponseHandler.serverError(res, 'Failed to upload image');
@@ -324,7 +325,7 @@ router.post('/students', authenticate, requireRole(['school', 'tutor']), async (
 
     await client.query('COMMIT');
 
-    ApiResponseHandler.success(res, results, `Processed ${results.totalProcessed} records. ${results.success.length} successful, ${results.failed.length} failed.`);
+    ApiResponseHandler.success(res, transformResult(results), `Processed ${results.totalProcessed} records. ${results.success.length} successful, ${results.failed.length} failed.`);
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Upload students error:', error);
@@ -430,7 +431,7 @@ router.post('/tutors', authenticate, requireRole(['school']), async (req: Reques
 
     await client.query('COMMIT');
 
-    ApiResponseHandler.success(res, results, `Processed ${results.totalProcessed} records. ${results.success.length} successful, ${results.failed.length} failed.`);
+    ApiResponseHandler.success(res, transformResult(results), `Processed ${results.totalProcessed} records. ${results.success.length} successful, ${results.failed.length} failed.`);
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Upload tutors error:', error);
@@ -538,7 +539,7 @@ router.post('/questions', authenticate, requireRole(['school', 'tutor']), async 
 
     await client.query('COMMIT');
 
-    ApiResponseHandler.success(res, results, `Processed ${results.totalProcessed} questions. ${results.success.length} successful, ${results.failed.length} failed.`);
+    ApiResponseHandler.success(res, transformResult(results), `Processed ${results.totalProcessed} questions. ${results.success.length} successful, ${results.failed.length} failed.`);
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Upload questions error:', error);

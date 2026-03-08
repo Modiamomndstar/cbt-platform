@@ -30,6 +30,7 @@ interface Plan {
   allowBulkImport: boolean; allowEmailNotifications: boolean;
   allowAdvancedAnalytics: boolean; allowCustomBranding: boolean;
   allowResultPdf: boolean; allowApiAccess: boolean; allowSmsNotifications: boolean;
+  allowResultExport: boolean;
 }
 
 interface FeatureFlag {
@@ -79,15 +80,16 @@ function PlanEditor({ plan, onSave }: { plan: Plan; onSave: (updated: Plan) => v
         maxInternalStudents: draft.maxInternalStudents,
         maxActiveExams: draft.maxActiveExams,
         aiQueriesPerMonth: draft.aiQueriesPerMonth,
-        allow_student_portal: draft.allowStudentPortal,
-        allow_external_students: draft.allowExternalStudents,
-        allow_bulk_import: draft.allowBulkImport,
-        allow_email_notifications: draft.allowEmailNotifications,
-        allow_advanced_analytics: draft.allowAdvancedAnalytics,
-        allow_custom_branding: draft.allowCustomBranding,
-        allow_result_pdf: draft.allowResultPdf,
-        allow_api_access: draft.allowApiAccess,
-        allow_sms_notifications: draft.allowSmsNotifications,
+        allowStudentPortal: draft.allowStudentPortal,
+        allowExternalStudents: draft.allowExternalStudents,
+        allowBulkImport: draft.allowBulkImport,
+        allowEmailNotifications: draft.allowEmailNotifications,
+        allowAdvancedAnalytics: draft.allowAdvancedAnalytics,
+        allowCustomBranding: draft.allowCustomBranding,
+        allowResultPdf: draft.allowResultPdf,
+        allowApiAccess: draft.allowApiAccess,
+        allowSmsNotifications: draft.allowSmsNotifications,
+        allowResultExport: draft.allowResultExport,
       });
       onSave(draft);
       setEditing(false);
@@ -189,6 +191,7 @@ function PlanEditor({ plan, onSave }: { plan: Plan; onSave: (updated: Plan) => v
           {boolField('Advanced analytics', 'allowAdvancedAnalytics')}
           {boolField('Custom branding', 'allowCustomBranding')}
           {boolField('Result PDF', 'allowResultPdf')}
+          {boolField('Result Export', 'allowResultExport')}
           {boolField('API access', 'allowApiAccess')}
         </div>
       </CardContent>

@@ -9,6 +9,7 @@ import { financeService } from '../services/financeService';
 import { paygService } from '../services/paygService';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
+import { transformResult } from '../utils/responseTransformer';
 
 const router = Router();
 const validate = (req: any, res: any, next: any) => {
@@ -29,7 +30,7 @@ router.get('/schools', async (req, res, next) => {
       LEFT JOIN school_subscriptions sub ON s.id = sub.school_id
       ORDER BY s.name ASC
     `);
-    ApiResponseHandler.success(res, result.rows, 'Schools retrieved');
+    ApiResponseHandler.success(res, transformResult(result), 'Schools retrieved');
   } catch (error) { next(error); }
 });
 
@@ -78,16 +79,16 @@ router.get('/schools/:id/details', [
       LIMIT 50
     `, [id]);
 
-    ApiResponseHandler.success(res, {
+    ApiResponseHandler.success(res, transformResult({
       school: schoolResult.rows[0],
       stats: {
         tutors: parseInt(tutorCount.rows[0].count),
-        internal_students: parseInt(studentCount.rows[0].count),
-        external_students: parseInt(externalStudentCount.rows[0].count)
+        internalStudents: parseInt(studentCount.rows[0].count),
+        externalStudents: parseInt(externalStudentCount.rows[0].count)
       },
       tutorBreakdown: tutorsWithExternal.rows,
       logs: auditLogs.rows
-    });
+    }));
   } catch (error) { next(error); }
 });
 
@@ -171,7 +172,7 @@ async function logAudit(req: any, action: string, targetType: string, targetId?:
 router.get('/plans', async (req, res, next) => {
   try {
     const result = await db.query('SELECT * FROM plan_definitions ORDER BY price_usd ASC');
-    ApiResponseHandler.success(res, result.rows, 'Plan definitions retrieved');
+    ApiResponseHandler.success(res, transformResult(result), 'Plan definitions retrieved');
   } catch (error) { next(error); }
 });
 
@@ -228,7 +229,7 @@ router.put('/plans/:planType', [
 router.get('/feature-flags', async (req, res, next) => {
   try {
     const result = await db.query('SELECT * FROM feature_flags ORDER BY feature_name ASC');
-    ApiResponseHandler.success(res, result.rows, 'Feature flags retrieved');
+    ApiResponseHandler.success(res, transformResult(result), 'Feature flags retrieved');
   } catch (error) { next(error); }
 });
 
@@ -278,7 +279,7 @@ router.get('/payments/pending', async (req, res, next) => {
       WHERE p.status = 'pending'
       ORDER BY p.created_at DESC
     `);
-    ApiResponseHandler.success(res, result.rows, 'Pending payments retrieved');
+    ApiResponseHandler.success(res, transformResult(result), 'Pending payments retrieved');
   } catch (error) { next(error); }
 });
 
@@ -644,7 +645,7 @@ router.get('/coupons', async (req, res, next) => {
       `SELECT c.*, (SELECT COUNT(*) FROM coupon_redemptions WHERE coupon_id = c.id) as redemption_count
        FROM coupons c ORDER BY c.created_at DESC`
     );
-    ApiResponseHandler.success(res, result.rows, 'Coupons retrieved');
+    ApiResponseHandler.success(res, transformResult(result), 'Coupons retrieved');
   } catch (error) { next(error); }
 });
 
@@ -735,7 +736,7 @@ router.get('/overview', async (req, res, next) => {
         (SELECT COALESCE(SUM(credits), 0) FROM payg_ledger WHERE type = 'topup') as total_payg_credits_sold
     `);
 
-    ApiResponseHandler.success(res, stats.rows[0], 'Super admin overview retrieved');
+    ApiResponseHandler.success(res, transformResult(stats.rows[0]), 'Super admin overview retrieved');
   } catch (error) { next(error); }
 });
 
@@ -795,7 +796,7 @@ router.get('/export/:type', [
 router.get('/marketplace', async (req, res, next) => {
   try {
     const result = await db.query('SELECT * FROM marketplace_items ORDER BY item_type DESC, display_name ASC');
-    ApiResponseHandler.success(res, result.rows, 'Marketplace items retrieved');
+    ApiResponseHandler.success(res, transformResult(result), 'Marketplace items retrieved');
   } catch (error) { next(error); }
 });
 
@@ -835,7 +836,7 @@ router.put('/marketplace/:featureKey', [
     );
 
     await logAudit(req, 'marketplace_updated', 'marketplace_item', undefined, featureKey, req.body);
-    ApiResponseHandler.success(res, result.rows[0], 'Marketplace item updated');
+    ApiResponseHandler.success(res, transformResult(result.rows[0]), 'Marketplace item updated');
   } catch (error) { next(error); }
 });
 
@@ -868,11 +869,11 @@ router.get('/finance/overview', requireFinanceAccess, async (req, res, next) => 
     const history = await financeService.getRevenueHistory(period as any);
     const bySchool = await financeService.getRevenueBySchool(5);
 
-    ApiResponseHandler.success(res, {
+    ApiResponseHandler.success(res, transformResult({
       ...overview,
       revenueHistory: history,
       revenueBySchool: bySchool
-    }, 'Financial overview retrieved');
+    }), 'Financial overview retrieved');
   } catch (error) { next(error); }
 });
 
@@ -881,7 +882,7 @@ router.get('/finance/revenue', requireFinanceAccess, async (req, res, next) => {
   try {
     const { period = 'month' } = req.query;
     const history = await financeService.getRevenueHistory(period as any);
-    ApiResponseHandler.success(res, history, 'Revenue history retrieved');
+    ApiResponseHandler.success(res, transformResult(history), 'Revenue history retrieved');
   } catch (error) { next(error); }
 });
 
@@ -897,7 +898,7 @@ router.get('/finance/logs', requireFinanceAccess, async (req, res, next) => {
       limit: limit ? parseInt(limit as string) : undefined,
       offset: offset ? parseInt(offset as string) : undefined
     });
-    ApiResponseHandler.success(res, logs, 'Financial audit logs retrieved');
+    ApiResponseHandler.success(res, transformResult(logs), 'Financial audit logs retrieved');
   } catch (error) { next(error); }
 });
 
@@ -919,7 +920,7 @@ router.get('/settings', async (req, res, next) => {
 
     query += ' ORDER BY key ASC';
     const result = await db.query(query, params);
-    ApiResponseHandler.success(res, result.rows, 'Settings retrieved');
+    ApiResponseHandler.success(res, transformResult(result), 'Settings retrieved');
   } catch (error) { next(error); }
 });
 
@@ -941,82 +942,9 @@ router.put('/settings/:key', [
     if (result.rows.length === 0) return ApiResponseHandler.notFound(res, 'Setting not found');
 
     await logAudit(req, 'setting_updated', 'system_setting', undefined, key, { value });
-    ApiResponseHandler.success(res, result.rows[0], 'Setting updated');
+    ApiResponseHandler.success(res, transformResult(result.rows[0]), 'Setting updated');
   } catch (error) { next(error); }
 });
 
-
-// ================================================================
-//  COUPON CODES
-// ================================================================
-
-// GET /api/super-admin/coupons
-router.get('/coupons', async (req, res, next) => {
-  try {
-    const result = await db.query('SELECT * FROM discount_coupons ORDER BY created_at DESC');
-    ApiResponseHandler.success(res, result.rows, 'Coupons retrieved');
-  } catch (error) { next(error); }
-});
-
-// POST /api/super-admin/coupons
-router.post('/coupons', [
-  body('code').trim().notEmpty().withMessage('Code is required'),
-  body('name').trim().notEmpty().withMessage('Name is required'),
-  body('type').isIn(['percent_off', 'amount_off', 'free_months', 'bonus_credits']),
-  body('value').isNumeric(),
-  validate
-], async (req: any, res: any, next: any) => {
-  try {
-    const { code, name, description, type, value, maxUses, validUntil } = req.body;
-
-    const result = await db.query(
-      `INSERT INTO discount_coupons (code, name, description, discount_type, discount_value, max_uses, expires_at, created_by_staff_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [code.toUpperCase(), name, description || null, type, value, maxUses || null, validUntil || null, req.user.id]
-    );
-
-    await logAudit(req, 'coupon_created', 'coupon', result.rows[0].id, code, req.body);
-    ApiResponseHandler.success(res, result.rows[0], 'Coupon created');
-  } catch (error) { next(error); }
-});
-
-// PATCH /api/super-admin/coupons/:id
-router.patch('/coupons/:id', [
-  param('id').isUUID(),
-  validate
-], async (req: any, res: any, next: any) => {
-  try {
-    const { id } = req.params;
-    const allowed = ['is_active', 'name', 'description', 'max_uses', 'expires_at', 'discount_value'];
-    const updates: string[] = [];
-    const values: any[] = [];
-    let p = 1;
-
-    for (const key of allowed) {
-      const camelKey = key === 'is_active' ? 'isActive'
-        : key === 'max_uses' ? 'maxUses'
-        : key === 'expires_at' ? 'expiresAt'
-        : key === 'discount_value' ? 'discountValue'
-        : key;
-
-      const bodyVal = req.body[camelKey] ?? req.body[key];
-      if (bodyVal !== undefined) {
-        updates.push(`${key} = $${p++}`);
-        values.push(bodyVal);
-      }
-    }
-
-    if (updates.length === 0) return ApiResponseHandler.badRequest(res, 'No valid fields');
-    values.push(id);
-
-    const result = await db.query(
-      `UPDATE discount_coupons SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${p} RETURNING *`,
-      values
-    );
-
-    if (result.rows.length === 0) return ApiResponseHandler.notFound(res, 'Coupon not found');
-    ApiResponseHandler.success(res, result.rows[0], 'Coupon updated');
-  } catch (error) { next(error); }
-});
 
 export default router;

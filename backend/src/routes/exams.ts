@@ -7,6 +7,7 @@ import { ApiResponseHandler } from "../utils/apiResponse";
 import { validate } from "../middleware/validation";
 import { getPaginationOptions, formatPaginationResponse } from "../utils/pagination";
 import { logUserActivity } from "../utils/auditLogger";
+import { transformResult } from "../utils/responseTransformer";
 
 const router = Router();
 
@@ -58,7 +59,7 @@ router.get('/', authorize('tutor', 'school'), async (req, res, next) => {
 
     ApiResponseHandler.success(
       res,
-      result.rows,
+      transformResult(result),
       "Exams retrieved",
       formatPaginationResponse(parseInt(countResult.rows[0].count), pagination)
     );
@@ -97,7 +98,7 @@ router.get('/:id', [
       return ApiResponseHandler.notFound(res, "Exam not found");
     }
 
-    ApiResponseHandler.success(res, result.rows[0], "Exam retrieved");
+    ApiResponseHandler.success(res, transformResult(result.rows[0]), "Exam retrieved");
   } catch (error) {
     next(error);
   }

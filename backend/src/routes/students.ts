@@ -10,6 +10,7 @@ import { validate } from "../middleware/validation";
 import { getPaginationOptions, formatPaginationResponse } from "../utils/pagination";
 import { logUserActivity } from "../utils/auditLogger";
 import { generateUniqueUsername, splitFullName } from "../utils/userUtils";
+import { transformResult } from "../utils/responseTransformer";
 
 const router = Router();
 
@@ -77,7 +78,7 @@ router.get("/", async (req, res, next) => {
 
     ApiResponseHandler.success(
       res,
-      result.rows,
+      transformResult(result),
       "Students retrieved",
       formatPaginationResponse(parseInt(countResult.rows[0].count), pagination)
     );
@@ -120,7 +121,7 @@ router.get("/by-category", async (req, res, next) => {
 
     const result = await db.query(sql, params);
 
-    ApiResponseHandler.success(res, result.rows, "Students retrieved");
+    ApiResponseHandler.success(res, transformResult(result), "Students retrieved");
   } catch (error) {
     next(error);
   }
@@ -169,8 +170,8 @@ router.get("/:id", [param("id").isUUID(), validate], async (req, res, next) => {
     );
 
     ApiResponseHandler.success(res, {
-      ...result.rows[0],
-      examHistory: examsResult.rows,
+      ...transformResult(result.rows[0]),
+      examHistory: transformResult(examsResult),
     });
   } catch (error) {
     next(error);

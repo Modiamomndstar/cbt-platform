@@ -3,6 +3,7 @@ import { body, validationResult } from "express-validator";
 import { db } from "../config/database";
 import { authenticate, authorize } from "../middleware/auth";
 import { ApiResponseHandler } from "../utils/apiResponse";
+import { transformResult } from "../utils/responseTransformer";
 
 const router = Router();
 const validate = (req: any, res: any, next: any) => {
@@ -26,7 +27,7 @@ router.get("/", authorize("school", "tutor"), async (req: Request, res: Response
       `SELECT id, name, description, created_at FROM exam_categories WHERE school_id = $1 ORDER BY name ASC`,
       [schoolId]
     );
-    ApiResponseHandler.success(res, result.rows, "Exam categories retrieved");
+    ApiResponseHandler.success(res, transformResult(result.rows), "Exam categories retrieved");
   } catch (error) { next(error); }
 });
 
@@ -59,7 +60,7 @@ router.post(
         [schoolId, name, description]
       );
 
-      ApiResponseHandler.created(res, result.rows[0], "Exam category created");
+      ApiResponseHandler.created(res, transformResult(result.rows[0]), "Exam category created");
     } catch (error) { next(error); }
   }
 );
@@ -96,7 +97,7 @@ router.put(
         return;
       }
 
-      ApiResponseHandler.success(res, result.rows[0], "Exam category updated");
+      ApiResponseHandler.success(res, transformResult(result.rows[0]), "Exam category updated");
     } catch (error) { next(error); }
   }
 );

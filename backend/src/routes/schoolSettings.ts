@@ -3,6 +3,7 @@ import { body, validationResult } from 'express-validator';
 import { authenticate, authorize } from '../middleware/auth';
 import { db } from '../config/database';
 import { ApiResponseHandler } from '../utils/apiResponse';
+import { transformResult } from '../utils/responseTransformer';
 
 const router = Router();
 const validate = (req: any, res: any, next: any) => {
@@ -28,10 +29,10 @@ router.get('/', async (req, res, next) => {
         'INSERT INTO school_settings (school_id) VALUES ($1) RETURNING *',
         [schoolId]
       );
-      return ApiResponseHandler.success(res, created.rows[0], 'School settings created');
+      return ApiResponseHandler.success(res, transformResult(created.rows[0]), 'School settings created');
     }
 
-    ApiResponseHandler.success(res, result.rows[0], 'School settings retrieved');
+    ApiResponseHandler.success(res, transformResult(result.rows[0]), 'School settings retrieved');
   } catch (error) {
     next(error);
   }
@@ -117,7 +118,7 @@ router.put('/', [
     `, values);
 
     const result = await db.query('SELECT * FROM school_settings WHERE school_id = $1', [schoolId]);
-    ApiResponseHandler.success(res, result.rows[0], 'School settings updated');
+    ApiResponseHandler.success(res, transformResult(result.rows[0]), 'School settings updated');
   } catch (error) {
     next(error);
   }
