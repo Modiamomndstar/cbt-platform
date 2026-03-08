@@ -125,9 +125,10 @@ export default function TakeExam() {
         };
         const updated = [...prev, newViolation];
 
-        toast.warning(`Security Alert: ${description} (${updated.length}/${maxViolations})`, {
-          description: "Continued violations will result in automatic disqualification.",
-          duration: 5000
+        toast.error(`SECURITY VIOLATION DETECTED: ${description}`, {
+          description: `Warning ${updated.length} of ${maxViolations}. Your exam will be automatically submitted if you reach the limit.`,
+          duration: 10000,
+          id: 'violation-toast'
         });
 
         if (updated.length >= maxViolations) {
@@ -262,6 +263,7 @@ export default function TakeExam() {
       const response = await resultAPI.submit({
         scheduleId,
         answers,
+        flaggedQuestions, // New: Reporting flagged questions to tutor
         autoSubmitted: isTimeout,
         timeSpentMinutes,
         violations: currentViolations || violations // Use the violations state if not passed directly

@@ -172,7 +172,8 @@ router.post(
             submitted_at: new Date().toISOString(),
             client_ip: req.ip,
             user_agent: req.get('user-agent'),
-            violations: violations // Log anti-cheating violations
+            violations: violations, // Log anti-cheating violations
+            flagged_questions: req.body.flaggedQuestions || [] // Store flagged questions for tutor reporting
           }),
           scheduleId,
         ],
