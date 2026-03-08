@@ -668,7 +668,7 @@ router.put(
       // Determine new status: if rescheduling an expired/completed exam, reset to 'scheduled'
       let newStatus = status || null;
       if (
-        (currentStatus === "expired" || currentStatus === "completed") &&
+        (currentStatus === "expired" || currentStatus === "completed" || currentStatus === "in_progress") &&
         (scheduledDate || startTime)
       ) {
         newStatus = "scheduled";

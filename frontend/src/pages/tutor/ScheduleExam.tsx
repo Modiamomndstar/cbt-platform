@@ -751,7 +751,7 @@ export default function ScheduleExam() {
                                 </Button>
                               </>
                             )}
-                            {(schedule.status === 'scheduled' || schedule.status === 'expired') && (
+                            {(schedule.status === 'scheduled' || schedule.status === 'expired' || schedule.status === 'in_progress') && (
                               <Button variant="ghost" size="sm" onClick={() => handleReschedule(schedule)} title="Reschedule">
                                 <RefreshCw className="h-4 w-4" />
                               </Button>
