@@ -833,7 +833,7 @@ router.get(
        JOIN exams e ON es.exam_id = e.id
        JOIN tutors t ON e.tutor_id = t.id
        LEFT JOIN exam_categories ec ON e.category_id = ec.id
-       WHERE es.student_id = $1
+       WHERE (es.student_id = $1 OR es.external_student_id = $1)
          AND es.status IN ('scheduled', 'in_progress', 'expired')
          AND es.scheduled_date >= CURRENT_DATE - INTERVAL '7 days'
        ORDER BY
@@ -884,10 +884,12 @@ router.post(
       const { scheduleId, accessCode, timezone } = req.body;
       const user = req.user!;
 
-      const result = await client.query(
-        `SELECT es.*, e.duration, e.title, e.id as eid, e.total_questions, e.shuffle_questions, e.shuffle_options, e.is_secure_mode, e.max_violations
+       const result = await client.query(
+        `SELECT es.*, e.duration, e.title, e.id as eid, e.total_questions, e.shuffle_questions, e.shuffle_options, e.is_secure_mode, e.max_violations,
+                ec.name as category_name
           FROM exam_schedules es
           JOIN exams e ON es.exam_id = e.id
+          LEFT JOIN exam_categories ec ON e.category_id = ec.id
           WHERE es.id = $1 AND (es.student_id = $2 OR es.external_student_id = $2) AND es.status IN ('scheduled', 'in_progress')`,
         [scheduleId, user.id],
       );
@@ -1031,8 +1033,8 @@ router.post(
           `INSERT INTO student_exams (student_id, external_student_id, exam_id, exam_schedule_id, started_at, status, assigned_questions, total_marks)
            VALUES ($1, $2, $3, $4, NOW(), 'in_progress', $5, $6)`,
           [
-            user.id,
-            null,
+            user.isExternal ? null : user.id,
+            user.isExternal ? user.id : null,
             schedule.exam_id,
             scheduleId,
             JSON.stringify(finalQuestions),
@@ -1062,9 +1064,14 @@ router.post(
           scheduleId: schedule.id,
           examId: schedule.exam_id,
           examTitle: schedule.title,
+          examCategory: schedule.category_name || "General",
           durationMinutes: schedule.duration,
           startedAt: schedule.started_at || new Date(),
-          questions: sanitizedQuestions,
+          questions: sanitizedQuestions.map((q: any) => ({
+            ...q,
+            questionText: q.question_text || q.questionText,
+            questionType: q.question_type || q.questionType,
+          })),
         },
       });
     } catch (error) {

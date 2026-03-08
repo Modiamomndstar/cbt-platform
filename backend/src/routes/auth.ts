@@ -398,6 +398,7 @@ router.post(
           fullName: schedule.student_name,
           schoolId: schedule.school_id,
           role: "student",
+          isExternal: !!schedule.external_student_id
         },
         exam: {
           id: schedule.exam_id,

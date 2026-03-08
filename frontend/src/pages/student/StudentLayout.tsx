@@ -44,7 +44,12 @@ export default function StudentLayout() {
     { name: 'Exam Results', href: '/student/results', icon: BookOpen },
     { name: 'Report Card', href: '/student/report-card', icon: FileText, feature: 'advanced_analytics' },
     { name: 'My Profile', href: '/student/profile', icon: User },
-  ] as ({ name: string; href: string; icon: any; badge?: number; feature?: string })[];
+  ].filter(item => {
+    if (user?.isExternal) {
+      return ['Dashboard', 'Exam Results', 'Report Card'].includes(item.name);
+    }
+    return true;
+  }) as ({ name: string; href: string; icon: any; badge?: number; feature?: string })[];
 
   const handleNavClick = (item: any) => {
     if (item.feature && !isFeatureAllowed(item.feature)) {
@@ -64,7 +69,9 @@ export default function StudentLayout() {
           <div className="flex items-center space-x-2">
             <GraduationCap className="h-8 w-8 text-emerald-600" />
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-gray-900 truncate">Student Portal</p>
+              <p className="font-bold text-gray-900 truncate">
+                {user?.isExternal ? 'Exam Access Area' : 'Student Portal'}
+              </p>
             </div>
           </div>
         </div>
@@ -124,7 +131,9 @@ export default function StudentLayout() {
           />
           <aside className="absolute left-0 top-0 bottom-0 w-64 bg-white">
             <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-              <span className="font-bold text-gray-900">Student Portal</span>
+              <span className="font-bold text-gray-900">
+                {user?.isExternal ? 'Exam Access Area' : 'Student Portal'}
+              </span>
               <button onClick={() => setSidebarOpen(false)}>
                 <X className="h-6 w-6" />
               </button>
@@ -173,7 +182,9 @@ export default function StudentLayout() {
             <button onClick={() => setSidebarOpen(true)}>
               <Menu className="h-6 w-6" />
             </button>
-            <span className="font-bold text-gray-900">Student Portal</span>
+            <span className="font-bold text-gray-900">
+              {user?.isExternal ? 'Exam Access Area' : 'Student Portal'}
+            </span>
             <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
               <span className="text-emerald-700 font-semibold text-sm">
                 {studentName.charAt(0)}
