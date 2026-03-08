@@ -17,6 +17,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { formatDate } from '@/lib/dateUtils';
 
 export default function TutorDashboard() {
   const navigate = useNavigate();
@@ -200,7 +201,7 @@ export default function TutorDashboard() {
                     <div>
                       <p className="font-medium text-gray-900">{exam.examTitle}</p>
                       <p className="text-xs text-gray-500">
-                        {new Date(exam.scheduledDate).toLocaleDateString()} at {exam.startTime}
+                        {formatDate(exam.scheduledDate)} at {exam.startTime}
                       </p>
                     </div>
                     <Badge variant="outline" className="bg-white">

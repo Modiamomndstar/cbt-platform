@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { analyticsAPI } from '@/services/api';
 import { TrendingUp, School, Users, BookOpen, Award } from 'lucide-react';
+import { formatDate } from '@/lib/dateUtils';
 
 export default function PlatformAnalytics() {
   const [data, setData] = useState<any>(null);
@@ -148,9 +149,7 @@ export default function PlatformAnalytics() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-600">
-                        {school.createdAt
-                          ? new Date(school.createdAt).toLocaleDateString()
-                          : '-'}
+                        {formatDate(school.createdAt)}
                       </td>
                     </tr>
                   ))}

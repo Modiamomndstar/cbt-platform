@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { resultAPI } from '@/services/api';
 import { Award, CheckCircle, Clock, TrendingUp } from 'lucide-react';
+import { formatDate } from '@/lib/dateUtils';
 
 export default function StudentResults() {
   const { user } = useAuth();
@@ -179,9 +180,7 @@ export default function StudentResults() {
                     <div>
                       <p className="text-gray-500">Submitted</p>
                       <p className="font-medium">
-                        {result.submittedAt
-                          ? new Date(result.submittedAt).toLocaleDateString()
-                          : '-'}
+                        {formatDate(result.submittedAt)}
                       </p>
                     </div>
                   </div>

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { FeatureLockedModal } from '@/components/common/FeatureLock';
+import { formatDate } from '@/lib/dateUtils';
 
 export default function StudentResultDetail() {
   const { resultId } = useParams();
@@ -167,7 +168,7 @@ export default function StudentResultDetail() {
             <StatItem label="Session" value={result.academicSession || 'N/A'} />
             <StatItem label="Score" value={`${result.score} / ${result.totalMarks}`} />
             <StatItem label="Time Spent" value={`${result.timeSpentMinutes} Minutes`} />
-            <StatItem label="Date" value={new Date(result.submittedAt).toLocaleDateString()} />
+            <StatItem label="Date" value={formatDate(result.submittedAt)} />
             <StatItem label="Rank" value={result.rank ? `Rank #${result.rank}` : 'N/A'} />
           </div>
 

@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { examAPI, scheduleAPI, categoryAPI, API_BASE_URL, externalStudentAPI } from '@/services/api';
+import { formatDate, formatDateTime } from '@/lib/dateUtils';
 import {
   Calendar,
   ArrowLeft,
@@ -191,9 +192,10 @@ export default function ScheduleExam() {
     }
 
     try {
-      // Partition selected students into Internal and External based on which list they belong to
-      const internalIds = selectedStudents.filter((id: string) => students.some((s: any) => s.id === id));
+      // Partition selected students into Internal and External correctly
+      // We check against the full externalStudents list which we have already loaded
       const externalIds = selectedStudents.filter((id: string) => externalStudents.some((s: any) => s.id === id));
+      const internalIds = selectedStudents.filter((id: string) => !externalIds.includes(id));
 
       const payload: any = {
         examId,
@@ -366,7 +368,7 @@ export default function ScheduleExam() {
               <p>Exam Schedule & Credentials</p>
             </div>
             <div class="detail"><strong>Student:</strong> <span>${schedule.studentName}</span></div>
-            <div class="detail"><strong>Date:</strong> <span>${new Date(schedule.scheduledDate).toLocaleDateString()}</span></div>
+            <div class="detail"><strong>Date:</strong> <span>${formatDate(schedule.scheduledDate)}</span></div>
             <div class="detail"><strong>Time:</strong> <span>${schedule.startTime} - ${schedule.endTime}</span></div>
 
             <div class="credentials">
@@ -394,7 +396,7 @@ export default function ScheduleExam() {
     const rows = schedules.map(s => [
       s.studentName,
       s.registrationNumber || '',
-      new Date(s.scheduledDate).toLocaleDateString(),
+      formatDate(s.scheduledDate),
       `${s.startTime} - ${s.endTime}`,
       s.examUsername,
       s.examPassword,
@@ -673,7 +675,7 @@ export default function ScheduleExam() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-600">
-                        {schedule.scheduledDate ? new Date(schedule.scheduledDate).toLocaleDateString() : '-'}
+                        {formatDate(schedule.scheduledDate)}
                         <br />
                         <span className="text-sm">{schedule.startTime} - {schedule.endTime}</span>
                       </td>
@@ -707,12 +709,12 @@ export default function ScheduleExam() {
                       <td className="px-4 py-3">
                         {schedule.status === 'completed' || schedule.status === 'expired' ? (
                           <div className="text-xs space-y-1 text-gray-600">
-                            {schedule.startedAt && (
-                              <p>Started: {new Date(schedule.startedAt).toLocaleString()}</p>
-                            )}
-                            {schedule.completedAt && (
-                              <p>Submitted: {new Date(schedule.completedAt).toLocaleString()}</p>
-                            )}
+                             {schedule.startedAt && (
+                               <p>Started: {formatDateTime(schedule.startedAt)}</p>
+                             )}
+                             {schedule.completedAt && (
+                               <p>Submitted: {formatDateTime(schedule.completedAt)}</p>
+                             )}
                             {schedule.timeSpentMinutes != null && schedule.timeSpentMinutes > 0 && (
                               <p>Time: {schedule.timeSpentMinutes} min</p>
                             )}
@@ -723,7 +725,7 @@ export default function ScheduleExam() {
                         ) : schedule.status === 'in_progress' ? (
                           <div className="text-xs space-y-1 text-gray-600">
                             {schedule.startedAt && (
-                              <p>Started: {new Date(schedule.startedAt).toLocaleString()}</p>
+                              <p>Started: {formatDateTime(schedule.startedAt)}</p>
                             )}
                           </div>
                         ) : schedule.status === 'scheduled' ? (

@@ -7,6 +7,7 @@ import {
   Gift, ShieldOff, PauseCircle, PlayCircle, Coins, Clock,
   Search, School, RefreshCw, ChevronDown, ChevronUp
 } from 'lucide-react';
+import { formatDate } from '@/lib/dateUtils';
 
 interface SchoolData {
   id: string; name: string; username: string; email: string;
@@ -211,10 +212,10 @@ function SchoolRow({ school, onRefresh }: { school: SchoolData; onRefresh: () =>
               <div><span className="font-medium text-gray-700">Username:</span> @{school.username}</div>
               <div><span className="font-medium text-gray-700">PAYG Balance:</span> {school.paygBalance ?? 0} credits</div>
               {school.trialEndAt && (
-                <div><span className="font-medium text-gray-700">Trial ends:</span> {new Date(school.trialEndAt).toLocaleDateString()}</div>
+                <div><span className="font-medium text-gray-700">Trial ends:</span> {formatDate(school.trialEndAt)}</div>
               )}
               {school.overrideExpiresAt && (
-                <div><span className="font-medium text-gray-700">Override expires:</span> {new Date(school.overrideExpiresAt).toLocaleDateString()}</div>
+                <div><span className="font-medium text-gray-700">Override expires:</span> {formatDate(school.overrideExpiresAt)}</div>
               )}
             </div>
             <div className="flex flex-wrap gap-2">

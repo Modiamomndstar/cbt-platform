@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Plus, UserPlus, FileSignature, CheckCircle, XCircle } from 'lucide-react';
 import { superAdminAPI } from '@/services/api';
+import { formatDate, formatDateTime } from '@/lib/dateUtils';
 
 interface StaffAccount {
   id: string;
@@ -224,7 +225,7 @@ export default function StaffManagement() {
                       }
                     </td>
                     <td className="px-6 py-4">
-                      {s.lastLoginAt ? new Date(s.lastLoginAt).toLocaleDateString() : 'Never'}
+                      {s.lastLoginAt ? formatDate(s.lastLoginAt) : 'Never'}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <Button
@@ -267,7 +268,7 @@ export default function StaffManagement() {
                 {logs.map((log) => (
                   <tr key={log.id} className="border-b bg-white hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                      {log.createdAt ? new Date(log.createdAt).toLocaleString() : 'N/A'}
+                      {formatDateTime(log.createdAt)}
                     </td>
                     <td className="px-6 py-4 font-medium">
                       {log.actorName}

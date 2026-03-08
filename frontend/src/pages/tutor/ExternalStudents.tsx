@@ -10,6 +10,7 @@ import { UserPlus, Pencil, Trash2, Upload, FolderOpen, Download, FileText, Spark
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import api, { API_BASE_URL } from '@/services/api';
+import { formatDate } from '@/lib/dateUtils';
 
 interface ExternalStudent {
   id: string;
@@ -456,7 +457,7 @@ export default function ExternalStudents() {
                     }
                   </td>
                   <td className="px-6 py-4">
-                    {new Date(student.createdAt).toLocaleDateString()}
+                    {formatDate(student.createdAt)}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end space-x-2">

@@ -4,6 +4,7 @@ import { analyticsAPI } from '@/services/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { TrendingUp, Users, BookOpen, Award, Calendar, CheckCircle, Sparkles } from 'lucide-react';
+import { formatDate } from '@/lib/dateUtils';
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Legend
@@ -145,7 +146,7 @@ export default function TutorAnalytics() {
                   <div key={exam.id} className="p-3 bg-gray-50 rounded-lg border border-gray-100">
                     <p className="font-semibold text-gray-900 truncate">{exam.examTitle}</p>
                     <div className="flex justify-between mt-2 text-xs text-gray-500">
-                      <span>{new Date(exam.scheduledDate).toLocaleDateString()}</span>
+                      <span>{formatDate(exam.scheduledDate)}</span>
                       <span>{exam.studentCount} candidates</span>
                     </div>
                   </div>

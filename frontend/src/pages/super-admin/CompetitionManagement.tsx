@@ -17,6 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Shield, Award, Zap } from 'lucide-react';
+import { formatDate } from '@/lib/dateUtils';
 import CreateCompetitionModal from './CreateCompetitionModal';
 
 export default function CompetitionManagement() {
@@ -232,7 +233,7 @@ export default function CompetitionManagement() {
                   <div className="flex items-center justify-between pt-4 border-t">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                        <Calendar className="h-3.5 w-3.5" /> Starts {comp.createdAt ? new Date(comp.createdAt).toLocaleDateString() : 'TBD'}
+                        <Calendar className="h-3.5 w-3.5" /> Starts {formatDate(comp.createdAt)}
                       </div>
                       {comp.isFeatured && (
                         <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-none h-5 px-1.5">

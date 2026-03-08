@@ -9,6 +9,7 @@ import { scheduleAPI, resultAPI, analyticsAPI } from '@/services/api';
 import { CompetitionBanner } from '@/components/competitions/CompetitionBanner';
 import { usePlan } from '@/hooks/usePlan';
 import { FeatureLockedModal, FeatureLockBadge } from '@/components/common/FeatureLock';
+import { formatDate } from '@/lib/dateUtils';
 
 export default function StudentDashboard() {
   const navigate = useNavigate();
@@ -155,7 +156,7 @@ export default function StudentDashboard() {
                   <div className="flex-1 min-w-0 pr-4">
                     <h3 className="font-bold text-indigo-900 truncate">{report.title}</h3>
                     <p className="text-xs text-indigo-600 font-medium truncate">Issued by {report.issuedByName || 'School Admin'}</p>
-                    <p className="text-[10px] text-gray-400 mt-1">{new Date(report.createdAt).toLocaleDateString()}</p>
+                    <p className="text-[10px] text-gray-400 mt-1">{formatDate(report.createdAt)}</p>
                   </div>
                   <Button size="sm" variant="ghost" className="text-indigo-600 shrink-0 hover:text-indigo-700 hover:bg-indigo-100">
                     View <ArrowRight className="ml-1 h-3 w-3" />
@@ -204,9 +205,7 @@ export default function StudentDashboard() {
                   <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
                     <div className="flex items-center text-gray-600">
                       <Calendar className="h-4 w-4 mr-2" />
-                      {schedule.scheduledDate
-                        ? new Date(schedule.scheduledDate).toLocaleDateString()
-                        : '-'}
+                      {formatDate(schedule.scheduledDate)}
                     </div>
                     <div className="flex items-center text-gray-600">
                       <Clock className="h-4 w-4 mr-2" />
@@ -271,7 +270,7 @@ export default function StudentDashboard() {
                     </Badge>
                   </div>
                   <h3 className="font-bold text-slate-900 mb-1">{award.examTitle || 'Competition Award'}</h3>
-                  <p className="text-xs text-slate-500 mb-4">Issued on {new Date(award.submittedAt || award.createdAt).toLocaleDateString()}</p>
+                  <p className="text-xs text-slate-500 mb-4">Issued on {formatDate(award.submittedAt || award.createdAt)}</p>
                   <Button
                     variant="outline"
                     className="w-full border-amber-200 text-amber-700 hover:bg-amber-50"
@@ -322,7 +321,7 @@ export default function StudentDashboard() {
                        <Award className="h-24 w-24 text-amber-500 opacity-20" />
                     </div>
                     <div className="text-center border-t-2 border-slate-300 pt-2 w-48">
-                      <p className="text-sm font-bold text-slate-800 uppercase">Date: {new Date().toLocaleDateString()}</p>
+                      <p className="text-sm font-bold text-slate-800 uppercase">Date: {formatDate(new Date())}</p>
                     </div>
                   </div>
                 </div>
@@ -391,7 +390,7 @@ export default function StudentDashboard() {
                       </p>
                       <p className="text-sm text-gray-500">
                         {result.submittedAt
-                          ? `Submitted on ${new Date(result.submittedAt).toLocaleDateString()}`
+                          ? `Submitted on ${formatDate(result.submittedAt)}`
                           : ''}
                       </p>
                     </div>

@@ -11,6 +11,7 @@ import {
   ShieldCheck, History, ExternalLink,
   CheckCircle2, XCircle
 } from 'lucide-react';
+import { formatDate } from '@/lib/dateUtils';
 import {
   Dialog,
   DialogContent,
@@ -389,7 +390,7 @@ function CouponManager({ coupons, onRefresh }: { coupons: Coupon[]; onRefresh: (
                    c.discountType === 'free_months' || c.type === 'free_months' ? `${c.discountValue || c.value} free month(s)` :
                    `${c.discountValue || c.value} bonus credits`}
                   {' · '}{c.usesCount || c.redemptionCount || 0}/{c.maxUses ?? '∞'} used
-                  {(c.expiresAt || c.validUntil) && ` · Expires ${new Date(c.expiresAt || c.validUntil!).toLocaleDateString()}`}
+                  {(c.expiresAt || c.validUntil) && ` · Expires ${formatDate(c.expiresAt || c.validUntil!)}`}
                 </p>
               </div>
               {c.isActive && (

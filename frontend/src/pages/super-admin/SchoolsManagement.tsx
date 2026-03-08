@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { superAdminAPI } from '@/services/api';
 import { Search, School, Mail, ShieldCheck, Globe } from 'lucide-react';
+import { formatDate } from '@/lib/dateUtils';
 import {
   Select,
   SelectContent,
@@ -150,9 +151,7 @@ export default function SchoolsManagement() {
 
               <div className="flex justify-between items-center text-sm text-gray-500">
                 <span>
-                  Registered: {school.createdAt
-                    ? new Date(school.createdAt).toLocaleDateString()
-                    : '-'}
+                  Registered: {formatDate(school.createdAt)}
                 </span>
               </div>
             </CardContent>

@@ -13,6 +13,8 @@ export const transformObject = (obj: any): any => {
 
   if (Array.isArray(obj)) {
     return obj.map((v) => transformObject(v));
+  } else if (obj instanceof Date) {
+    return obj;
   } else if (typeof obj === 'object' && obj !== null) {
     return Object.keys(obj).reduce(
       (result, key) => ({

@@ -11,6 +11,7 @@ import { examAPI, resultAPI } from '@/services/api';
 import { Search, TrendingUp, Award, Users, BookOpen, Download, RefreshCw, FileText } from 'lucide-react';
 import { ResultDetailModal } from '@/components/tutor/ResultDetailModal';
 import { toast } from 'sonner';
+import { formatDate } from '@/lib/dateUtils';
 
 export default function ExamResults() {
   // const { user } = useAuth(); // user unused
@@ -388,12 +389,12 @@ export default function ExamResults() {
                       <td className="px-4 py-3 text-sm text-gray-600">
                         {result.submittedAt ? (
                            <div>
-                             <p>{new Date(result.submittedAt).toLocaleDateString()}</p>
+                             <p>{formatDate(result.submittedAt)}</p>
                              <p className="text-xs text-gray-400">{new Date(result.submittedAt).toLocaleTimeString()}</p>
                            </div>
                         ) : (
                            <div>
-                             <p>{new Date(result.scheduledDate).toLocaleDateString()}</p>
+                             <p>{formatDate(result.scheduledDate)}</p>
                              <span className="text-xs text-gray-400">Scheduled</span>
                            </div>
                         )}
