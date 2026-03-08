@@ -31,6 +31,7 @@ import schoolSettingsRoutes from "./routes/schoolSettings";
 import externalStudentRoutes from "./routes/externalStudents";
 import examCategoryRoutes from "./routes/examCategories";
 import competitionRoutes from "./routes/competitions";
+import aiCoachRoutes from "./routes/aiCoach";
 import { initCronJobs } from "./services/cronService";
 import { ApiResponseHandler } from "./utils/apiResponse";
 
@@ -145,6 +146,7 @@ app.use("/api/school-settings", schoolSettingsRoutes);
 app.use("/api/tutor/external-students", externalStudentRoutes);
 app.use("/api/exam-categories", examCategoryRoutes);
 app.use("/api/competitions", competitionRoutes);
+app.use("/api/ai", aiCoachRoutes);
 
 // Error handling middleware
 app.use(

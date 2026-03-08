@@ -1,10 +1,10 @@
 import { Router, Request, Response } from "express";
 import { pool } from "../config/database";
 import { authenticate, requireRole } from "../middleware/auth";
-import OpenAI from "openai";
 import { ApiResponseHandler } from "../utils/apiResponse";
 import { getPaginationOptions, formatPaginationResponse } from "../utils/pagination";
 import { transformResult } from "../utils/responseTransformer";
+import { aiService } from "../services/aiService";
 
 const router = Router();
 
@@ -362,58 +362,13 @@ router.post(
         );
       }
 
-      if (!process.env.OPENAI_API_KEY) {
-        return ApiResponseHandler.error(res, "AI generation not configured. Please set OPENAI_API_KEY.", 503, "SERVICE_UNAVAILABLE");
-      }
-
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-      const prompt = `Generate ${numQuestions} ${difficulty} difficulty ${questionType} questions for ${subject} on the topic "${topic}".
-
-    Return ONLY a valid JSON array in this exact format:
-    [
-      {
-        "questionText": "The question text",
-        "options": ["Option A", "Option B", "Option C", "Option D"],
-        "correctAnswer": "Option A",
-        "marks": 5
-      }
-    ]
-
-    For true_false questions, use options: ["True", "False"]
-    For theory questions, options should be an empty array [].`;
-
-      const completion = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a helpful educational assistant that generates exam questions.",
-          },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.7,
+      const generatedQuestions = await aiService.generateQuestions({
+        topic,
+        subject,
+        numQuestions,
+        difficulty,
+        questionType
       });
-
-      const responseText = completion.choices[0].message.content || "[]";
-      let generatedQuestions;
-
-      try {
-        generatedQuestions = JSON.parse(responseText);
-      } catch (e) {
-        // Try to extract JSON from markdown code block
-        const jsonMatch =
-          responseText.match(/```json\n([\s\S]*?)\n```/) ||
-          responseText.match(/```\n([\s\S]*?)\n```/) ||
-          responseText.match(/\[([\s\S]*)\]/);
-
-        if (jsonMatch) {
-          generatedQuestions = JSON.parse(jsonMatch[1] || jsonMatch[0]);
-        } else {
-          throw new Error("Could not parse AI response");
-        }
-      }
 
       // Validate and format questions
       const formattedQuestions = generatedQuestions.map(
