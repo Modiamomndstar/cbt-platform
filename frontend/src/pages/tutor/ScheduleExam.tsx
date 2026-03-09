@@ -59,7 +59,6 @@ export default function ScheduleExam() {
   const [students, setStudents] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [schedules, setSchedules] = useState<any[]>([]);
-  const [externalStudents, setExternalStudents] = useState<any[]>([]);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,11 +111,10 @@ export default function ScheduleExam() {
   const loadData = async () => {
     if (!examId) return;
     try {
-      const [examRes, schedulesRes, categoriesRes, externalRes] = await Promise.all([
+      const [examRes, schedulesRes, categoriesRes] = await Promise.all([
         examAPI.getById(examId),
         scheduleAPI.getByExam(examId),
-        categoryAPI.getAll().catch(() => ({ data: { success: false, data: [] } })),
-        externalStudentAPI.getAll().catch(() => ({ data: { success: false, data: [] } }))
+        categoryAPI.getAll().catch(() => ({ data: { success: false, data: [] } }))
       ]);
 
       if (examRes.data.success) {
@@ -134,9 +132,6 @@ export default function ScheduleExam() {
         setCategories(categoriesRes.data.data || []);
       }
 
-      if (externalRes.data?.success) {
-        setExternalStudents(externalRes.data.data.filter((s: any) => s.isActive));
-      }
     } catch (err: any) {
       console.error('Failed to load schedule data:', err);
       setDebugError(err.response?.data?.message || err.message || JSON.stringify(err));
