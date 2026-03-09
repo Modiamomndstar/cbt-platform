@@ -162,21 +162,21 @@ function AppRoutes() {
       <Route
         path="/student/*"
         element={
-          <RequireAuth allowedRoles={['student']} disallowExternal>
+          <RequireAuth allowedRoles={['student']}>
             <StudentLayout />
           </RequireAuth>
         }
       >
         <Route index element={<Navigate to="dashboard" replace />} />
-        <Route path="dashboard" element={<StudentDashboard />} />
-        <Route path="profile" element={<StudentProfile />} />
+        <Route path="dashboard" element={<RequireAuth allowedRoles={['student']} disallowExternal><StudentDashboard /></RequireAuth>} />
+        <Route path="profile" element={<RequireAuth allowedRoles={['student']} disallowExternal><StudentProfile /></RequireAuth>} />
         <Route path="exam/:scheduleId" element={<TakeExam />} />
-        <Route path="results" element={<StudentResults />} />
-        <Route path="results/:resultId" element={<StudentResultDetail />} />
-        <Route path="performance" element={<StudentPerformance />} />
-        <Route path="competitions" element={<StudentCompetitionHub />} />
-        <Route path="messages" element={<MessagesPage />} />
-        <Route path="report-card" element={<StudentReportCard />} />
+        <Route path="results" element={<RequireAuth allowedRoles={['student']} disallowExternal><StudentResults /></RequireAuth>} />
+        <Route path="results/:resultId" element={<RequireAuth allowedRoles={['student']} disallowExternal><StudentResultDetail /></RequireAuth>} />
+        <Route path="performance" element={<RequireAuth allowedRoles={['student']} disallowExternal><StudentPerformance /></RequireAuth>} />
+        <Route path="competitions" element={<RequireAuth allowedRoles={['student']} disallowExternal><StudentCompetitionHub /></RequireAuth>} />
+        <Route path="messages" element={<RequireAuth allowedRoles={['student']} disallowExternal><MessagesPage /></RequireAuth>} />
+        <Route path="report-card" element={<RequireAuth allowedRoles={['student']} disallowExternal><StudentReportCard /></RequireAuth>} />
       </Route>
 
       {/* Super Admin Routes */}

@@ -115,10 +115,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, message: response.data.message || 'Login failed' };
     } catch (error: any) {
       console.error('Login error:', error);
-      return {
-        success: false,
-        message: error.response?.data?.message || 'Network error. Please try again.'
-      };
+      const message = error.response?.data?.message || 'Login failed. Please check your credentials.';
+      return { success: false, message };
     }
   };
 

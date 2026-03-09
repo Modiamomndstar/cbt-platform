@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,12 @@ import { GraduationCap, ArrowLeft, Clock, Eye, EyeOff, User, KeyRound } from 'lu
 
 export default function StudentLogin() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
+
+  useEffect(() => {
+    // Clear any existing session when the login page loads to avoid 403 errors from background calls
+    logout();
+  }, [logout]);
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -38,7 +43,7 @@ export default function StudentLogin() {
     if (result && !result.success) {
       setError(result.message || 'Invalid credentials.');
     } else if (activeTab === 'exam' && result?.data?.exam?.scheduleId) {
-       navigate(`/student/exam/${result.data.exam.scheduleId}`); // Direct to specific exam lobby
+       navigate(`/student/take-exam/${result.data.exam.scheduleId}`); // Use direct route
     } else if (activeTab === 'exam') {
        navigate('/student/dashboard'); // Fallback
     } else if (result?.success) {

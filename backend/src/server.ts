@@ -81,14 +81,23 @@ const limiter = rateLimit({
 });
 app.use("/api/", limiter);
 
-// Stricter rate limit for auth endpoints
+// Rate limiting for auth routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: "Too many login attempts, please try again later.",
-  handler: (req, res) => ApiResponseHandler.badRequest(res, "Too many login attempts, please try again later.", { code: 'AUTH_RATE_LIMIT_EXCEEDED' }),
+  max: 20, // slightly more generous for schools/tutors
+  message: {
+    success: false,
+    message: "Too many login attempts, please try again after 15 minutes",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
-app.use("/api/auth/login", authLimiter);
+
+app.use("/api/auth/school/login", authLimiter);
+app.use("/api/auth/tutor/login", authLimiter);
+app.use("/api/auth/student/login", authLimiter);
+app.use("/api/auth/student/portal-login", authLimiter);
+app.use("/api/auth/super-admin/login", authLimiter);
 
 // Body parsing
 app.use(express.json({ limit: "10mb" }));
