@@ -57,6 +57,12 @@ export default function QuestionBank() {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 50,
+    total: 0,
+    totalPages: 1
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Bulk selection
@@ -104,14 +110,14 @@ export default function QuestionBank() {
     if (examId) {
       loadExamAndQuestions();
     }
-  }, [examId]);
+  }, [examId, pagination.page]);
 
   const loadExamAndQuestions = async () => {
     if (!examId) return;
     try {
       const [examRes, questionsRes] = await Promise.all([
         examAPI.getById(examId),
-        questionAPI.getByExam(examId),
+        questionAPI.getByExam(examId, { page: pagination.page, limit: pagination.limit }),
       ]);
       if (examRes.data.success) {
         setExam(examRes.data.data);
@@ -121,6 +127,9 @@ export default function QuestionBank() {
       }
       if (questionsRes.data.success) {
         setQuestions(questionsRes.data.data || []);
+        if (questionsRes.data.pagination) {
+          setPagination(prev => ({ ...prev, ...questionsRes.data.pagination }));
+        }
       }
     } catch (err) {
       console.error('Failed to load exam:', err);
@@ -130,12 +139,15 @@ export default function QuestionBank() {
     }
   };
 
-  const loadQuestions = async () => {
+  const loadQuestions = async (page = pagination.page) => {
     if (!examId) return;
     try {
-      const response = await questionAPI.getByExam(examId);
+      const response = await questionAPI.getByExam(examId, { page, limit: pagination.limit });
       if (response.data.success) {
         setQuestions(response.data.data || []);
+        if (response.data.pagination) {
+          setPagination(prev => ({ ...prev, ...response.data.pagination, page }));
+        }
         setSelectedQuestions([]); // Clear selection on reload
       }
     } catch (err) {
@@ -458,7 +470,7 @@ export default function QuestionBank() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Question Bank</h1>
-            <p className="text-gray-600">{exam.title} • {questions.length} questions</p>
+            <p className="text-gray-600">{exam.title} • {pagination.total} questions</p>
           </div>
         </div>
         <div className="flex space-x-2">
@@ -1034,6 +1046,31 @@ export default function QuestionBank() {
               )}
             </CardContent>
           </Card>
+        )}
+
+        {/* Pagination */}
+        {pagination.totalPages > 1 && (
+          <div className="flex justify-between items-center bg-white p-4 rounded-lg border shadow-sm">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+              disabled={pagination.page <= 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-gray-600 font-medium">
+              Page {pagination.page} of {pagination.totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPagination(prev => ({ ...prev, page: Math.min(pagination.totalPages, prev.page + 1) }))}
+              disabled={pagination.page >= pagination.totalPages}
+            >
+              Next
+            </Button>
+          </div>
         )}
       </div>
 

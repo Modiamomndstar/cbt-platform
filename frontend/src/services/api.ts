@@ -170,7 +170,7 @@ export const examAPI = {
 
 // Question API
 export const questionAPI = {
-  getByExam: (examId: string) => api.get(`/questions/exam/${examId}`),
+  getByExam: (examId: string, params?: any) => api.get(`/questions/exam/${examId}`, { params }),
   create: (data: any) => api.post("/questions", data),
   bulkCreate: (examId: string, questions: any[]) =>
     api.post("/questions/bulk", { examId, questions }),

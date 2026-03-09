@@ -19,7 +19,7 @@ router.get(
     try {
       const { examId } = req.params;
       const user = req.user!;
-      const pagination = getPaginationOptions(req);
+      const pagination = getPaginationOptions(req, 50, 1000);
 
       // Check exam access
       const examCheck = await client.query(

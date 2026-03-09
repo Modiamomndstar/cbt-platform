@@ -21,12 +21,12 @@ export interface PaginationMetadata {
  * @param defaultLimit Default items per page (default: 50)
  * @returns PaginationOptions
  */
-export const getPaginationOptions = (req: Request, defaultLimit = 50): PaginationOptions => {
+export const getPaginationOptions = (req: Request, defaultLimit = 50, maxLimit = 200): PaginationOptions => {
   const pageValue = parseInt(req.query.page as string);
   const limitValue = parseInt(req.query.limit as string);
 
   const page = !isNaN(pageValue) && pageValue > 0 ? pageValue : 1;
-  const limit = !isNaN(limitValue) && limitValue > 0 ? Math.min(limitValue, 200) : defaultLimit;
+  const limit = !isNaN(limitValue) && limitValue > 0 ? Math.min(limitValue, maxLimit) : defaultLimit;
   const offset = (page - 1) * limit;
 
   return { page, limit, offset };
