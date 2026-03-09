@@ -373,9 +373,9 @@ router.get(
          JOIN tutors t ON e.tutor_id = t.id
          WHERE se.id = $1 AND (
            ($3 = 'student' AND (se.student_id = $2 OR se.external_student_id = $2)) OR
-           (($3 = 'tutor' OR $3 = 'school') AND t.school_id = (SELECT school_id FROM users WHERE id = $2 OR id = (SELECT id FROM schools WHERE id = $2)))
+           (($3 = 'tutor' OR $3 = 'school') AND t.school_id = $4)
          )`,
-        [id, user.id, user.role],
+        [id, user.id, user.role, user.schoolId],
       );
 
       if (result.rows.length === 0) {
