@@ -33,7 +33,11 @@ export function PlanProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshPlan = async () => {
-    if (!user || user.role === 'super_admin') {
+    const token = localStorage.getItem('token');
+    const path = window.location.pathname;
+    const isLoginPage = path === '/login' || path === '/admin/login' || path === '/student/login';
+
+    if (!user || user.role === 'super_admin' || !token || isLoginPage) {
       setIsLoading(false);
       return;
     }

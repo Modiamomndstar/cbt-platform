@@ -15,7 +15,11 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const refreshUnreadCount = useCallback(async () => {
-    if (!user) return;
+    const token = localStorage.getItem('token');
+    const path = window.location.pathname;
+    const isLoginPage = path === '/login' || path === '/admin/login' || path === '/student/login';
+
+    if (!user || !token || isLoginPage) return;
     try {
       const res = await messagesAPI.getUnreadCount();
       if (res.data.success) {

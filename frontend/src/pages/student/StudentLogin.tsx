@@ -26,7 +26,7 @@ export default function StudentLogin() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'exam' | 'portal'>('portal');
+  const [activeTab, setActiveTab] = useState<'exam' | 'portal'>('exam');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,12 +34,14 @@ export default function StudentLogin() {
     setError('');
 
     let result;
+    console.log(`Attempting ${activeTab} login for ${username}`);
     if (activeTab === 'exam') {
        result = await login('student', username, password, accessCode);
     } else {
        // Portal login - use the unified login hook
        result = await login('student_portal', username, password);
     }
+    console.log(`Login result for ${username}:`, result?.success ? 'Success' : 'Failed', result?.message || '');
 
     if (result && !result.success) {
       setError(result.message || 'Invalid credentials.');
