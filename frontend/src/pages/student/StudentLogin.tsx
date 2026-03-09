@@ -34,23 +34,27 @@ export default function StudentLogin() {
     setError('');
 
     let result;
-    console.log(`Attempting ${activeTab} login for ${username}`);
+    console.log(`[Login] Attempting ${activeTab} login for: ${username}`);
     if (activeTab === 'exam') {
        result = await login('student', username, password, accessCode);
     } else {
        // Portal login - use the unified login hook
        result = await login('student_portal', username, password);
     }
-    console.log(`Login result for ${username}:`, result?.success ? 'Success' : 'Failed', result?.message || '');
+    console.log(`[Login] Result for ${username}:`, result?.success ? 'SUCCESS' : 'FAILED', result?.message || '');
 
     if (result && !result.success) {
       setError(result.message || 'Invalid credentials.');
     } else if (activeTab === 'exam' && result?.data?.exam?.scheduleId) {
-       navigate(`/student/take-exam/${result.data.exam.scheduleId}`); // Use direct route
+       const target = `/student/take-exam/${result.data.exam.scheduleId}`;
+       console.log(`[Login] Redirecting to exam: ${target}`);
+       navigate(target);
     } else if (activeTab === 'exam') {
-       navigate('/student/dashboard'); // Fallback
+       console.log(`[Login] Redirecting to dashboard (fallback)`);
+       navigate('/student/dashboard');
     } else if (result?.success) {
-       navigate('/student/dashboard'); // Portal successful login
+       console.log(`[Login] Redirecting to dashboard`);
+       navigate('/student/dashboard');
     }
 
     setIsLoading(false);

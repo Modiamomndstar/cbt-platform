@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import type { UserSession, UserRole } from '@/types';
 import { authAPI } from '@/services/api';
 
@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     try {
       const response = await authAPI.getMe();
       if (response.data.success) {
@@ -65,9 +65,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const login = async (role: UserRole, usernameOrEmail: string, password: string, schoolIdOrAccessCode?: string): Promise<{ success: boolean; message?: string; data?: any }> => {
+  const login = useCallback(async (role: UserRole, usernameOrEmail: string, password: string, schoolIdOrAccessCode?: string): Promise<{ success: boolean; message?: string; data?: any }> => {
     try {
       let response;
 
@@ -119,18 +119,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const message = error.response?.data?.message || 'Login failed. Please check your credentials.';
       return { success: false, message };
     }
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     clearSession();
     window.location.href = '/login';
-  };
+  }, []);
 
-  const clearSession = () => {
+  const clearSession = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
-  };
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, login, logout, clearSession, isLoading, refreshUser }}>
