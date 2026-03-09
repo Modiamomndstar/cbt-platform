@@ -153,7 +153,7 @@ export default function StudentResultDetail() {
             </div>
             <div className={`px-5 py-3 rounded-2xl ${result.passed ? 'bg-emerald-100' : 'bg-red-100'} text-center`}>
               <p className={`text-4xl font-black ${result.passed ? 'text-emerald-700' : 'text-red-700'}`}>
-                {result.percentage}%
+                {Math.round(result.percentage)}%
               </p>
               <p className={`text-[10px] font-bold uppercase tracking-widest ${result.passed ? 'text-emerald-600' : 'text-red-600'}`}>
                 {result.passed ? 'PASSED' : 'FAILED'}

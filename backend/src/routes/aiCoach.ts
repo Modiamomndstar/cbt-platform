@@ -60,13 +60,13 @@ router.post(
       // 2. Get result details
       const resultQuery = await client.query(
         `SELECT se.*, e.title as exam_title,
-                COALESCE(u.full_name, extr.full_name) as student_name
+                COALESCE(s.full_name, extr.full_name) as student_name
          FROM student_exams se
          JOIN exams e ON se.exam_id = e.id
-         LEFT JOIN users u ON se.student_id = u.id
+         LEFT JOIN students s ON se.student_id = s.id
          LEFT JOIN external_students extr ON se.external_student_id = extr.id
          WHERE se.id = $1 AND (se.student_id = $2 OR se.external_student_id = $2 OR EXISTS (
-           SELECT 1 FROM tutors t WHERE t.id = $2 AND t.school_id = (SELECT school_id FROM exams WHERE id = se.exam_id)
+           SELECT 1 FROM tutors t WHERE t.id = $2 AND t.school_id = e.school_id
          ))`,
         [resultId, user.id],
       );
