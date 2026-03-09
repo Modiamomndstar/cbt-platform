@@ -27,7 +27,7 @@ export default function StudentResults() {
       const response = await resultAPI.getMyHistory();
       if (response.data.success) {
         const allResults = (response.data.data || [])
-          .filter((r: any) => r.status === 'completed')
+          .filter((r: any) => ['completed', 'failed', 'pending_grading', 'disqualified'].includes(r.status))
           .sort((a: any, b: any) => {
             const dateA = new Date(a.submittedAt || a.createdAt || 0).getTime();
             const dateB = new Date(b.submittedAt || b.createdAt || 0).getTime();
@@ -157,10 +157,25 @@ export default function StudentResults() {
                         {result.examCategory || ''}
                       </p>
                     </div>
-                    <div className={`px-4 py-2 rounded-lg ${getScoreBg(result.percentage || 0)}`}>
-                      <span className={`text-2xl font-bold ${getScoreColor(result.percentage || 0)}`}>
-                        {result.percentage || 0}%
+                     <div className={`px-4 py-2 rounded-lg flex flex-col items-center justify-center min-w-[80px] ${
+                      result.status === 'pending_grading' ? 'bg-blue-50' :
+                      result.status === 'disqualified' ? 'bg-gray-100' :
+                      getScoreBg(result.percentage || 0)
+                    }`}>
+                      <span className={`text-2xl font-bold ${
+                        result.status === 'pending_grading' ? 'text-blue-600' :
+                        result.status === 'disqualified' ? 'text-gray-600' :
+                        getScoreColor(result.percentage || 0)
+                      }`}>
+                        {result.status === 'pending_grading' ? '...' :
+                         result.status === 'disqualified' ? '!' : `${result.percentage || 0}%`}
                       </span>
+                      {result.status === 'pending_grading' && (
+                        <span className="text-[8px] font-bold text-blue-500 uppercase">Pending</span>
+                      )}
+                      {result.status === 'disqualified' && (
+                        <span className="text-[8px] font-bold text-red-500 uppercase">DQ</span>
+                      )}
                     </div>
                   </div>
 

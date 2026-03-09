@@ -54,7 +54,7 @@ export default function StudentDashboard() {
 
       if (historyRes.data.success) {
         const history = (historyRes.data.data || [])
-          .filter((r: any) => r.status === 'completed');
+          .filter((r: any) => ['completed', 'failed', 'pending_grading', 'disqualified'].includes(r.status));
 
         setCompletedExams(history.slice(0, 5));
 
@@ -370,24 +370,38 @@ export default function StudentDashboard() {
               {completedExams.map((result: any) => (
                 <div
                   key={result.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer group"
+                  onClick={() => navigate(`/student/results/${result.id}`)}
                 >
                   <div className="flex items-center space-x-3">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      result.status === 'pending_grading' ? 'bg-blue-100' :
+                      result.status === 'disqualified' ? 'bg-gray-200' :
                       (result.percentage || 0) >= 70 ? 'bg-emerald-100' :
                       (result.percentage || 0) >= 50 ? 'bg-amber-100' : 'bg-red-100'
                     }`}>
                       <span className={`text-sm font-semibold ${
+                        result.status === 'pending_grading' ? 'text-blue-700' :
+                        result.status === 'disqualified' ? 'text-gray-700' :
                         (result.percentage || 0) >= 70 ? 'text-emerald-700' :
                         (result.percentage || 0) >= 50 ? 'text-amber-700' : 'text-red-700'
                       }`}>
-                        {result.percentage || 0}%
+                        {result.status === 'pending_grading' ? '...' :
+                         result.status === 'disqualified' ? '!' : `${result.percentage || 0}%`}
                       </span>
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">
-                        {result.examTitle || 'Exam'}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-gray-900 group-hover:text-indigo-600 transition-colors">
+                          {result.examTitle || 'Exam'}
+                        </p>
+                        {result.status === 'pending_grading' && (
+                          <Badge variant="outline" className="text-[10px] h-4 bg-blue-50 text-blue-600 border-blue-200">Pending Grading</Badge>
+                        )}
+                        {result.status === 'disqualified' && (
+                          <Badge variant="destructive" className="text-[10px] h-4">Disqualified</Badge>
+                        )}
+                      </div>
                       <p className="text-sm text-gray-500">
                         {result.submittedAt
                           ? `Submitted on ${formatDate(result.submittedAt)}`
@@ -395,10 +409,13 @@ export default function StudentDashboard() {
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-medium text-gray-900">
-                      {result.score || 0} / {result.totalMarks || 0}
-                    </p>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right hidden sm:block">
+                      <p className="font-medium text-gray-900">
+                        {result.score || 0} / {result.totalMarks || 0}
+                      </p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-gray-400 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
                   </div>
                 </div>
               ))}
