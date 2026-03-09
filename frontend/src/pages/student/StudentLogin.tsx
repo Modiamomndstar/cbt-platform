@@ -11,12 +11,13 @@ import { GraduationCap, ArrowLeft, Clock, Eye, EyeOff, User, KeyRound } from 'lu
 
 export default function StudentLogin() {
   const navigate = useNavigate();
-  const { login, logout } = useAuth();
+  const { login, clearSession } = useAuth();
 
   useEffect(() => {
     // Clear any existing session when the login page loads to avoid 403 errors from background calls
-    logout();
-  }, [logout]);
+    // Using clearSession instead of logout to avoid the hardcoded redirect to /login
+    clearSession();
+  }, [clearSession]);
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');

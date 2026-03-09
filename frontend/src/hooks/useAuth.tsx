@@ -6,6 +6,7 @@ interface AuthContextType {
   user: UserSession | null;
   login: (role: UserRole, email: string, password: string, accessCode?: string) => Promise<{ success: boolean; message?: string; data?: any }>;
   logout: () => void;
+  clearSession: () => void;
   isLoading: boolean;
   refreshUser: () => Promise<void>;
 }
@@ -121,14 +122,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
+    clearSession();
     window.location.href = '/login';
   };
 
+  const clearSession = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading, refreshUser }}>
+    <AuthContext.Provider value={{ user, login, logout, clearSession, isLoading, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
