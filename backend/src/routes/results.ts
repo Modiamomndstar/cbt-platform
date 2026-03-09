@@ -348,14 +348,14 @@ router.get(
 router.get(
   "/:id/detail",
   authenticate,
-  requireRole(["school", "tutor"]),
+  requireRole(["school", "tutor", "student"]),
   async (req: Request, res: Response) => {
     const client = await pool.connect();
     try {
       const { id } = req.params;
       const user = req.user!;
 
-      // Verify exam belongs to user's school
+      // Verify exam belongs to user's school OR belongs to the student
       const result = await client.query(
         `SELECT se.*,
               e.title as exam_title, e.duration, e.total_questions as exam_total_marks, e.passing_score,
@@ -371,8 +371,11 @@ router.get(
          LEFT JOIN students s ON se.student_id = s.id
          LEFT JOIN external_students ext_s ON se.external_student_id = ext_s.id
          JOIN tutors t ON e.tutor_id = t.id
-         WHERE se.id = $1 AND t.school_id = $2`,
-        [id, user.schoolId],
+         WHERE se.id = $1 AND (
+           ($3 = 'student' AND (se.student_id = $2 OR se.external_student_id = $2)) OR
+           (($3 = 'tutor' OR $3 = 'school') AND t.school_id = (SELECT school_id FROM users WHERE id = $2 OR id = (SELECT id FROM schools WHERE id = $2)))
+         )`,
+        [id, user.id, user.role],
       );
 
       if (result.rows.length === 0) {

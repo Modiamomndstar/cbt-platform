@@ -168,7 +168,7 @@ export default function StudentResults() {
                         getScoreColor(result.percentage || 0)
                       }`}>
                         {result.status === 'pending_grading' ? '...' :
-                         result.status === 'disqualified' ? '!' : `${result.percentage || 0}%`}
+                         result.status === 'disqualified' ? '!' : `${Math.round(result.percentage || 0)}%`}
                       </span>
                       {result.status === 'pending_grading' && (
                         <span className="text-[8px] font-bold text-blue-500 uppercase">Pending</span>

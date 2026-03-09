@@ -387,7 +387,7 @@ export default function StudentDashboard() {
                         (result.percentage || 0) >= 50 ? 'text-amber-700' : 'text-red-700'
                       }`}>
                         {result.status === 'pending_grading' ? '...' :
-                         result.status === 'disqualified' ? '!' : `${result.percentage || 0}%`}
+                         result.status === 'disqualified' ? '!' : `${Math.round(result.percentage || 0)}%`}
                       </span>
                     </div>
                     <div>
