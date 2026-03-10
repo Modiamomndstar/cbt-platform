@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { formatDate, formatTimeRange } from '@/lib/dateUtils';
 
 export default function Schedules() {
   const navigate = useNavigate();
@@ -124,11 +125,11 @@ export default function Schedules() {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-900">
-                          {new Date(schedule.scheduledDate).toLocaleDateString()}
+                          {formatDate(schedule.scheduledDate)}
                         </p>
                         <p className="text-xs text-gray-500 flex items-center">
                           <Clock className="h-3 w-3 mr-1" />
-                          {schedule.startTime} - {schedule.endTime || 'End'}
+                          {formatTimeRange(schedule.startTimeIso, schedule.endTimeIso)}
                         </p>
                       </div>
                     </div>

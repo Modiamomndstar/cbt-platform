@@ -14,6 +14,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { formatDate } from '@/lib/dateUtils';
 
 export default function Results() {
   const [results, setResults] = useState<any[]>([]);
@@ -144,7 +145,7 @@ export default function Results() {
                       </div>
                       <div>
                         <p className="text-xs font-medium text-gray-900">
-                          {new Date(result.completedAt || result.createdAt).toLocaleDateString()}
+                          {formatDate(result.completedAt || result.createdAt)}
                         </p>
                         <Badge variant={result.status === 'graded' ? 'default' : 'secondary'} className="mt-1 text-[10px] h-4">
                           {result.status}

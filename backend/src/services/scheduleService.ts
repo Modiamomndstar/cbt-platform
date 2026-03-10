@@ -38,26 +38,58 @@ export const ScheduleService = {
       }
 
       const result = await db.query(sql, params);
+
+      if (result.rows.length > 0) {
+        logger.info(`[ScheduleService] Checking ${result.rows.length} potentially expired schedules...`);
+      }
+
       const overdueSchedules = result.rows.filter(row => {
         const tz = row.school_timezone || 'Africa/Lagos';
 
-        // Current time in school's timezone
-        const schoolNowStr = new Date().toLocaleString('en-SE', { timeZone: tz, hour12: false });
-        // Format: YYYY-MM-DD HH:mm:ss
+        // Get current time parts in school's timezone for robust comparison
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit', second: '2-digit',
+          timeZone: tz, hour12: false
+        });
 
-        // Schedule end time string: YYYY-MM-DD HH:mm:00
+        const nowParts = formatter.formatToParts(new Date());
+        const p: any = {};
+        nowParts.forEach(part => p[part.type] = part.value);
+
+        // en-CA gives YYYY-MM-DD
+        const schoolNowStr = `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}`;
+
+        // Get schedule date in YYYY-MM-DD format consistently
         const scheduleDateStr = typeof row.scheduled_date === 'string'
-          ? row.scheduled_date
-          : row.scheduled_date.toISOString().split('T')[0];
-        const scheduledEndStr = `${scheduleDateStr} ${row.end_time || '23:59'}:00`;
+          ? row.scheduled_date.split('T')[0].split(' ')[0]
+          : new Date(row.scheduled_date).toLocaleDateString('en-CA');
 
-        // Using "Fake UTC" comparison for robustness
-        const parseFakeUtc = (str: string) => new Date(str.replace(' ', 'T') + 'Z');
+        const endTimeStr = row.end_time || '23:59';
+        const finalEndTime = endTimeStr.split(':').length === 2 ? `${endTimeStr}:00` : endTimeStr;
+        const scheduledEndStr = `${scheduleDateStr} ${finalEndTime}`;
+
+        const parseFakeUtc = (str: string) => {
+          try {
+            // str format: YYYY-MM-DD HH:mm:ss
+            return new Date(str.replace(' ', 'T') + 'Z');
+          } catch (e) {
+            return new Date(NaN);
+          }
+        };
 
         const schoolNowDate = parseFakeUtc(schoolNowStr);
         const scheduleEndDate = parseFakeUtc(scheduledEndStr);
 
-        return schoolNowDate > scheduleEndDate;
+        const isExpired = schoolNowDate.getTime() > scheduleEndDate.getTime();
+
+        logger.debug(`[ScheduleService] Check ID=${row.id}: SchoolNow=${schoolNowStr}, End=${scheduledEndStr}, Expired=${isExpired}`);
+
+        if (isExpired) {
+           logger.info(`[ScheduleService] Expiration DETECTED: ID=${row.id}, SchoolTime(${tz})=${schoolNowStr}, ScheduleEnd=${scheduledEndStr}`);
+        }
+
+        return isExpired;
       });
 
       if (overdueSchedules.length === 0) return 0;

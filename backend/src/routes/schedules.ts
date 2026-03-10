@@ -152,6 +152,7 @@ router.get(
       const examPassMark = examCheck.rows[0].passing_score || 50;
 
       // Auto-expire overdue schedules using the central service
+      console.log(`[Routes] Triggering expiration check for exam: ${examId}`);
       await ScheduleService.processExpiredSchedules(examId);
 
       // Validating Dynamic Scoring Logic:
@@ -167,8 +168,12 @@ router.get(
               (SELECT COALESCE(SUM((q->>'marks')::int), 0) FROM jsonb_array_elements(se.assigned_questions) q) as se_total_marks,
               se.percentage,
               se.time_spent_minutes, se.started_at as se_start_time, se.completed_at as se_end_time,
-              se.auto_submitted as se_auto_submitted, se.status as se_status
+              se.auto_submitted as se_auto_submitted, se.status as se_status,
+              sch.timezone as school_timezone
        FROM exam_schedules es
+       JOIN exams e ON es.exam_id = e.id
+       JOIN tutors t ON e.tutor_id = t.id
+       JOIN schools sch ON t.school_id = sch.id
        LEFT JOIN students s ON es.student_id = s.id
        LEFT JOIN external_students ext ON es.external_student_id = ext.id
        LEFT JOIN student_categories sc ON s.category_id = sc.id
@@ -223,6 +228,10 @@ router.get(
             scheduledDate: row.scheduled_date,
             startTime: row.start_time,
             endTime: row.end_time,
+            // Construct ISO strings for consistent frontend display
+            startTimeIso: `${row.scheduled_date.toISOString().split('T')[0]}T${row.start_time}`,
+            endTimeIso: row.end_time ? `${row.scheduled_date.toISOString().split('T')[0]}T${row.end_time}` : null,
+            schoolTimezone: row.school_timezone || 'Africa/Lagos',
             status: row.status,
             statusLabel,
             accessCode: row.login_username,
@@ -268,10 +277,12 @@ router.get(
                e.title as exam_title,
                s.full_name, s.first_name, s.last_name, s.student_id,
                ext.full_name as ext_full_name,
-               t.full_name as tutor_name
+               t.full_name as tutor_name,
+               sch.timezone as school_timezone
         FROM exam_schedules es
         JOIN exams e ON es.exam_id = e.id
         JOIN tutors t ON e.tutor_id = t.id
+        JOIN schools sch ON t.school_id = sch.id
         LEFT JOIN students s ON es.student_id = s.id
         LEFT JOIN external_students ext ON es.external_student_id = ext.id
         WHERE t.school_id = $1 AND es.status != 'cancelled'
@@ -317,6 +328,9 @@ router.get(
           scheduledDate: row.scheduled_date,
           startTime: row.start_time,
           endTime: row.end_time,
+          startTimeIso: `${row.scheduled_date.toISOString().split('T')[0]}T${row.start_time}`,
+          endTimeIso: row.end_time ? `${row.scheduled_date.toISOString().split('T')[0]}T${row.end_time}` : null,
+          schoolTimezone: row.school_timezone || 'Africa/Lagos',
           status: row.status,
           username: row.login_username,
           isExternal: !!row.external_student_id
@@ -487,7 +501,7 @@ router.post(
           );
 
           const studentTotalMarks = assignedQs.reduce(
-            (sum: number, q: any) => sum + (q.marks || 0),
+            (sum: number, q: any) => sum + (parseFloat(q.marks) || 0),
             0,
           );
 
@@ -589,7 +603,7 @@ router.post(
           );
 
           const studentTotalMarks = assignedQs.reduce(
-            (sum: number, q: any) => sum + (q.marks || 0),
+            (sum: number, q: any) => sum + (parseFloat(q.marks) || 0),
             0,
           );
 
@@ -829,12 +843,14 @@ router.get(
 
       const result = await client.query(
         `SELECT es.*,
-              e.title as exam_title, e.description, e.duration, e.total_questions,
+              e.title as exam_title, e.description, e.duration, e.total_questions, e.is_secure_mode, e.max_violations,
               ec.name as category_name,
-              t.first_name as tutor_first_name, t.last_name as tutor_last_name, t.full_name as tutor_full_name
+              t.first_name as tutor_first_name, t.last_name as tutor_last_name, t.full_name as tutor_full_name,
+              sch.timezone as school_timezone
        FROM exam_schedules es
        JOIN exams e ON es.exam_id = e.id
        JOIN tutors t ON e.tutor_id = t.id
+       JOIN schools sch ON t.school_id = sch.id
        LEFT JOIN exam_categories ec ON e.category_id = ec.id
        WHERE (es.student_id = $1 OR es.external_student_id = $1)
          AND es.status IN ('scheduled', 'in_progress', 'expired')
@@ -862,8 +878,13 @@ router.get(
           scheduledDate: row.scheduled_date,
           startTime: row.start_time,
           endTime: row.end_time,
+          startTimeIso: `${row.scheduled_date.toISOString().split('T')[0]}T${row.start_time}`,
+          endTimeIso: row.end_time ? `${row.scheduled_date.toISOString().split('T')[0]}T${row.end_time}` : null,
+          schoolTimezone: row.school_timezone || 'Africa/Lagos',
           status: row.status,
           accessCode: row.login_username,
+          isSecureMode: !!row.is_secure_mode,
+          maxViolations: row.max_violations ?? 3,
         })),
         "Student schedules retrieved",
       );
@@ -1069,6 +1090,8 @@ router.post(
           examTitle: schedule.title,
           examCategory: schedule.category_name || "General",
           durationMinutes: schedule.duration,
+          isSecureMode: !!schedule.is_secure_mode,
+          maxViolations: schedule.max_violations ?? 3,
           startedAt: schedule.started_at || new Date(),
           questions: sanitizedQuestions.map((q: any) => ({
             ...q,

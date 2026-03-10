@@ -151,12 +151,12 @@ export default function StudentResultDetail() {
               </CardTitle>
               <p className="text-sm text-indigo-600/70 font-medium">Detailed Graded Report</p>
             </div>
-            <div className={`px-5 py-3 rounded-2xl ${result.passed ? 'bg-emerald-100' : 'bg-red-100'} text-center`}>
+            <div className={`px-5 py-3 rounded-2xl ${result.passed ? 'bg-emerald-100' : 'bg-red-100'} text-center min-w-[120px]`}>
               <p className={`text-4xl font-black ${result.passed ? 'text-emerald-700' : 'text-red-700'}`}>
-                {Math.round(result.percentage)}%
+                {result.status === 'disqualified' ? '0' : Math.round(result.percentage)}%
               </p>
               <p className={`text-[10px] font-bold uppercase tracking-widest ${result.passed ? 'text-emerald-600' : 'text-red-600'}`}>
-                {result.passed ? 'PASSED' : 'FAILED'}
+                {result.status === 'disqualified' ? 'DISQUALIFIED' : (result.passed ? 'PASSED' : 'FAILED')}
               </p>
             </div>
           </div>

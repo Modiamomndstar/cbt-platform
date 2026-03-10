@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { schoolAPI, uploadAPI } from '@/services/api';
 import { Save, Building2, Upload, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatDate } from '@/lib/dateUtils';
 
 export default function SchoolProfile() {
   const { user } = useAuth();
@@ -320,7 +321,7 @@ export default function SchoolProfile() {
               </div>
               <div>
                 <p className="text-gray-500">Created On</p>
-                <p className="font-medium">{new Date(school.created_at).toLocaleDateString()}</p>
+                <p className="font-medium">{formatDate(school.created_at)}</p>
               </div>
               <div>
                 <p className="text-gray-500">Status</p>

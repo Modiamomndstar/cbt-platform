@@ -10,9 +10,9 @@ export const initCronJobs = () => {
     await processTrialExpiries();
   });
 
-  // Run hourly (at the top of every hour)
-  cron.schedule('0 * * * *', async () => {
-    console.log('[CRON] Starting hourly schedule expiry check...');
+  // Run every 5 minutes
+  cron.schedule('*/5 * * * *', async () => {
+    console.log('[CRON] Starting 5-minute schedule expiry check...');
     try {
       const expiredCount = await ScheduleService.processExpiredSchedules();
       if (expiredCount > 0) {

@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { resultAPI, competitionAPI } from '@/services/api';
 import { Trophy, Medal, Award, MapPin, Globe, Clock, RefreshCcw } from 'lucide-react';
+import { formatTime } from '@/lib/dateUtils';
 
 interface LeaderboardEntry {
   rank: number;
@@ -96,7 +97,7 @@ export default function PublicLeaderboard() {
           <div className="flex flex-col items-end gap-3">
             <div className="flex items-center gap-2 text-sm text-indigo-300">
               <RefreshCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Last updated: {lastUpdated.toLocaleTimeString()}
+              Last updated: {formatTime(lastUpdated)}
             </div>
           </div>
         </div>

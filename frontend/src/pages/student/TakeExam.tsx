@@ -190,7 +190,7 @@ export default function TakeExam() {
         setIsFullscreen(true);
       } catch (err) {
         console.error('Failed to enter fullscreen:', err);
-        toast.error('Fullscreen is required for this competition. Please enable it to proceed.');
+        toast.error('Fullscreen is required for this secure exam. Please enable it to proceed.');
         return;
       }
     }

@@ -9,7 +9,7 @@ import { scheduleAPI, resultAPI, analyticsAPI } from '@/services/api';
 import { CompetitionBanner } from '@/components/competitions/CompetitionBanner';
 import { usePlan } from '@/hooks/usePlan';
 import { FeatureLockedModal, FeatureLockBadge } from '@/components/common/FeatureLock';
-import { formatDate } from '@/lib/dateUtils';
+import { formatDate, formatTimeRange } from '@/lib/dateUtils';
 
 export default function StudentDashboard() {
   const navigate = useNavigate();
@@ -209,9 +209,7 @@ export default function StudentDashboard() {
                     </div>
                     <div className="flex items-center text-gray-600">
                       <Clock className="h-4 w-4 mr-2" />
-                      {schedule.startTime
-                        ? `${schedule.startTime.slice(0, 5)} - ${(schedule.endTime || '').slice(0, 5)}`
-                        : '-'}
+                      {formatTimeRange(schedule.startTimeIso, schedule.endTimeIso)}
                     </div>
                   </div>
 

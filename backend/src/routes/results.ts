@@ -24,12 +24,12 @@ router.post(
 
       // Get exam details and current student category (snapshot)
       const scheduleResult = await client.query(
-        `SELECT es.*, e.duration, e.total_questions as exam_total_marks, e.passing_score,
+        `SELECT es.*, e.duration, e.total_questions as exam_total_marks, e.passing_score, e.is_secure_mode, e.max_violations as exam_max_violations,
                 COALESCE(s.category_id, ext.category_id) as student_category_id,
                 sc.name as student_category_name,
                 comp.id as competition_id,
                 comp.negative_marking_rate,
-                comp.max_violations,
+                comp.max_violations as competition_max_violations,
                 comp.auto_promote
          FROM exam_schedules es
          JOIN exams e ON es.exam_id = e.id
@@ -122,7 +122,11 @@ router.post(
       }
 
       const { violations = [] } = req.body;
-      const isDisqualified = schedule.competition_id && violations.length >= (schedule.max_violations || 3);
+      const tabSwitches = (violations || []).filter((v: any) => v.type === 'tab_switch' || v.type === 'window_blur').length;
+      const fullscreenExits = (violations || []).filter((v: any) => v.type === 'fullscreen_exit').length;
+
+      const maxAllowed = schedule.competition_id ? (schedule.competition_max_violations || 3) : (schedule.exam_max_violations || 3);
+      const isDisqualified = (schedule.competition_id || schedule.is_secure_mode) && violations.length >= maxAllowed;
 
       // Percentage calculation with floor at 0
       const finalScore = isDisqualified ? 0 : Math.max(0, totalScore);
@@ -155,8 +159,10 @@ router.post(
             auto_submitted = $7,
             historical_category_id = $8,
             historical_level_name = $9,
-            snapshot_metadata = $10
-        WHERE exam_schedule_id = $11
+            snapshot_metadata = $10,
+            tab_switch_count = $11,
+            fullscreen_exits = $12
+        WHERE exam_schedule_id = $13
         RETURNING *`,
         [
           finalScore,
@@ -175,6 +181,8 @@ router.post(
             violations: violations, // Log anti-cheating violations
             flagged_questions: req.body.flaggedQuestions || [] // Store flagged questions for tutor reporting
           }),
+          tabSwitches,
+          fullscreenExits,
           scheduleId,
         ],
       );
@@ -389,21 +397,46 @@ router.get(
       // Map answers to questions for a complete view
       const detailedQuestions = assignedQuestions.map((q: any) => {
         const answerRecord = answers.find((a: any) => a.questionId === q.id);
-        const studentAnswer = answerRecord ? answerRecord.studentAnswer : null;
+        let studentAnswer = answerRecord ? answerRecord.studentAnswer : null;
         const marksObtained = answerRecord ? answerRecord.marksObtained : 0;
         const isCorrect = answerRecord ? answerRecord.isCorrect : false;
+        let correctAnswer = q.correct_answer;
+
+        // Map index to text for multiple choice and true/false
+        const mapAnswer = (ans: any) => {
+          if (ans === null || ans === undefined || ans === "") return ans;
+
+          if (q.question_type === 'multiple_choice' && Array.isArray(q.options)) {
+            // Check if answer is a number or a string representing a number
+            if (/^\d+$/.test(String(ans))) {
+              const idx = parseInt(String(ans));
+              if (idx >= 0 && idx < q.options.length) {
+                const opt = q.options[idx];
+                return typeof opt === 'string' ? opt : (opt.text || opt.label || ans);
+              }
+            }
+          } else if (q.question_type === 'true_false') {
+             // Handle 1=True, 0=False
+             if (String(ans) === '1' || String(ans).toLowerCase() === 'true') return 'True';
+             if (String(ans) === '0' || String(ans).toLowerCase() === 'false') return 'False';
+          }
+          return ans;
+        };
+
+        studentAnswer = mapAnswer(studentAnswer);
+        correctAnswer = mapAnswer(correctAnswer);
 
         return {
           id: q.id,
           text: q.question_text,
           type: q.question_type,
           options: q.options,
-          correctAnswer: q.correct_answer,
+          correctAnswer,
           marks: parseFloat(q.marks),
           studentAnswer,
           marksObtained,
           isCorrect,
-          explanation: q.explanation || null // In case we add explanations later
+          explanation: q.explanation || null
         };
       });
 

@@ -8,6 +8,7 @@ import { Loader2, Printer, ArrowLeft, Lock, Sparkles, AlertCircle, CreditCard } 
 import { toast } from 'sonner';
 import { usePlan } from '@/hooks/usePlan';
 import { FeatureLockedModal } from '@/components/common/FeatureLock';
+import { formatDate } from '@/lib/dateUtils';
 
 interface ReportData {
   student: {
@@ -221,7 +222,7 @@ export default function StudentReportCard() {
             </div>
             <div className="grid grid-cols-[120px_1fr]">
               <span className="font-semibold text-muted-foreground">Date:</span>
-              <span className="font-medium">{new Date().toLocaleDateString()}</span>
+              <span className="font-medium">{formatDate(new Date())}</span>
             </div>
           </div>
 

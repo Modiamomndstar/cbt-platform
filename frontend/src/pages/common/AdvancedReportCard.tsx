@@ -29,6 +29,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { IssueReportDialog } from '@/components/analytics/IssueReportDialog';
+import { formatDate } from '@/lib/dateUtils';
 
 interface ExamResult {
   id: string;
@@ -665,7 +666,7 @@ export default function AdvancedReportCard() {
                 </div>
                 <div className="flex justify-between items-center border-b border-slate-200 pb-2">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Transcript Date</span>
-                  <span className="font-bold text-slate-800">{new Date().toLocaleDateString(undefined, { dateStyle: 'long' })}</span>
+                  <span className="font-bold text-slate-800">{formatDate(new Date(), { dateStyle: 'long' })}</span>
                 </div>
               </div>
             </div>

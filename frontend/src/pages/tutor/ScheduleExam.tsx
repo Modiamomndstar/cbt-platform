@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { examAPI, scheduleAPI, categoryAPI, API_BASE_URL, externalStudentAPI } from '@/services/api';
-import { formatDate, formatDateTime } from '@/lib/dateUtils';
+import { formatDate, formatDateTime, formatTimeString } from '@/lib/dateUtils';
 import {
   Calendar,
   ArrowLeft,
@@ -375,7 +375,7 @@ export default function ScheduleExam() {
             <div class="detail"><strong>Student:</strong> <span>${schedule.studentName}</span></div>
             <div class="detail"><strong>Type:</strong> <span>${schedule.isExternal ? 'External' : 'Internal'}</span></div>
             <div class="detail"><strong>Date:</strong> <span>${formatDate(schedule.scheduledDate)}</span></div>
-            <div class="detail"><strong>Time:</strong> <span>${schedule.startTime} - ${schedule.endTime}</span></div>
+            <div class="detail"><strong>Time:</strong> <span>${formatTimeString(schedule.startTime)} - ${formatTimeString(schedule.endTime)}</span></div>
 
             <div class="credentials">
               <div class="detail"><strong>Username:</strong> <span class="code">${schedule.examUsername}</span></div>
@@ -404,7 +404,7 @@ export default function ScheduleExam() {
       s.isExternal ? 'External' : 'Internal',
       s.registrationNumber || '',
       formatDate(s.scheduledDate),
-      `${s.startTime} - ${s.endTime}`,
+      `${formatTimeString(s.startTime)} - ${formatTimeString(s.endTime)}`,
       s.examUsername,
       s.examPassword,
       s.accessCode,
@@ -715,7 +715,7 @@ export default function ScheduleExam() {
                       <td className="px-4 py-3 text-gray-600">
                         {formatDate(schedule.scheduledDate)}
                         <br />
-                        <span className="text-sm">{schedule.startTime} - {schedule.endTime}</span>
+                        <span className="text-sm">{formatTimeString(schedule.startTime)} - {formatTimeString(schedule.endTime)}</span>
                       </td>
                       <td className="px-4 py-3">
                         {getStatusBadge(schedule.status)}
