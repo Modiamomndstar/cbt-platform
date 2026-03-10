@@ -9,21 +9,48 @@ import {
   User,
   Search,
   Filter,
-  FileBarChart,
+  FileText,
   Download,
   Calendar
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { formatDate } from '@/lib/dateUtils';
+import { ResultDetailModal } from '@/components/tutor/ResultDetailModal';
+import { toast } from 'sonner';
 
 export default function Results() {
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Modal State
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [selectedResultId, setSelectedResultId] = useState<string | null>(null);
+  const [detailData, setDetailData] = useState<any>(null);
+
   useEffect(() => {
     loadResults();
   }, []);
+
+  useEffect(() => {
+    if (selectedResultId) {
+      const fetchDetail = async () => {
+        try {
+          const res = await resultAPI.getResultDetail(selectedResultId);
+          setDetailData(res.data.data);
+        } catch (err) {
+          console.error(err);
+          toast.error('Failed to load details');
+        }
+      };
+      fetchDetail();
+    }
+  }, [selectedResultId]);
+
+  const handleViewDetails = (id: string) => {
+    setSelectedResultId(id);
+    setIsDetailOpen(true);
+  };
 
   const loadResults = async () => {
     try {
@@ -158,8 +185,10 @@ export default function Results() {
                     <Button
                       variant="ghost"
                       size="sm"
+                      onClick={() => handleViewDetails(result.id)}
+                      title="View Details"
                     >
-                      <FileBarChart className="h-4 w-4" />
+                      <FileText className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -176,6 +205,15 @@ export default function Results() {
           </CardContent>
         </Card>
       )}
+
+      <ResultDetailModal
+        isOpen={isDetailOpen}
+        onClose={() => {
+           setIsDetailOpen(false);
+           setSelectedResultId(null);
+        }}
+        result={detailData || null}
+      />
     </div>
   );
 }
