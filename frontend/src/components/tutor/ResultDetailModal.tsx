@@ -22,6 +22,7 @@ interface QuestionDetail {
   marksObtained: number;
   isCorrect: boolean;
   explanation?: string;
+  isFlagged?: boolean;
 }
 
 interface ResultDetail {
@@ -54,9 +55,105 @@ export function ResultDetailModal({ isOpen, onClose, result }: ResultDetailModal
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0 dialog-content-print">
         <DialogHeader className="p-6 pb-2">
-          <div className="flex justify-between items-start">
+          <style dangerouslySetInnerHTML={{ __html: `
+            @media print {
+              .fixed, .absolute, .print\\:hidden { display: none !important; }
+              .dialog-content-print {
+                position: static !important;
+                transform: none !important;
+                width: 100% !important;
+                max-width: none !important;
+                height: auto !important;
+                max-height: none !important;
+                display: block !important;
+                overflow: visible !important;
+              }
+              .scroll-area-print {
+                overflow: visible !important;
+                height: auto !important;
+                display: block !important;
+              }
+              body { background: white !important; }
+              .rounded-lg, .border { border-color: #e2e8f0 !important; }
+              div { overflow: visible !important; }
+              @page { margin: 2cm; }
+            }
+          `}} />
+          <style dangerouslySetInnerHTML={{ __html: `
+            @media print {
+              /* Hide EVERYTHING outside the modal portal */
+              #root,
+              header,
+              aside,
+              button[aria-label="Close"],
+              .fixed:not([role="dialog"]),
+              .absolute:not([role="dialog"]) {
+                display: none !important;
+              }
+
+              /* Force the Dialog portal to take up full page width/height */
+              .dialog-content-print {
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                max-width: none !important;
+                height: auto !important;
+                max-height: none !important;
+                display: block !important;
+                overflow: visible !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                border: none !important;
+                box-shadow: none !important;
+                background: white !important;
+              }
+
+              .scroll-area-print {
+                overflow: visible !important;
+                height: auto !important;
+                display: block !important;
+              }
+
+              /* Result Header Report Styles */
+              .report-header {
+                display: block !important;
+                border-bottom: 2px solid #334155 !important;
+                margin-bottom: 2rem !important;
+                padding-bottom: 1rem !important;
+              }
+
+              body {
+                background: white !important;
+                margin: 0 !important;
+                padding: 0 !important;
+              }
+
+              .rounded-lg, .border {
+                border-color: #e2e8f0 !important;
+              }
+
+              div {
+                overflow: visible !important;
+              }
+
+              .print\\:hidden {
+                display: none !important;
+              }
+
+              .no-break {
+                page-break-inside: avoid;
+              }
+
+              @page {
+                margin: 1.5cm;
+                size: portrait;
+              }
+            }
+          `}} />
+          <div className="flex justify-between items-start print:hidden">
             <div>
               <DialogTitle className="text-2xl font-bold">{result.studentName}</DialogTitle>
               <p className="text-sm text-gray-500 mt-1">
@@ -70,38 +167,85 @@ export function ResultDetailModal({ isOpen, onClose, result }: ResultDetailModal
               </Button>
             </div>
           </div>
+
+          {/* Report Header for Print/PDF - EXPLICITLY FORCING VISIBILITY */}
+          <div className="hidden print:block border-b-4 border-slate-900 pb-6 mb-8 mt-4">
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <h1 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-1 text-left">Exam Result Report</h1>
+                <div className="h-1.5 w-32 bg-indigo-600 mb-4"></div>
+                <p className="text-slate-500 font-bold text-sm tracking-widest text-left">COMPUTER BASED TEST PLATFORM • OFFICIAL TRANSCRIPT</p>
+              </div>
+              <div className="text-right flex flex-col items-end">
+                 <div className="bg-slate-900 text-white px-4 py-2 text-xs font-black uppercase tracking-[0.2em] mb-2 rounded-sm">
+                   Authenticated Record
+                 </div>
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Report Generation Date</p>
+                 <p className="text-sm font-bold text-slate-900">{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-12 mt-10">
+              <div className="space-y-6">
+                <div className="border-l-4 border-slate-200 pl-4">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Candidate Full Name</label>
+                  <p className="text-xl font-black text-slate-900 leading-tight">{result.studentName}</p>
+                </div>
+                <div className="border-l-4 border-slate-200 pl-4">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Registration ID / Roll No</label>
+                  <p className="text-xl font-bold font-mono text-slate-900 tracking-tighter">{result.registrationNumber || 'N/A'}</p>
+                </div>
+              </div>
+              <div className="space-y-6 text-right">
+                <div className="pr-4 border-r-4 border-slate-200">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Assessment Title</label>
+                  <p className="text-xl font-black text-slate-900 leading-tight">{result.examTitle}</p>
+                </div>
+                <div className="pr-4 border-r-4 border-slate-200">
+                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Submission Date & Time</label>
+                   <p className="text-xl font-bold text-slate-900">{new Date(result.submittedAt).toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="px-6 py-2 bg-slate-50 border-y flex justify-between items-center text-sm">
-           <div className="flex gap-4">
+        <div className="px-6 py-2 bg-slate-50 border-y flex justify-between items-center text-sm print:bg-white print:border-slate-200">
+           <div className="flex gap-6">
              <div>
-               <span className="text-gray-500">Score:</span>
-               <span className="font-bold ml-1">{result.score} / {result.totalMarks}</span>
+               <span className="text-gray-500 font-medium">Final Score:</span>
+               <span className="font-bold ml-1 text-slate-900">{result.score} / {result.totalMarks}</span>
              </div>
              <div>
-               <span className="text-gray-500">Percentage:</span>
+               <span className="text-gray-500 font-medium">Performance:</span>
                <span className={`font-bold ml-1 ${result.passed ? 'text-green-600' : 'text-red-600'}`}>
-                 {result.percentage}% ({result.passed ? 'PASS' : 'FAIL'})
+                 {Math.round(result.percentage)}% ({result.passed ? 'PASS' : 'FAIL'})
                </span>
              </div>
              <div>
-                <span className="text-gray-500">Time Spent:</span>
-                <span className="font-bold ml-1">{result.timeSpentMinutes} min</span>
+                <span className="text-gray-500 font-medium text-slate-600">Time Taken:</span>
+                <span className="font-bold ml-1 text-slate-900">{result.timeSpentMinutes} min</span>
              </div>
            </div>
-           <div className="text-gray-500">
+           <div className="text-gray-500 print:hidden">
              Submitted: {new Date(result.submittedAt).toLocaleString()}
            </div>
         </div>
 
-        <ScrollArea className="flex-1 p-6">
+        <ScrollArea className="flex-1 p-6 scroll-area-print">
           <div className="space-y-6">
             {result.questions.map((q, index) => (
-              <div key={q.id} className={`border rounded-lg p-4 ${q.isCorrect ? 'bg-green-50/50 border-green-200' : 'bg-red-50/50 border-red-200'}`}>
+              <div key={q.id} className={`border rounded-lg p-4 no-break mb-6 ${q.isCorrect ? 'bg-green-50/50 border-green-200' : 'bg-red-50/50 border-red-200'}`}>
                 <div className="flex justify-between items-start mb-2">
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
                     <span className="font-bold text-gray-700">Q{index + 1}.</span>
                     <div className="font-medium text-gray-900" dangerouslySetInnerHTML={{ __html: q.text }} />
+                    {q.isFlagged && (
+                      <Badge variant="outline" className="ml-2 bg-amber-100 text-amber-700 border-amber-200 gap-1 animate-pulse print:animate-none">
+                        <AlertCircle className="h-3 w-3" />
+                        Flagged
+                      </Badge>
+                    )}
                   </div>
                   <Badge variant={q.isCorrect ? 'default' : 'destructive'} className={q.isCorrect ? 'bg-green-600' : ''}>
                     {q.marksObtained} / {q.marks} Marks

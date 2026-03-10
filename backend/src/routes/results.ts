@@ -129,8 +129,8 @@ router.post(
       const isDisqualified = (schedule.competition_id || schedule.is_secure_mode) && violations.length >= maxAllowed;
 
       // Percentage calculation with floor at 0
-      const finalScore = isDisqualified ? 0 : Math.max(0, totalScore);
-      const percentage = totalPossibleMarks > 0 ? (finalScore / totalPossibleMarks) * 100 : 0;
+      const finalScore = isDisqualified ? 0 : Math.round(Math.max(0, totalScore));
+      const percentage = totalPossibleMarks > 0 ? Math.round((finalScore / totalPossibleMarks) * 100) : 0;
       const passed = !isDisqualified && percentage >= schedule.passing_score;
 
       // Check if any question requires manual grading
@@ -393,6 +393,8 @@ router.get(
       const row = result.rows[0];
       const assignedQuestions = row.assigned_questions || [];
       const answers = row.answers || []; // JSON array: { questionId, studentAnswer, marksObtained, ... }
+      const snapshotMetadata = row.snapshot_metadata || {};
+      const flaggedQuestions = snapshotMetadata.flagged_questions || [];
 
       // Map answers to questions for a complete view
       const detailedQuestions = assignedQuestions.map((q: any) => {
@@ -416,9 +418,9 @@ router.get(
               }
             }
           } else if (q.question_type === 'true_false') {
-             // Handle 1=True, 0=False
-             if (String(ans) === '1' || String(ans).toLowerCase() === 'true') return 'True';
-             if (String(ans) === '0' || String(ans).toLowerCase() === 'false') return 'False';
+             // Handle 0=True, 1=False to match index-based system
+             if (String(ans) === '0' || String(ans).toLowerCase() === 'true') return 'True';
+             if (String(ans) === '1' || String(ans).toLowerCase() === 'false') return 'False';
           }
           return ans;
         };
@@ -436,7 +438,8 @@ router.get(
           studentAnswer,
           marksObtained,
           isCorrect,
-          explanation: q.explanation || null
+          explanation: q.explanation || null,
+          isFlagged: flaggedQuestions.includes(q.id)
         };
       });
 
@@ -447,10 +450,10 @@ router.get(
         examTitle: row.exam_title,
         examCategory: row.exam_category,
         examType: row.exam_type_name || row.exam_type,
-        score: parseFloat(row.score),
-        totalMarks: parseFloat(row.total_marks),
-        percentage: parseFloat(row.percentage),
-        passed: parseFloat(row.percentage) >= row.passing_score,
+        score: Math.round(parseFloat(row.score)),
+        totalMarks: Math.round(parseFloat(row.total_marks)),
+        percentage: Math.round(parseFloat(row.percentage)),
+        passed: Math.round(parseFloat(row.percentage)) >= row.passing_score,
         status: row.status,
         timeSpentMinutes: row.time_spent_minutes,
         submittedAt: row.completed_at,

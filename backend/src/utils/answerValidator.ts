@@ -99,8 +99,9 @@ function validateTrueFalse(
   const correct = String(correctAnswer).toLowerCase().trim();
 
   // Normalize common true/false representations
-  const trueValues = ['true', 'yes', '1', 't', 'y'];
-  const falseValues = ['false', 'no', '0', 'f', 'n'];
+  // 0 = True, 1 = False to match frontend index-based system
+  const trueValues = ['true', 'yes', '0', 't', 'y'];
+  const falseValues = ['false', 'no', '1', 'f', 'n'];
 
   const isStudentTrue = trueValues.includes(student);
   const isStudentFalse = falseValues.includes(student);

@@ -638,6 +638,15 @@ export default function TakeExam() {
                       className="w-full p-6 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-600 transition-all font-bold text-lg"
                     />
                   )}
+
+                  {!['multiple_choice', 'true_false', 'fill_blank'].includes(currentQuestion.questionType) && (
+                    <Alert className="bg-amber-50 border-amber-200">
+                      <AlertCircle className="h-4 w-4 text-amber-600" />
+                      <AlertDescription className="text-amber-800">
+                        This question type ({currentQuestion.questionType}) is not supported for automatic grading or requires a special input method. Please contact your tutor if you are unsure how to proceed.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </div>
               </CardContent>
             </Card>

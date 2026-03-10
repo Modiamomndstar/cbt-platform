@@ -1269,6 +1269,19 @@ async function assignQuestions(
 
   let allQuestions = result.rows;
 
+  // 1a. Deduplicate by question_text to ensure unique questions
+  const seenTexts = new Set();
+  allQuestions = allQuestions.filter((q: any) => {
+    const normalizedText = (q.question_text || "").trim().toLowerCase();
+    if (seenTexts.has(normalizedText)) return false;
+    seenTexts.add(normalizedText);
+    return true;
+  });
+
+  // 1b. Filter for supported question types
+  const supportedTypes = ['multiple_choice', 'true_false', 'fill_blank', 'theory'];
+  allQuestions = allQuestions.filter((q: any) => supportedTypes.includes(q.question_type));
+
   // If no limit set, return all (shuffled if needed)
   if (!limit || limit <= 0 || limit >= allQuestions.length) {
     if (shuffleQs) {
