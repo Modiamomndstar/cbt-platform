@@ -196,6 +196,22 @@ export default function ScheduleExam() {
       return;
     }
 
+    // Guardrail: check for past date/time
+    const now = new Date();
+    const scheduleDateTime = new Date(`${scheduleForm.date}T${scheduleForm.startTime}`);
+    if (scheduleDateTime < now) {
+      toast.error('Cannot schedule an exam in the past');
+      return;
+    }
+
+    if (scheduleForm.endTime) {
+      const endDateTime = new Date(`${scheduleForm.date}T${scheduleForm.endTime}`);
+      if (endDateTime <= scheduleDateTime) {
+        toast.error('End time must be after start time');
+        return;
+      }
+    }
+
     try {
       // Partition selected students into Internal and External correctly
       // We use the studentTypeMap which is populated during loadAvailableStudents
@@ -256,6 +272,20 @@ export default function ScheduleExam() {
   const submitReschedule = async () => {
     if (!rescheduleData || !rescheduleForm.date || !rescheduleForm.startTime || !rescheduleForm.endTime) {
       toast.error('Please fill in date, start time, and end time');
+      return;
+    }
+
+    // Guardrail: check for past date/time
+    const now = new Date();
+    const scheduleDateTime = new Date(`${rescheduleForm.date}T${rescheduleForm.startTime}`);
+    if (scheduleDateTime < now) {
+      toast.error('Cannot reschedule an exam in the past');
+      return;
+    }
+
+    const endDateTime = new Date(`${rescheduleForm.date}T${rescheduleForm.endTime}`);
+    if (endDateTime <= scheduleDateTime) {
+      toast.error('End time must be after start time');
       return;
     }
 
@@ -526,6 +556,7 @@ export default function ScheduleExam() {
                     <Label>Date *</Label>
                     <Input
                       type="date"
+                      min={new Date().toISOString().split('T')[0]}
                       value={scheduleForm.date}
                       onChange={(e) => setScheduleForm(prev => ({ ...prev, date: e.target.value }))}
                       required

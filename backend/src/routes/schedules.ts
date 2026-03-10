@@ -365,6 +365,30 @@ router.post(
       } = req.body;
       const user = req.user!;
 
+      // Guardrail: Prevent scheduling in the past
+      if (scheduledDate && startTime) {
+          const now = new Date();
+          // Use Lagos timezone for comparison if available, otherwise just use server time
+          // Africa/Lagos is UTC+1. The server might be UTC.
+          // For absolute safety, we compare the combined ISO string
+          const scheduleDateTime = new Date(`${scheduledDate}T${startTime}`);
+
+          if (isNaN(scheduleDateTime.getTime())) {
+              return ApiResponseHandler.badRequest(res, "Invalid date or time format");
+          }
+
+          if (scheduleDateTime < now) {
+              return ApiResponseHandler.badRequest(res, "Cannot schedule an exam in the past");
+          }
+
+          if (endTime) {
+              const endDateTime = new Date(`${scheduledDate}T${endTime}`);
+              if (!isNaN(endDateTime.getTime()) && endDateTime <= scheduleDateTime) {
+                  return ApiResponseHandler.badRequest(res, "End time must be after start time");
+              }
+          }
+      }
+
       // Verify exam belongs to user's school
       const examCheck = await client.query(
         `SELECT e.* FROM exams e
@@ -661,6 +685,27 @@ router.put(
       const { id } = req.params;
       const { scheduledDate, startTime, endTime, status } = req.body;
       const user = req.user!;
+
+      // Guardrail: Prevent rescheduling in the past
+      if (scheduledDate && startTime) {
+          const now = new Date();
+          const scheduleDateTime = new Date(`${scheduledDate}T${startTime}`);
+
+          if (isNaN(scheduleDateTime.getTime())) {
+              return ApiResponseHandler.badRequest(res, "Invalid date or time format");
+          }
+
+          if (scheduleDateTime < now) {
+              return ApiResponseHandler.badRequest(res, "Cannot reschedule an exam in the past");
+          }
+
+          if (endTime) {
+              const endDateTime = new Date(`${scheduledDate}T${endTime}`);
+              if (!isNaN(endDateTime.getTime()) && endDateTime <= scheduleDateTime) {
+                  return ApiResponseHandler.badRequest(res, "End time must be after start time");
+              }
+          }
+      }
 
       // Verify schedule belongs to user's school
       const scheduleCheck = await client.query(
