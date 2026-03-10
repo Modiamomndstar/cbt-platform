@@ -304,7 +304,7 @@ export default function TakeExam() {
           <div className="bg-indigo-600 p-6 text-white">
             <h2 className="text-2xl font-black flex items-center gap-3">
               <ShieldCheck className="h-8 w-8" />
-              Competition Rules
+              {exam?.isCompetition ? 'Competition Rules' : 'CBT Assessment Rules'}
             </h2>
             <p className="text-indigo-100 mt-1">Please read carefully before beginning</p>
           </div>
@@ -313,7 +313,7 @@ export default function TakeExam() {
               <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 prose prose-slate max-w-none">
                 <h3 className="text-lg font-bold text-slate-900 mb-2">Terms & Regulations</h3>
                 <div className="text-slate-600 whitespace-pre-wrap leading-relaxed">
-                  {exam?.rules || "No specific rules provided for this competition."}
+                  {exam?.rules || `No specific rules provided for this ${exam?.isCompetition ? 'competition' : 'assessment'}.`}
                 </div>
               </div>
 
@@ -345,7 +345,7 @@ export default function TakeExam() {
                   htmlFor="agree"
                   className="text-sm font-bold text-slate-700 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                 >
-                  I have read and agree to follow all the rules of this competition.
+                  I have read and agree to follow all the rules of this {exam?.isCompetition ? 'competition' : 'assessment'}.
                 </label>
               </div>
 
@@ -357,8 +357,8 @@ export default function TakeExam() {
                 >
                   {verifying ? 'Starting...' : (
                     <div className="flex items-center gap-2">
-                      Enter Fullscreen & Start Competition
-                      <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                       Enter Fullscreen & Launch {exam?.isCompetition ? 'Competition' : 'Assessment'}
+                       <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
                     </div>
                   )}
                 </Button>
@@ -413,7 +413,7 @@ export default function TakeExam() {
                 <ul className="text-sm text-indigo-700 space-y-2 font-medium">
                   <li className="flex gap-2 items-start"><span className="h-1.5 w-1.5 rounded-full bg-indigo-500 mt-1.5 shrink-0" /> Timer starts immediately upon launch.</li>
                   <li className="flex gap-2 items-start"><span className="h-1.5 w-1.5 rounded-full bg-indigo-500 mt-1.5 shrink-0" /> Do not refresh or use browser navigation.</li>
-                  <li className="flex gap-2 items-start"><span className="h-1.5 w-1.5 rounded-full bg-indigo-500 mt-1.5 shrink-0" /> Competition exams have strict anti-cheating protocols.</li>
+                  <li className="flex gap-2 items-start"><span className="h-1.5 w-1.5 rounded-full bg-indigo-500 mt-1.5 shrink-0" /> {exam?.isCompetition ? 'Competition' : 'Assessment'}s have strict anti-cheating protocols.</li>
                 </ul>
               </div>
 
@@ -432,7 +432,7 @@ export default function TakeExam() {
                 ) : (
                    <div className="flex items-center gap-2">
                       {exam?.isCompetition ? <ShieldCheck className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-                      Launch {exam?.isCompetition ? 'Competition' : 'Exam'}
+                      Launch {exam?.isCompetition ? 'Competition' : 'Assessment'}
                    </div>
                 )}
               </Button>
@@ -456,7 +456,7 @@ export default function TakeExam() {
           <div>
             <div className="flex items-center gap-2 mb-1">
                <Badge className={`${exam?.isCompetition ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'} rounded-full px-3`}>
-                  {exam?.isCompetition ? 'Competition Mode' : 'Standard Exam'}
+                  {exam?.isCompetition ? 'Competition Mode' : 'Standard Assessment'}
                </Badge>
                 {exam?.isCompetition && (
                    <Badge className={`${

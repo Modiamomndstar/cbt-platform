@@ -888,15 +888,19 @@ router.get(
 
       const result = await client.query(
         `SELECT es.*,
-              e.title as exam_title, e.description, e.duration, e.total_questions, e.is_secure_mode, e.max_violations,
-              ec.name as category_name,
-              t.first_name as tutor_first_name, t.last_name as tutor_last_name, t.full_name as tutor_full_name,
-              sch.timezone as school_timezone
-       FROM exam_schedules es
-       JOIN exams e ON es.exam_id = e.id
-       JOIN tutors t ON e.tutor_id = t.id
-       JOIN schools sch ON t.school_id = sch.id
-       LEFT JOIN exam_categories ec ON e.category_id = ec.id
+                e.title as exam_title, e.description, e.duration, e.total_questions, e.is_secure_mode, e.max_violations,
+                ec.name as category_name,
+                t.first_name as tutor_first_name, t.last_name as tutor_last_name, t.full_name as tutor_full_name,
+                sch.timezone as school_timezone,
+                comp.id as db_competition_id, comp.competition_rules
+         FROM exam_schedules es
+         JOIN exams e ON es.exam_id = e.id
+         JOIN tutors t ON e.tutor_id = t.id
+         JOIN schools sch ON t.school_id = sch.id
+         LEFT JOIN exam_categories ec ON e.category_id = ec.id
+         LEFT JOIN competition_stages cs ON es.competition_stage_id = cs.id
+         LEFT JOIN competition_categories ccat ON cs.competition_category_id = ccat.id
+         LEFT JOIN competitions comp ON ccat.competition_id = comp.id
        WHERE (es.student_id = $1 OR es.external_student_id = $1)
          AND es.status IN ('scheduled', 'in_progress', 'expired')
          AND es.scheduled_date >= CURRENT_DATE - INTERVAL '7 days'
@@ -930,6 +934,8 @@ router.get(
           accessCode: row.login_username,
           isSecureMode: !!row.is_secure_mode,
           maxViolations: row.max_violations ?? 3,
+          competitionId: row.db_competition_id,
+          competitionRules: row.competition_rules
         })),
         "Student schedules retrieved",
       );
@@ -955,10 +961,14 @@ router.post(
 
        const result = await client.query(
         `SELECT es.*, e.duration, e.title, e.id as eid, e.total_questions, e.shuffle_questions, e.shuffle_options, e.is_secure_mode, e.max_violations,
-                ec.name as category_name
+                ec.name as category_name,
+                comp.id as db_competition_id, comp.competition_rules
           FROM exam_schedules es
           JOIN exams e ON es.exam_id = e.id
           LEFT JOIN exam_categories ec ON e.category_id = ec.id
+          LEFT JOIN competition_stages cs ON es.competition_stage_id = cs.id
+          LEFT JOIN competition_categories ccat ON cs.competition_category_id = ccat.id
+          LEFT JOIN competitions comp ON ccat.competition_id = comp.id
           WHERE es.id = $1 AND (es.student_id = $2 OR es.external_student_id = $2) AND es.status IN ('scheduled', 'in_progress')`,
         [scheduleId, user.id],
       );
@@ -1137,6 +1147,8 @@ router.post(
           durationMinutes: schedule.duration,
           isSecureMode: !!schedule.is_secure_mode,
           maxViolations: schedule.max_violations ?? 3,
+          competitionId: schedule.db_competition_id,
+          competitionRules: schedule.competition_rules,
           startedAt: schedule.started_at || new Date(),
           questions: sanitizedQuestions.map((q: any) => ({
             ...q,
