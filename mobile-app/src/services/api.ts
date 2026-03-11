@@ -1,8 +1,12 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Update this with your backend URL
+// 💡 TESTING TIP:
+// 1. For Production: Use 'https://mycbtplatform.cc/api'
+// 2. For Local Phone Testing: Use your computer's local IP (e.g., 'http://192.168.1.5:5000/api')
+//    Ensure both computer and phone are on the same Wi-Fi.
 const API_BASE_URL = 'https://mycbtplatform.cc/api';
+// const API_BASE_URL = 'http://YOUR_LOCAL_IP:5000/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -69,9 +73,17 @@ export const examAPI = {
 
 // Result API
 export const resultAPI = {
-  submitExam: (data: any) => api.post('/results/submit', data),
+  submitExam: (data: {
+    scheduleId: string;
+    answers: Record<string, any>;
+    timeSpentMinutes: number;
+    violations?: any[];
+    flaggedQuestions?: string[];
+    autoSubmitted?: boolean;
+  }) => api.post('/results/submit', data),
   getMyHistory: () => api.get('/results/my-history'),
   getMyResult: (scheduleId: string) => api.get(`/results/my-result/${scheduleId}`),
+  getResultDetail: (resultId: string) => api.get(`/results/${resultId}/detail`),
 };
 
 // Analytics API

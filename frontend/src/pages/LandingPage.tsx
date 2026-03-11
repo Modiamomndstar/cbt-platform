@@ -240,16 +240,16 @@ export default function LandingPage() {
                 your Android or iOS device. Our mobile app is optimized for a
                 seamless and secure testing experience even on low bandwidth.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col sm:flex-row gap-4 mb-6">
                 <Button
                   size="lg"
                   className="bg-indigo-600 hover:bg-indigo-700"
-                  onClick={() => window.open('/downloads/cbt-platform.apk', '_blank')}
+                  onClick={() => window.open('/downloads/cbt-platform-v1.apk', '_blank')}
                 >
                   <div className="flex items-center text-left">
                     <Download className="mr-3 h-6 w-6" />
                     <div>
-                      <p className="text-[10px] uppercase font-bold leading-none">Download</p>
+                      <p className="text-[10px] uppercase font-bold leading-none">Download V1</p>
                       <p className="text-lg font-bold">Android APK</p>
                     </div>
                   </div>
@@ -268,6 +268,15 @@ export default function LandingPage() {
                     </div>
                   </div>
                 </Button>
+              </div>
+
+              <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
+                <p className="text-sm font-semibold text-indigo-900 mb-1">Installation Guide:</p>
+                <ul className="text-xs text-indigo-700 space-y-1">
+                  <li>1. Download the APK file directly to your device.</li>
+                  <li>2. Open the file and tap "Settings" if prompted to allow unknown sources.</li>
+                  <li>3. Enable "Allow from this source" and tap "Install".</li>
+                </ul>
               </div>
             </div>
           </div>

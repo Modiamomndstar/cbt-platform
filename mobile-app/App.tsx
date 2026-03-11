@@ -11,6 +11,7 @@ import DashboardScreen from './src/screens/DashboardScreen';
 import ExamsScreen from './src/screens/ExamsScreen';
 import TakeExamScreen from './src/screens/TakeExamScreen';
 import ResultsScreen from './src/screens/ResultsScreen';
+import ResultDetailScreen from './src/screens/ResultDetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 
 const Stack = createStackNavigator();
@@ -28,33 +29,38 @@ export default function App() {
               headerTitleStyle: { fontWeight: 'bold' },
             }}
           >
-            <Stack.Screen 
-              name="Login" 
-              component={LoginScreen} 
+            <Stack.Screen
+              name="Login"
+              component={LoginScreen}
               options={{ headerShown: false }}
             />
-            <Stack.Screen 
-              name="Dashboard" 
+            <Stack.Screen
+              name="Dashboard"
               component={DashboardScreen}
               options={{ title: 'My Dashboard' }}
             />
-            <Stack.Screen 
-              name="Exams" 
+            <Stack.Screen
+              name="Exams"
               component={ExamsScreen}
               options={{ title: 'My Exams' }}
             />
-            <Stack.Screen 
-              name="TakeExam" 
+            <Stack.Screen
+              name="TakeExam"
               component={TakeExamScreen}
               options={{ title: 'Take Exam', headerLeft: () => null }}
             />
-            <Stack.Screen 
-              name="Results" 
+            <Stack.Screen
+              name="Results"
               component={ResultsScreen}
               options={{ title: 'My Results' }}
             />
-            <Stack.Screen 
-              name="Profile" 
+            <Stack.Screen
+              name="ResultDetail"
+              component={ResultDetailScreen}
+              options={{ title: 'Result Analysis' }}
+            />
+            <Stack.Screen
+              name="Profile"
               component={ProfileScreen}
               options={{ title: 'My Profile' }}
             />

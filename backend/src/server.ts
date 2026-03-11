@@ -58,7 +58,14 @@ app.use(
         if (!origin || origin.startsWith("http://localhost:")) {
           return callback(null, true);
         }
-        allowed.push("http://localhost", "http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:80");
+        allowed.push(
+          "http://localhost",
+          "http://localhost:5173",
+          "http://localhost:5174",
+          "http://localhost:5175",
+          "http://localhost:80",
+          "http://localhost:8081" // Expo Web
+        );
       }
 
       if (!origin || allowed.indexOf(origin) !== -1) {

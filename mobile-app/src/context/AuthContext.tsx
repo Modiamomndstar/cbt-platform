@@ -57,9 +57,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return { success: false, message: response.data.message };
     } catch (error: any) {
+      console.error('Login error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        code: error.code
+      });
+
+      if (error.code === 'ERR_NETWORK' || !error.response) {
+        return {
+          success: false,
+          message: 'Network error: Cannot reach the server. Please check your internet connection or API_BASE_URL.'
+        };
+      }
+
       return {
         success: false,
-        message: error.response?.data?.message || 'Login failed'
+        message: error.response?.data?.message || 'Login failed: ' + (error.message || 'Unknown error')
       };
     }
   };

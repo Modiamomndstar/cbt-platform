@@ -131,7 +131,7 @@ export default function LoginScreen({ navigation }: any) {
         </View>
 
         <Text style={styles.title}>Welcome Back!</Text>
-        <Text style={styles.subtitle}>Login to take your exams</Text>
+        <Text style={styles.subtitle}>Login to take your assessments</Text>
 
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Email or Username</Text>

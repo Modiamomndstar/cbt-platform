@@ -10,6 +10,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { analyticsAPI, scheduleAPI } from '../services/api';
+import { formatDate, getExamLabel } from '../lib/utils';
 import BroadcastModal from '../components/BroadcastModal';
 
 export default function DashboardScreen({ navigation }: any) {
@@ -225,13 +226,13 @@ export default function DashboardScreen({ navigation }: any) {
             <View key={exam.id} style={styles.examCard}>
               <Text style={styles.examTitle}>{exam.examTitle}</Text>
               <Text style={styles.examDate}>
-                {new Date(exam.scheduledDate).toLocaleDateString()} at {exam.startTime}
+                {formatDate(exam.scheduledDate)} at {exam.startTime}
               </Text>
               <TouchableOpacity
                 style={styles.startButton}
                 onPress={() => navigation.navigate('TakeExam', { scheduleId: exam.id })}
               >
-                <Text style={styles.startButtonText}>Start Exam</Text>
+                <Text style={styles.startButtonText}>Start {getExamLabel(!!exam.isCompetition)}</Text>
               </TouchableOpacity>
             </View>
           ))

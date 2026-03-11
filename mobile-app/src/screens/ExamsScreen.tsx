@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { scheduleAPI } from '../services/api';
+import { formatDate, getExamLabel } from '../lib/utils';
 
 export default function ExamsScreen({ navigation }: any) {
   const { colors, spacing, fontSize } = useTheme();
@@ -43,17 +44,23 @@ export default function ExamsScreen({ navigation }: any) {
     >
       <View style={styles.examHeader}>
         <Text style={styles.examTitle}>{item.examTitle}</Text>
-        <View style={[styles.statusBadge, { 
-          backgroundColor: item.status === 'scheduled' ? colors.warning : colors.success 
+        <View style={[styles.statusBadge, {
+          backgroundColor: item.status === 'scheduled' ? colors.warning : colors.success
         }]}>
-          <Text style={styles.statusText}>{item.status}</Text>
+          <Text style={styles.statusText}>{item.status === 'scheduled' ? 'Scheduled' : 'Available'}</Text>
+        </View>
+        <View style={[styles.statusBadge, {
+          backgroundColor: item.isCompetition ? colors.primary : colors.success,
+          marginLeft: spacing.xs
+        }]}>
+          <Text style={styles.statusText}>{getExamLabel(!!item.isCompetition)}</Text>
         </View>
       </View>
       <Text style={styles.examInfo}>
         Duration: {item.durationMinutes} minutes
       </Text>
       <Text style={styles.examInfo}>
-        Scheduled: {new Date(item.scheduledDate).toLocaleDateString()} at {item.startTime}
+        Scheduled: {formatDate(item.scheduledDate)} at {item.startTime}
       </Text>
     </TouchableOpacity>
   );

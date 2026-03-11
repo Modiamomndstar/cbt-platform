@@ -16,14 +16,14 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.cbtplatform.mobile"
+      "bundleIdentifier": "com.mycbtplatform.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#4f46e5"
       },
-      "package": "com.cbtplatform.mobile"
+      "package": "com.mycbtplatform.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"

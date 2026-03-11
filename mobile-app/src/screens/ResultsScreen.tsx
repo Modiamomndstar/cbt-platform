@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { resultAPI, aiAPI } from '../services/api';
+import { formatDate } from '../lib/utils';
 import {
   Modal,
   TouchableOpacity,
@@ -16,7 +17,7 @@ import {
   Alert
 } from 'react-native';
 
-export default function ResultsScreen() {
+export default function ResultsScreen({ navigation }: any) {
   const { colors, spacing, fontSize } = useTheme();
   const [results, setResults] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -94,15 +95,24 @@ export default function ResultsScreen() {
       </View>
 
       <Text style={styles.dateText}>
-        Taken on: {new Date(item.submittedAt).toLocaleDateString()}
+        Taken on: {formatDate(item.submittedAt)}
       </Text>
 
-      <TouchableOpacity
-        style={styles.aiButton}
-        onPress={() => handleExplainResult(item.id)}
-      >
-        <Text style={styles.aiButtonText}>✨ AI Performance Analysis</Text>
-      </TouchableOpacity>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <TouchableOpacity
+          style={[styles.aiButton, { flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.primary }]}
+          onPress={() => navigation.navigate('ResultDetail', { resultId: item.id })}
+        >
+          <Text style={[styles.aiButtonText, { color: colors.primary }]}>View Details</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.aiButton, { flex: 1 }]}
+          onPress={() => handleExplainResult(item.id)}
+        >
+          <Text style={styles.aiButtonText}>✨ AI Insight</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -242,7 +252,7 @@ export default function ResultsScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         ListEmptyComponent={
-          <Text style={styles.emptyText}>No exam results yet</Text>
+          <Text style={styles.emptyText}>No results found yet. Take an assessment to see your progress!</Text>
         }
       />
 
