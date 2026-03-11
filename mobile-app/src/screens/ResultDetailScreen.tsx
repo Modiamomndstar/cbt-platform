@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,21 +11,18 @@ import {
 import { useTheme } from '../context/ThemeContext';
 import { resultAPI, aiAPI } from '../services/api';
 import { formatDate, formatTime } from '../lib/utils';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function ResultDetailScreen({ route }: any) {
   const { resultId } = route.params;
-  const { colors, spacing, fontSize } = useTheme();
+  const { colors, spacing } = useTheme();
 
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<any>(null);
   const [explainingId, setExplainingId] = useState<string | null>(null);
   const [explanations, setExplanations] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    loadDetail();
-  }, []);
-
-  const loadDetail = async () => {
+  const loadDetail = useCallback(async () => {
     try {
       const response = await resultAPI.getResultDetail(resultId);
       if (response.data.success) {
@@ -37,7 +34,11 @@ export default function ResultDetailScreen({ route }: any) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [resultId]);
+
+  useEffect(() => {
+    loadDetail();
+  }, [loadDetail]);
 
   const explainQuestion = async (q: any) => {
     try {
@@ -63,10 +64,160 @@ export default function ResultDetailScreen({ route }: any) {
     }
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: '#f8fafc',
+    },
+    header: {
+      backgroundColor: '#fff',
+      padding: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: '#e2e8f0',
+    },
+    examTitle: {
+      fontSize: 22,
+      fontWeight: 'bold',
+      color: '#1e293b',
+      marginBottom: 4,
+    },
+    dateRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: spacing.lg,
+      gap: 6,
+    },
+    dateText: {
+      fontSize: 14,
+      color: '#64748b',
+    },
+    statsGrid: {
+      flexDirection: 'row',
+      backgroundColor: '#f1f5f9',
+      borderRadius: 16,
+      padding: spacing.md,
+      gap: 12,
+    },
+    statBox: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    statValue: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: '#0f172a',
+    },
+    statLabel: {
+      fontSize: 11,
+      color: '#64748b',
+      marginTop: 2,
+    },
+    section: {
+      padding: spacing.lg,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: '#334155',
+      marginBottom: spacing.md,
+    },
+    questionCard: {
+      backgroundColor: '#fff',
+      borderRadius: 16,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+      borderLeftWidth: 5,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 5,
+      elevation: 2,
+    },
+    qHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.sm,
+    },
+    qNumber: {
+      fontSize: 13,
+      fontWeight: 'bold',
+      color: '#64748b',
+    },
+    qScore: {
+      fontSize: 12,
+      fontWeight: 'bold',
+    },
+    qText: {
+      fontSize: 15,
+      color: '#1e293b',
+      lineHeight: 22,
+      marginBottom: spacing.md,
+    },
+    answerContainer: {
+      flexDirection: 'row',
+      gap: 12,
+      marginBottom: spacing.md,
+    },
+    answerBox: {
+      flex: 1,
+      backgroundColor: '#f8fafc',
+      padding: 10,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: '#e2e8f0',
+    },
+    answerLabel: {
+      fontSize: 10,
+      fontWeight: 'bold',
+      color: '#94a3b8',
+      textTransform: 'uppercase',
+      marginBottom: 2,
+    },
+    answerValue: {
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    aiBtn: {
+      backgroundColor: '#f5f3ff',
+      padding: 12,
+      borderRadius: 12,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: 8,
+      borderWidth: 1,
+      borderColor: '#ddd6fe',
+    },
+    aiBtnText: {
+      color: '#6d28d9',
+      fontSize: 14,
+      fontWeight: 'bold',
+    },
+    explanationBox: {
+      backgroundColor: '#eff6ff',
+      padding: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#bfdbfe',
+    },
+    expTitle: {
+      fontSize: 13,
+      fontWeight: 'bold',
+      color: '#1e40af',
+      marginBottom: 4,
+    },
+    expText: {
+      fontSize: 13,
+      color: '#1e3a8a',
+      lineHeight: 18,
+    }
+  });
+
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color="#4f46e5" />
       </View>
     );
   }
@@ -77,63 +228,65 @@ export default function ResultDetailScreen({ route }: any) {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.examTitle}>{result.examTitle}</Text>
-        <Text style={styles.dateText}>
-          {formatDate(result.submittedAt)} at {formatTime(result.submittedAt)}
-        </Text>
+        <View style={styles.dateRow}>
+          <MaterialCommunityIcons name="calendar-clock" size={16} color="#64748b" />
+          <Text style={styles.dateText}>
+            {formatDate(result.submittedAt)} at {formatTime(result.submittedAt)}
+          </Text>
+        </View>
 
         <View style={styles.statsGrid}>
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>{result.score} / {result.totalMarks}</Text>
-            <Text style={styles.statLabel}>Marks</Text>
+            <Text style={styles.statValue}>{result.score}/{result.totalMarks}</Text>
+            <Text style={styles.statLabel}>Score</Text>
           </View>
           <View style={styles.statBox}>
-            <Text style={[styles.statValue, { color: result.passed ? colors.success : colors.error }]}>
+            <Text style={[styles.statValue, { color: result.passed ? '#10b981' : '#ef4444' }]}>
               {result.percentage}%
             </Text>
-            <Text style={styles.statLabel}>Percentage</Text>
+            <Text style={styles.statLabel}>Grade</Text>
           </View>
           <View style={styles.statBox}>
             <Text style={styles.statValue}>{result.timeSpentMinutes}m</Text>
             <Text style={styles.statLabel}>Time</Text>
           </View>
           <View style={styles.statBox}>
-             <Text style={[styles.statValue, { color: result.passed ? colors.success : colors.error }]}>
-              {result.passed ? 'PASS' : 'FAIL'}
-            </Text>
-            <Text style={styles.statLabel}>Status</Text>
+            <MaterialCommunityIcons
+              name={result.passed ? "check-circle" : "close-circle"}
+              size={20}
+              color={result.passed ? '#10b981' : '#ef4444'}
+            />
+            <Text style={styles.statLabel}>{result.passed ? 'PASSED' : 'FAILED'}</Text>
           </View>
         </View>
       </View>
 
-      <View style={styles.questionsList}>
+      <View style={styles.section}>
         <Text style={styles.sectionTitle}>Question Breakdown</Text>
         {result.questions.map((q: any, index: number) => (
           <View
             key={q.id}
-            style={[
-              styles.questionCard,
-              { borderLeftColor: q.isCorrect ? colors.success : colors.error }
-            ]}
+            style={[styles.questionCard, { borderLeftColor: q.isCorrect ? '#10b981' : '#ef4444' }]}
           >
             <View style={styles.qHeader}>
-              <Text style={styles.qNumber}>Question {index + 1}</Text>
-              <Text style={[styles.qStatus, { color: q.isCorrect ? colors.success : colors.error }]}>
+              <Text style={styles.qNumber}>QUESTION {index + 1}</Text>
+              <Text style={[styles.qScore, { color: q.isCorrect ? '#10b981' : '#ef4444' }]}>
                 {q.isCorrect ? 'Correct' : 'Incorrect'} ({q.marksObtained}/{q.marks})
               </Text>
             </View>
 
             <Text style={styles.qText}>{q.text}</Text>
 
-            <View style={styles.answerRow}>
+            <View style={styles.answerContainer}>
               <View style={styles.answerBox}>
                 <Text style={styles.answerLabel}>Your Answer</Text>
-                <Text style={[styles.answerValue, { color: q.isCorrect ? colors.success : colors.error }]}>
-                  {q.studentAnswer || '(No Answer)'}
+                <Text style={[styles.answerValue, { color: q.isCorrect ? '#10b981' : '#ef4444' }]}>
+                  {q.studentAnswer || '(None)'}
                 </Text>
               </View>
               <View style={styles.answerBox}>
                 <Text style={styles.answerLabel}>Correct Answer</Text>
-                <Text style={[styles.answerValue, { color: colors.success }]}>
+                <Text style={[styles.answerValue, { color: '#10b981' }]}>
                   {q.correctAnswer}
                 </Text>
               </View>
@@ -141,19 +294,25 @@ export default function ResultDetailScreen({ route }: any) {
 
             {explanations[q.id] ? (
               <View style={styles.explanationBox}>
-                <Text style={styles.explanationTitle}>✨ AI Explanation</Text>
-                <Text style={styles.explanationText}>{explanations[q.id]}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, gap: 4 }}>
+                  <MaterialCommunityIcons name="auto-fix" size={16} color="#1e40af" />
+                  <Text style={styles.expTitle}>AI Explanation</Text>
+                </View>
+                <Text style={styles.expText}>{explanations[q.id]}</Text>
               </View>
             ) : (
               <TouchableOpacity
-                style={styles.aiButton}
+                style={styles.aiBtn}
                 onPress={() => explainQuestion(q)}
                 disabled={explainingId === q.id}
               >
                 {explainingId === q.id ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color="#6d28d9" />
                 ) : (
-                  <Text style={styles.aiButtonText}>✨ Ask AI Coach</Text>
+                  <>
+                    <MaterialCommunityIcons name="auto-fix" size={18} color="#6d28d9" />
+                    <Text style={styles.aiBtnText}>Explain with AI</Text>
+                  </>
                 )}
               </TouchableOpacity>
             )}
@@ -163,144 +322,3 @@ export default function ResultDetailScreen({ route }: any) {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  header: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-  },
-  examTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#1e293b',
-    marginBottom: 4,
-  },
-  dateText: {
-    fontSize: 14,
-    color: '#64748b',
-    marginBottom: 16,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  statBox: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: '#f1f5f9',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0f172a',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#64748b',
-    marginTop: 2,
-  },
-  questionsList: {
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#334155',
-    marginBottom: 16,
-  },
-  questionCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  qHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  qNumber: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#64748b',
-  },
-  qStatus: {
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  qText: {
-    fontSize: 16,
-    color: '#1e293b',
-    lineHeight: 24,
-    marginBottom: 16,
-  },
-  answerRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  answerBox: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-    padding: 10,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  answerLabel: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#94a3b8',
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  answerValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  aiButton: {
-    backgroundColor: '#4f46e5',
-    padding: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  aiButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  explanationBox: {
-    backgroundColor: '#eff6ff',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
-  },
-  explanationTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#1e40af',
-    marginBottom: 4,
-  },
-  explanationText: {
-    fontSize: 14,
-    color: '#1e3a8a',
-    lineHeight: 20,
-  },
-});

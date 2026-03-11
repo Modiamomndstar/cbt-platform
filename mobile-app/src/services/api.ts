@@ -5,8 +5,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // 1. For Production: Use 'https://mycbtplatform.cc/api'
 // 2. For Local Phone Testing: Use your computer's local IP (e.g., 'http://192.168.1.5:5000/api')
 //    Ensure both computer and phone are on the same Wi-Fi.
+// const API_BASE_URL = 'http://10.143.80.37:5000/api';
 const API_BASE_URL = 'https://mycbtplatform.cc/api';
-// const API_BASE_URL = 'http://YOUR_LOCAL_IP:5000/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -46,6 +46,8 @@ api.interceptors.response.use(
 export const authAPI = {
   login: (username: string, password: string) =>
     api.post('/auth/student/portal-login', { username, password }),
+  loginExam: (username: string, password: string, accessCode?: string) =>
+    api.post('/auth/student/login', { username, password, accessCode }),
   getMe: () => api.get('/auth/me'),
   changePassword: (currentPassword: string, newPassword: string) =>
     api.post('/auth/change-password', { currentPassword, newPassword }),
@@ -89,6 +91,13 @@ export const resultAPI = {
 // Analytics API
 export const analyticsAPI = {
   getStudentDashboard: () => api.get('/analytics/student/dashboard'),
+  getPerformanceAnalytics: () => api.get('/analytics/student/performance'),
+};
+
+// Competition API
+export const competitionAPI = {
+  getCompetitions: () => api.get('/competitions/student/hub'),
+  register: (competitionId: string) => api.post(`/competitions/${competitionId}/register`),
 };
 
 // AI API

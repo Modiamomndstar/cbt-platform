@@ -5,16 +5,19 @@ import { authAPI } from '../services/api';
 interface User {
   id: string;
   email: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
   role: string;
   schoolId: string;
+  isExternal?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string, accessCode?: string) => Promise<{ success: boolean; message?: string }>;
+  currentExam: any | null;
+  login: (type: 'portal' | 'exam', username: string, password: string, accessCode?: string) => Promise<{ success: boolean; data?: any; message?: string }>;
   logout: () => Promise<void>;
 }
 
@@ -22,6 +25,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [currentExam, setCurrentExam] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -34,7 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (token) {
         const response = await authAPI.getMe();
         if (response.data.success) {
-          setUser(response.data.data);
+          setUser(response.data.data.user);
         }
       }
     } catch (error) {
@@ -44,15 +48,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const login = async (username: string, password: string): Promise<{ success: boolean; message?: string }> => {
+  const login = async (type: 'portal' | 'exam', username: string, password: string, accessCode?: string): Promise<{ success: boolean; data?: any; message?: string }> => {
     try {
-      const response = await authAPI.login(username, password);
+      const response = type === 'portal'
+        ? await authAPI.login(username, password)
+        : await authAPI.loginExam(username, password, accessCode);
 
       if (response.data.success) {
-        const { token, user: userData } = response.data.data;
+        const { token, user: userData, exam } = response.data.data;
         await AsyncStorage.setItem('token', token);
         setUser(userData);
-        return { success: true };
+        if (exam) {
+          setCurrentExam(exam);
+        }
+        return { success: true, data: response.data.data };
       }
 
       return { success: false, message: response.data.message };
@@ -81,10 +90,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     await AsyncStorage.removeItem('token');
     setUser(null);
+    setCurrentExam(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, currentExam, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

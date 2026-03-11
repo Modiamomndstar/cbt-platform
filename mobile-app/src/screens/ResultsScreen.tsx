@@ -1,31 +1,31 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   RefreshControl,
-} from 'react-native';
-import { useTheme } from '../context/ThemeContext';
-import { resultAPI, aiAPI } from '../services/api';
-import { formatDate } from '../lib/utils';
-import {
   Modal,
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert
+  Alert,
 } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
+import { resultAPI, aiAPI } from '../services/api';
+import { formatDate } from '../lib/utils';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function ResultsScreen({ navigation }: any) {
-  const { colors, spacing, fontSize } = useTheme();
+  const { colors, spacing } = useTheme();
   const [results, setResults] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [isAiModalVisible, setAiModalVisible] = useState(false);
 
-  const loadResults = async () => {
+  const loadResults = useCallback(async () => {
     try {
       const response = await resultAPI.getMyHistory();
       if (response.data.success) {
@@ -33,18 +33,20 @@ export default function ResultsScreen({ navigation }: any) {
       }
     } catch (error) {
       console.error('Failed to load results:', error);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadResults();
+  }, [loadResults]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     await loadResults();
     setRefreshing(false);
   };
-
-  useEffect(() => {
-    loadResults();
-  }, []);
 
   const handleExplainResult = async (resultId: string) => {
     try {
@@ -69,48 +71,50 @@ export default function ResultsScreen({ navigation }: any) {
 
   const renderResult = ({ item }: { item: any }) => (
     <View style={styles.resultCard}>
-      <View style={styles.resultHeader}>
-        <Text style={styles.examTitle}>{item.examTitle}</Text>
-        <View style={[
-          styles.statusBadge,
-          { backgroundColor: item.passed ? colors.success : colors.error }
-        ]}>
-          <Text style={styles.statusText}>{item.passed ? 'PASSED' : 'FAILED'}</Text>
+      <View style={styles.cardHeader}>
+        <View style={styles.headerTitle}>
+          <Text style={styles.examTitle}>{item.examTitle}</Text>
+          <Text style={styles.dateText}>{formatDate(item.submittedAt)}</Text>
+        </View>
+        <View style={[styles.statusBadge, { backgroundColor: item.passed ? '#dcfce7' : '#fee2e2' }]}>
+          <Text style={[styles.statusText, { color: item.passed ? '#16a34a' : '#ef4444' }]}>
+            {item.passed ? 'PASSED' : 'FAILED'}
+          </Text>
         </View>
       </View>
 
-      <View style={styles.scoreContainer}>
-        <View style={styles.scoreItem}>
+      <View style={styles.scoreRow}>
+        <View style={styles.scoreStat}>
           <Text style={styles.scoreValue}>{item.score}</Text>
           <Text style={styles.scoreLabel}>Score</Text>
         </View>
-        <View style={styles.scoreItem}>
+        <View style={styles.scoreDivider} />
+        <View style={styles.scoreStat}>
           <Text style={styles.scoreValue}>{item.totalMarks}</Text>
           <Text style={styles.scoreLabel}>Total</Text>
         </View>
-        <View style={styles.scoreItem}>
-          <Text style={styles.scoreValue}>{parseFloat(item.percentage).toFixed(1)}%</Text>
-          <Text style={styles.scoreLabel}>Percentage</Text>
+        <View style={styles.scoreDivider} />
+        <View style={styles.scoreStat}>
+          <Text style={[styles.scoreValue, { color: '#4f46e5' }]}>
+            {parseFloat(item.percentage).toFixed(0)}%
+          </Text>
+          <Text style={styles.scoreLabel}>Grade</Text>
         </View>
       </View>
 
-      <Text style={styles.dateText}>
-        Taken on: {formatDate(item.submittedAt)}
-      </Text>
-
-      <View style={{ flexDirection: 'row', gap: 10 }}>
+      <View style={styles.actions}>
         <TouchableOpacity
-          style={[styles.aiButton, { flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.primary }]}
+          style={styles.detailsBtn}
           onPress={() => navigation.navigate('ResultDetail', { resultId: item.id })}
         >
-          <Text style={[styles.aiButtonText, { color: colors.primary }]}>View Details</Text>
+          <Text style={styles.detailsBtnText}>View Details</Text>
         </TouchableOpacity>
-
         <TouchableOpacity
-          style={[styles.aiButton, { flex: 1 }]}
+          style={styles.aiBtn}
           onPress={() => handleExplainResult(item.id)}
         >
-          <Text style={styles.aiButtonText}>✨ AI Insight</Text>
+          <MaterialCommunityIcons name="auto-fix" size={16} color="#fff" />
+          <Text style={styles.aiBtnText}>AI Insight</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -119,85 +123,109 @@ export default function ResultsScreen({ navigation }: any) {
   const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: '#f8fafc',
+    },
+    listContent: {
+      padding: spacing.md,
     },
     resultCard: {
-      backgroundColor: colors.surface,
-      margin: spacing.md,
+      backgroundColor: '#fff',
+      borderRadius: 16,
       padding: spacing.md,
-      borderRadius: 12,
+      marginBottom: spacing.md,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
+      shadowOpacity: 0.05,
+      shadowRadius: 5,
+      elevation: 2,
     },
-    resultHeader: {
+    cardHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: spacing.md,
+    },
+    headerTitle: {
+      flex: 1,
+    },
+    examTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: '#1e293b',
+    },
+    dateText: {
+      fontSize: 12,
+      color: '#64748b',
+      marginTop: 2,
+    },
+    statusBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+    },
+    statusText: {
+      fontSize: 10,
+      fontWeight: 'bold',
+    },
+    scoreRow: {
+      flexDirection: 'row',
+      backgroundColor: '#f8fafc',
+      borderRadius: 12,
+      padding: spacing.md,
       alignItems: 'center',
       marginBottom: spacing.md,
     },
-    examTitle: {
-      fontSize: fontSize.lg,
-      fontWeight: '600',
-      color: colors.text,
+    scoreStat: {
       flex: 1,
-    },
-    statusBadge: {
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.xs,
-      borderRadius: 4,
-    },
-    statusText: {
-      color: '#fff',
-      fontSize: fontSize.sm,
-      fontWeight: 'bold',
-    },
-    scoreContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-      paddingVertical: spacing.md,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      marginBottom: spacing.md,
-    },
-    scoreItem: {
       alignItems: 'center',
     },
     scoreValue: {
-      fontSize: fontSize.xl,
+      fontSize: 20,
       fontWeight: 'bold',
-      color: colors.primary,
+      color: '#1e293b',
     },
     scoreLabel: {
-      fontSize: fontSize.sm,
-      color: colors.textSecondary,
-      marginTop: spacing.xs,
+      fontSize: 11,
+      color: '#64748b',
+      marginTop: 2,
     },
-    dateText: {
-      fontSize: fontSize.sm,
-      color: colors.textSecondary,
+    scoreDivider: {
+      width: 1,
+      height: 20,
+      backgroundColor: '#e2e8f0',
     },
-    emptyText: {
-      textAlign: 'center',
-      color: colors.textSecondary,
-      marginTop: spacing.xl,
-      fontSize: fontSize.md,
+    actions: {
+      flexDirection: 'row',
+      gap: spacing.md,
     },
-    aiButton: {
-      marginTop: spacing.md,
-      backgroundColor: colors.primary,
-      padding: spacing.sm,
+    detailsBtn: {
+      flex: 1,
+      height: 40,
       borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#e2e8f0',
+      justifyContent: 'center',
       alignItems: 'center',
     },
-    aiButtonText: {
-      color: '#fff',
+    detailsBtnText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: '#475569',
+    },
+    aiBtn: {
+      flex: 1,
+      height: 40,
+      borderRadius: 8,
+      backgroundColor: '#4f46e5',
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: 6,
+    },
+    aiBtnText: {
+      fontSize: 13,
       fontWeight: 'bold',
-      fontSize: fontSize.sm,
+      color: '#fff',
     },
     modalOverlay: {
       flex: 1,
@@ -207,40 +235,48 @@ export default function ResultsScreen({ navigation }: any) {
       padding: spacing.lg,
     },
     modalContent: {
-      backgroundColor: colors.surface,
-      borderRadius: 16,
+      backgroundColor: '#fff',
+      borderRadius: 20,
       width: '100%',
       maxHeight: '80%',
       padding: spacing.lg,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.25,
-      shadowRadius: 10,
-      elevation: 5,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: spacing.md,
+      gap: 8,
     },
     modalTitle: {
-      fontSize: fontSize.xl,
+      fontSize: 20,
       fontWeight: 'bold',
-      color: colors.primary,
-      marginBottom: spacing.md,
+      color: '#4f46e5',
     },
-    aiResultText: {
-      fontSize: fontSize.md,
+    aiText: {
+      fontSize: 14,
       lineHeight: 22,
-      color: colors.text,
+      color: '#334155',
     },
-    closeButton: {
+    closeBtn: {
       marginTop: spacing.lg,
-      backgroundColor: colors.primary,
+      backgroundColor: '#f1f5f9',
       padding: spacing.md,
-      borderRadius: 8,
+      borderRadius: 12,
       alignItems: 'center',
     },
-    closeButtonText: {
-      color: '#fff',
+    closeBtnText: {
       fontWeight: 'bold',
-    },
+      color: '#475569',
+    }
   });
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#4f46e5" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -248,46 +284,47 @@ export default function ResultsScreen({ navigation }: any) {
         data={results}
         renderItem={renderResult}
         keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         ListEmptyComponent={
-          <Text style={styles.emptyText}>No results found yet. Take an assessment to see your progress!</Text>
+          <View style={{ alignItems: 'center', marginTop: 100 }}>
+            <MaterialCommunityIcons name="history" size={64} color="#e2e8f0" />
+            <Text style={{ color: '#94a3b8', marginTop: 12 }}>No test history available</Text>
+          </View>
         }
       />
 
       <Modal
         visible={isAiModalVisible}
         transparent={true}
-        animationType="slide"
-        onRequestClose={() => setAiModalVisible(false)}
+        animationType="fade"
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>AI Performance Insight</Text>
+            <View style={styles.modalHeader}>
+              <MaterialCommunityIcons name="auto-fix" size={24} color="#4f46e5" />
+              <Text style={styles.modalTitle}>Performance AI Insight</Text>
+            </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
               {aiLoading ? (
-                <View style={{ padding: spacing.xl }}>
-                  <ActivityIndicator size="large" color={colors.primary} />
-                  <Text style={[styles.emptyText, { marginTop: spacing.md }]}>Analyzing your performance...</Text>
+                <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+                  <ActivityIndicator color="#4f46e5" />
+                  <Text style={{ marginTop: 12, color: '#64748b' }}>Consulting AI Coach...</Text>
                 </View>
               ) : (
-                <Text style={styles.aiResultText}>{aiAnalysis}</Text>
+                <Text style={styles.aiText}>{aiAnalysis}</Text>
               )}
             </ScrollView>
 
-            {!aiLoading && (
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => {
-                  setAiModalVisible(false);
-                  setAiAnalysis(null);
-                }}
-              >
-                <Text style={styles.closeButtonText}>Close</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={styles.closeBtn}
+              onPress={() => setAiModalVisible(false)}
+            >
+              <Text style={styles.closeBtnText}>Got it</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>

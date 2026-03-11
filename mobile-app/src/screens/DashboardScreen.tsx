@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,39 +6,50 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Dimensions,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { analyticsAPI, scheduleAPI } from '../services/api';
+import { analyticsAPI, scheduleAPI, messagesAPI } from '../services/api';
 import { formatDate, getExamLabel } from '../lib/utils';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import BroadcastModal from '../components/BroadcastModal';
 
+const { width } = Dimensions.get('window');
+
 export default function DashboardScreen({ navigation }: any) {
-  const { user, logout } = useAuth();
-  const { colors, spacing, fontSize } = useTheme();
+  const { user } = useAuth();
+  const { colors, spacing } = useTheme();
 
   const [stats, setStats] = useState<any>(null);
   const [upcomingExams, setUpcomingExams] = useState<any[]>([]);
+  const [latestBroadcast, setLatestBroadcast] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
-      const [analyticsRes, examsRes] = await Promise.all([
+      const [analyticsRes, examsRes, broadcastRes] = await Promise.all([
         analyticsAPI.getStudentDashboard(),
         scheduleAPI.getMyExams(),
+        messagesAPI.getLatestBroadcast()
       ]);
 
-      if (analyticsRes.data.success) {
-        setStats(analyticsRes.data.data);
-      }
-
-      if (examsRes.data.success) {
-        setUpcomingExams(examsRes.data.data.slice(0, 3));
-      }
+      if (analyticsRes.data.success) setStats(analyticsRes.data.data);
+      if (examsRes.data.success) setUpcomingExams(examsRes.data.data.slice(0, 2));
+      if (broadcastRes.data.success) setLatestBroadcast(broadcastRes.data.data);
     } catch (error) {
       console.error('Failed to load dashboard:', error);
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -46,126 +57,185 @@ export default function DashboardScreen({ navigation }: any) {
     setRefreshing(false);
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const QuickAction = ({ icon, label, color, onPress }: any) => (
+    <TouchableOpacity style={styles.actionItem} onPress={onPress}>
+      <View style={[styles.actionIcon, { backgroundColor: color + '20' }]}>
+        <MaterialCommunityIcons name={icon} size={28} color={color} />
+      </View>
+      <Text style={styles.actionLabel}>{label}</Text>
+    </TouchableOpacity>
+  );
 
-  const handleLogout = async () => {
-    await logout();
-    navigation.replace('Login');
-  };
+  const StatCard = ({ icon, value, label, color }: any) => (
+    <View style={styles.statCard}>
+      <MaterialCommunityIcons name={icon} size={24} color={color} />
+      <Text style={[styles.statValue, { color }]}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
 
   const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: '#f8fafc',
     },
     header: {
-      backgroundColor: colors.primary,
+      backgroundColor: '#4f46e5',
       padding: spacing.lg,
       paddingTop: spacing.xl,
+      borderBottomLeftRadius: 30,
+      borderBottomRightRadius: 30,
+      elevation: 5,
     },
     welcomeText: {
-      fontSize: fontSize.lg,
+      fontSize: 16,
       color: 'rgba(255,255,255,0.8)',
     },
     nameText: {
-      fontSize: fontSize.xxl,
+      fontSize: 24,
       fontWeight: 'bold',
       color: '#fff',
+      marginTop: 4,
     },
     statsContainer: {
       flexDirection: 'row',
-      padding: spacing.md,
+      marginTop: -30,
+      paddingHorizontal: spacing.md,
       gap: spacing.md,
     },
     statCard: {
       flex: 1,
-      backgroundColor: colors.surface,
+      backgroundColor: '#fff',
       padding: spacing.md,
-      borderRadius: 12,
+      borderRadius: 16,
       alignItems: 'center',
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
+      shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
+      shadowRadius: 10,
+      elevation: 4,
     },
-    statNumber: {
-      fontSize: fontSize.xxl,
+    statValue: {
+      fontSize: 20,
       fontWeight: 'bold',
-      color: colors.primary,
+      marginVertical: 4,
     },
     statLabel: {
-      fontSize: fontSize.sm,
-      color: colors.textSecondary,
-      marginTop: spacing.xs,
+      fontSize: 12,
+      color: '#64748b',
+      textAlign: 'center',
     },
     section: {
-      padding: spacing.md,
+      padding: spacing.lg,
     },
     sectionTitle: {
-      fontSize: fontSize.lg,
+      fontSize: 18,
       fontWeight: 'bold',
-      color: colors.text,
+      color: '#1e293b',
       marginBottom: spacing.md,
+    },
+    actionsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.md,
+      justifyContent: 'space-between',
+    },
+    actionItem: {
+      width: (width - spacing.lg * 2 - spacing.md) / 3,
+      alignItems: 'center',
+      backgroundColor: '#fff',
+      padding: spacing.md,
+      borderRadius: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 5,
+      elevation: 2,
+    },
+    actionIcon: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: spacing.sm,
+    },
+    actionLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: '#475569',
+      textAlign: 'center',
     },
     examCard: {
-      backgroundColor: colors.surface,
+      backgroundColor: '#fff',
       padding: spacing.md,
-      borderRadius: 12,
+      borderRadius: 16,
       marginBottom: spacing.md,
+      flexDirection: 'row',
+      alignItems: 'center',
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
+      shadowOpacity: 0.05,
+      shadowRadius: 5,
+      elevation: 2,
+    },
+    examIcon: {
+      width: 50,
+      height: 50,
+      borderRadius: 12,
+      backgroundColor: '#fef3c7',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: spacing.md,
+    },
+    examInfo: {
+      flex: 1,
     },
     examTitle: {
-      fontSize: fontSize.lg,
-      fontWeight: '600',
-      color: colors.text,
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: '#1e293b',
     },
     examDate: {
-      fontSize: fontSize.sm,
-      color: colors.textSecondary,
-      marginTop: spacing.xs,
+      fontSize: 13,
+      color: '#64748b',
+      marginTop: 2,
     },
-    startButton: {
-      backgroundColor: colors.success,
-      padding: spacing.sm,
+    startBtn: {
+      backgroundColor: '#10b981',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
       borderRadius: 8,
-      marginTop: spacing.md,
-      alignItems: 'center',
     },
-    startButtonText: {
+    startBtnText: {
       color: '#fff',
-      fontWeight: '600',
+      fontSize: 12,
+      fontWeight: 'bold',
     },
-    menuContainer: {
+    broadcastCard: {
+      backgroundColor: '#eff6ff',
+      padding: spacing.md,
+      borderRadius: 16,
+      borderLeftWidth: 4,
+      borderLeftColor: '#3b82f6',
       flexDirection: 'row',
-      padding: spacing.md,
-      gap: spacing.md,
-    },
-    menuButton: {
-      flex: 1,
-      backgroundColor: colors.surface,
-      padding: spacing.md,
-      borderRadius: 12,
       alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
     },
-    menuButtonText: {
-      fontSize: fontSize.md,
-      fontWeight: '600',
-      color: colors.primary,
-      marginTop: spacing.sm,
-    },
+    broadcastText: {
+      flex: 1,
+      fontSize: 14,
+      color: '#1e40af',
+      marginLeft: spacing.sm,
+    }
   });
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#4f46e5" />
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -176,68 +246,115 @@ export default function DashboardScreen({ navigation }: any) {
     >
       <View style={styles.header}>
         <Text style={styles.welcomeText}>Welcome back,</Text>
-        <Text style={styles.nameText}>{user?.firstName} {user?.lastName}</Text>
+        <Text style={styles.nameText}>{user?.fullName || 'Student'}</Text>
       </View>
 
       <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{stats?.totalExams || 0}</Text>
-          <Text style={styles.statLabel}>Exams Taken</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{stats?.passedCount || 0}</Text>
-          <Text style={styles.statLabel}>Passed</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>
-            {stats?.averagePercentage ? `${parseFloat(stats.averagePercentage).toFixed(0)}%` : '0%'}
-          </Text>
-          <Text style={styles.statLabel}>Avg Score</Text>
-        </View>
-      </View>
-
-      <View style={styles.menuContainer}>
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => navigation.navigate('Exams')}
-        >
-          <Text style={styles.menuButtonText}>My Exams</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => navigation.navigate('Results')}
-        >
-          <Text style={styles.menuButtonText}>Results</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => navigation.navigate('Profile')}
-        >
-          <Text style={styles.menuButtonText}>Profile</Text>
-        </TouchableOpacity>
+        <StatCard
+          icon="book-open-variant"
+          value={stats?.totalExams || 0}
+          label="Exams Taken"
+          color="#4f46e5"
+        />
+        <StatCard
+          icon="check-circle-outline"
+          value={stats?.passedCount || 0}
+          label="Passed"
+          color="#10b981"
+        />
+        <StatCard
+          icon="trending-up"
+          value={stats?.averagePercentage ? `${parseFloat(stats.averagePercentage).toFixed(0)}%` : '0%'}
+          label="Avg Score"
+          color="#f59e0b"
+        />
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Upcoming Exams</Text>
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <View style={styles.actionsGrid}>
+          <QuickAction
+            icon="clipboard-list-outline"
+            label="My Exams"
+            color="#4f46e5"
+            onPress={() => navigation.navigate('Exams')}
+          />
+          <QuickAction
+            icon="poll"
+            label="Results"
+            color="#10b981"
+            onPress={() => navigation.navigate('Results')}
+          />
+          <QuickAction
+            icon="chart-bar"
+            label="Analytics"
+            color="#f59e0b"
+            onPress={() => navigation.navigate('Performance')}
+          />
+          <QuickAction
+            icon="trophy-outline"
+            label="Competitions"
+            color="#ec4899"
+            onPress={() => navigation.navigate('CompetitionHub')}
+          />
+          <QuickAction
+            icon="account-outline"
+            label="Profile"
+            color="#6366f1"
+            onPress={() => navigation.navigate('Profile')}
+          />
+          <QuickAction
+            icon="bell-outline"
+            label="Messages"
+            color="#ef4444"
+            onPress={() => navigation.navigate('Messages')}
+          />
+        </View>
+      </View>
+
+      {latestBroadcast && (
+        <View style={[styles.section, { paddingTop: 0 }]}>
+          <TouchableOpacity style={styles.broadcastCard}>
+            <MaterialCommunityIcons name="bullhorn-variant-outline" size={24} color="#3b82f6" />
+            <Text style={styles.broadcastText} numberOfLines={2}>
+              {latestBroadcast.message}
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color="#3b82f6" />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Upcoming Sessions</Text>
         {upcomingExams.length === 0 ? (
-          <Text style={{ color: colors.textSecondary }}>No upcoming exams</Text>
+          <View style={{ alignItems: 'center', padding: 20 }}>
+            <MaterialCommunityIcons name="calendar-blank" size={48} color="#e2e8f0" />
+            <Text style={{ color: '#94a3b8', marginTop: 8 }}>No exams scheduled for now</Text>
+          </View>
         ) : (
           upcomingExams.map((exam) => (
-            <View key={exam.id} style={styles.examCard}>
-              <Text style={styles.examTitle}>{exam.examTitle}</Text>
-              <Text style={styles.examDate}>
-                {formatDate(exam.scheduledDate)} at {exam.startTime}
-              </Text>
-              <TouchableOpacity
-                style={styles.startButton}
-                onPress={() => navigation.navigate('TakeExam', { scheduleId: exam.id })}
-              >
-                <Text style={styles.startButtonText}>Start {getExamLabel(!!exam.isCompetition)}</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              key={exam.id}
+              style={styles.examCard}
+              onPress={() => navigation.navigate('TakeExam', { scheduleId: exam.id })}
+            >
+              <View style={styles.examIcon}>
+                <MaterialCommunityIcons name="clock-outline" size={28} color="#d97706" />
+              </View>
+              <View style={styles.examInfo}>
+                <Text style={styles.examTitle}>{exam.examTitle}</Text>
+                <Text style={styles.examDate}>
+                  {formatDate(exam.scheduledDate)} at {exam.startTime}
+                </Text>
+              </View>
+              <View style={styles.startBtn}>
+                <Text style={styles.startBtnText}>START</Text>
+              </View>
+            </TouchableOpacity>
           ))
         )}
       </View>
+
       <BroadcastModal />
     </ScrollView>
   );
