@@ -12,6 +12,11 @@ const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    // 💡 Security/Firewall Tip:
+    // Disguise as a standard browser to bypass aggressive bot/WAF filters
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36',
+    'X-Requested-With': 'com.mycbtplatform.app',
   },
   timeout: 30000,
 });
