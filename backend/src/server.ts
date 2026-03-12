@@ -49,33 +49,38 @@ app.use(helmet());
 app.use(
   cors({
     origin: (origin, callback) => {
+      // 💡 Production Tip:
+      // Mobile apps often send no origin, 'null' origin, or a custom protocol.
+      // We explicitly allow 'null' for production and standard local origins.
       const allowed = [
         process.env.FRONTEND_URL,
+        "null",
+        "http://localhost",
+        "http://localhost:5173",
+        "http://localhost:8081",
+        "http://10.143.80.37:5000",
       ].filter(Boolean);
 
-      // Allow localhost in development
-      if (process.env.NODE_ENV === "development") {
-        if (!origin || origin.startsWith("http://localhost:")) {
-          return callback(null, true);
-        }
-        allowed.push(
-          "http://localhost",
-          "http://localhost:5173",
-          "http://localhost:5174",
-          "http://localhost:5175",
-          "http://localhost:80",
-          "http://localhost:8081" // Expo Web
-        );
+      // Log rejected origins in production to debug 403s
+      if (process.env.NODE_ENV === "production" && origin && !allowed.includes(origin)) {
+        logger.warn(`Rejected CORS origin: ${origin}`);
       }
 
-      if (!origin || allowed.indexOf(origin) !== -1) {
+      // If no origin (mobile app, curl, etc.) or in the allowed list, approve it
+      if (!origin || allowed.includes(origin)) {
         return callback(null, true);
       }
-      callback(new Error("CORS policy: origin not allowed"));
+
+      // Allow mobile app requests that might have custom headers but no origin
+      if (allowed.some(a => a && origin.startsWith(a))) {
+        return callback(null, true);
+      }
+
+      callback(new Error(`CORS policy: origin ${origin} not allowed`));
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
   }),
 );
 
