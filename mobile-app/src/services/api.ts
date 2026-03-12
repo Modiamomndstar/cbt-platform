@@ -17,6 +17,7 @@ const api = axios.create({
     // Disguise as a standard browser to bypass aggressive bot/WAF filters
     'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36',
     'X-Requested-With': 'com.mycbtplatform.app',
+    'Origin': 'https://mycbtplatform.cc',
   },
   timeout: 30000,
 });
