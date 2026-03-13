@@ -5,6 +5,7 @@ import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
 import path from "path";
+import fs from "fs";
 import fileUpload from "express-fileupload";
 
 // Load environment variables
@@ -146,8 +147,12 @@ app.use(
 );
 
 // Static files
-// Static files
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+const uploadsPath = fs.existsSync(path.join(process.cwd(), "uploads"))
+  ? path.join(process.cwd(), "uploads")
+  : path.join(process.cwd(), "backend", "uploads");
+
+logger.info(`Serving static files from: ${uploadsPath}`);
+app.use("/uploads", express.static(uploadsPath));
 
 // Health check endpoint (both /health and /api/health for Caddy passthrough)
 app.get(["/health", "/api/health"], (req, res) => {
