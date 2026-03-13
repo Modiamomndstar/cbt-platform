@@ -149,7 +149,7 @@ router.post(
       // Update student_exams record
       const studentExamResult = await client.query(
         `UPDATE student_exams
-        SET submitted_at = NOW(),
+        SET completed_at = NOW(),
             score = $1,
             total_marks = $2,
             percentage = $3,
@@ -175,7 +175,7 @@ router.post(
           schedule.student_category_id,
           schedule.student_category_name,
           JSON.stringify({
-            submitted_at: new Date().toISOString(),
+            completed_at: new Date().toISOString(),
             client_ip: req.ip,
             user_agent: req.get('user-agent'),
             violations: violations, // Log anti-cheating violations
@@ -243,7 +243,7 @@ router.get(
 
       let query = `
         SELECT
-          se.score, se.percentage, se.time_spent_minutes, se.submitted_at as completed_at,
+          se.score, se.percentage, se.time_spent_minutes, se.completed_at,
           COALESCE(s.full_name, NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), ''), ext_s.full_name, NULLIF(TRIM(CONCAT(ext_s.first_name, ' ', ext_s.last_name)), '')) as student_name,
           sch.name as school_name, sch.state as school_state, sch.country as school_country,
           cc.name as category_name,
@@ -466,7 +466,7 @@ router.get(
         passed: Math.round(parseFloat(row.percentage)) >= row.passing_score,
         status: row.status,
         timeSpentMinutes: row.time_spent_minutes,
-        submittedAt: row.submitted_at,
+        submittedAt: row.completed_at,
         startedAt: row.started_at,
         questions: detailedQuestions
       }), "Detailed result retrieved");
@@ -508,7 +508,7 @@ router.get(
              COALESCE(s.full_name, ext.full_name, NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), ''), s.email, s.student_id, 'Unknown Student') as full_name,
              s.first_name, s.last_name, s.email, s.student_id,
              COALESCE(sc.name, ext_sc.name) as category_name,
-             es.scheduled_date, es.start_time as schedule_started_at, se.submitted_at as completed_at, es.auto_submitted as schedule_auto_submitted,
+             es.scheduled_date, es.start_time as schedule_started_at, se.completed_at, es.auto_submitted as schedule_auto_submitted,
              e.passing_score,
              es.external_student_id
       FROM student_exams se
@@ -602,7 +602,7 @@ router.get(
               e.title as exam_title, e.description, e.duration, e.passing_score,
               ec.name as exam_category,
               et.name as exam_type_name,
-              es.scheduled_date, se.started_at, se.submitted_at as completed_at,
+              es.scheduled_date, se.started_at, se.completed_at,
              COALESCE(t.full_name, NULLIF(TRIM(CONCAT(t.first_name, ' ', t.last_name)), ''), t.username) as tutor_name
       FROM student_exams se
        JOIN exams e ON se.exam_id = e.id
@@ -611,7 +611,7 @@ router.get(
        JOIN tutors t ON e.tutor_id = t.id
        LEFT JOIN exam_types et ON e.exam_type_id = et.id
        WHERE (se.student_id = $1 OR se.external_student_id = $1)
-       ORDER BY se.submitted_at DESC
+       ORDER BY se.completed_at DESC
        LIMIT $2 OFFSET $3`,
         [user.id, pagination.limit, pagination.offset],
       );
@@ -844,7 +844,7 @@ router.get(
              COALESCE(sc.name, ext_sc.name) as category_name,
              e.title as exam_title,
              ec.name as exam_category,
-             es.scheduled_date, es.start_time as schedule_started_at, se.submitted_at as completed_at, es.auto_submitted as schedule_auto_submitted,
+             es.scheduled_date, es.start_time as schedule_started_at, se.completed_at, es.auto_submitted as schedule_auto_submitted,
              e.passing_score, e.total_questions as exam_total_marks,
              es.external_student_id
       FROM student_exams se

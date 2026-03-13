@@ -292,7 +292,7 @@ router.get(
        FROM student_exams se
        JOIN exams e ON se.exam_id = e.id
        WHERE (se.student_id = $1 OR se.external_student_id = $1)
-       ORDER BY se.submitted_at DESC
+       ORDER BY se.completed_at DESC
        LIMIT 5`,
         [user.id],
       );
@@ -327,13 +327,13 @@ router.get(
       // Monthly progress
       const monthlyProgress = await client.query(
         `SELECT
-        DATE_TRUNC('month', se.submitted_at) as month,
+        DATE_TRUNC('month', se.completed_at) as month,
         COUNT(*) as exam_count,
         AVG(se.percentage) as average_percentage
        FROM student_exams se
        WHERE (se.student_id = $1 OR se.external_student_id = $1)
-         AND se.submitted_at >= NOW() - INTERVAL '6 months'
-       GROUP BY DATE_TRUNC('month', se.submitted_at)
+         AND se.completed_at >= NOW() - INTERVAL '6 months'
+       GROUP BY DATE_TRUNC('month', se.completed_at)
        ORDER BY month DESC`,
         [user.id],
       );
@@ -585,7 +585,7 @@ router.get(
 
       // Fetch Completed Exam Results
       const resultsQuery = await client.query(
-        `SELECT se.id, se.score, se.total_marks, se.percentage, se.status, se.submitted_at as completed_at,
+        `SELECT se.id, se.score, se.total_marks, se.percentage, se.status, se.completed_at,
               e.title as exam_title, e.exam_type, e.academic_session,
               ec.name as category_name,
               et.name as exam_type_name
@@ -594,7 +594,7 @@ router.get(
        LEFT JOIN exam_categories ec ON e.category_id = ec.id
        LEFT JOIN exam_types et ON e.exam_type_id = et.id
        WHERE (se.student_id = $1 OR se.external_student_id = $1) AND se.status = 'completed'
-       ORDER BY se.submitted_at DESC`,
+       ORDER BY se.completed_at DESC`,
         [studentId],
       );
 
@@ -743,7 +743,7 @@ router.get(
 
       // Fetch Results - Consolidated across all tutors in the same school
       const resultsQuery = await client.query(
-        `SELECT se.id, se.score, se.total_marks, se.percentage, se.status, se.submitted_at as completed_at,
+        `SELECT se.id, se.score, se.total_marks, se.percentage, se.status, se.completed_at,
                se.historical_level_name as level,
                e.title as exam_title, e.exam_type, e.academic_session,
                ec.name as exam_category, ec.id as exam_category_id,
@@ -755,7 +755,7 @@ router.get(
         LEFT JOIN exam_categories ec ON e.category_id = ec.id
         LEFT JOIN exam_types et ON e.exam_type_id = et.id
         WHERE (se.student_id = $1 OR se.external_student_id = $1) AND se.status = 'completed' ${filters}
-        ORDER BY se.submitted_at DESC`,
+        ORDER BY se.completed_at DESC`,
         queryParams,
       );
 
