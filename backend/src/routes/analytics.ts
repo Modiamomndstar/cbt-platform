@@ -271,7 +271,7 @@ router.get(
         COUNT(*) as total_exams,
         COUNT(CASE WHEN status = 'completed' THEN 1 END) as passed_count,
         COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_count
-       FROM student_exams WHERE student_id = $1`,
+       FROM student_exams WHERE (student_id = $1 OR external_student_id = $1)`,
         [user.id],
       );
 
@@ -282,7 +282,7 @@ router.get(
         AVG(score) as average_score,
         MAX(percentage) as highest_percentage,
         MAX(score) as highest_score
-       FROM student_exams WHERE student_id = $1`,
+       FROM student_exams WHERE (student_id = $1 OR external_student_id = $1)`,
         [user.id],
       );
 
@@ -291,8 +291,8 @@ router.get(
         `SELECT se.*, e.title as exam_title, e.description
        FROM student_exams se
        JOIN exams e ON se.exam_id = e.id
-       WHERE se.student_id = $1
-       ORDER BY se.completed_at DESC
+       WHERE (se.student_id = $1 OR se.external_student_id = $1)
+       ORDER BY se.submitted_at DESC
        LIMIT 5`,
         [user.id],
       );
@@ -302,7 +302,7 @@ router.get(
         `SELECT es.*, e.title as exam_title, e.duration
        FROM exam_schedules es
        JOIN exams e ON es.exam_id = e.id
-       WHERE es.student_id = $1
+       WHERE (es.student_id = $1 OR es.external_student_id = $1)
          AND es.status = 'scheduled'
          AND es.scheduled_date >= CURRENT_DATE
        ORDER BY es.scheduled_date, es.start_time
@@ -319,7 +319,7 @@ router.get(
        FROM student_exams se
        JOIN exams e ON se.exam_id = e.id
        JOIN exam_categories ec ON e.category_id = ec.id
-       WHERE se.student_id = $1
+       WHERE (se.student_id = $1 OR se.external_student_id = $1)
        GROUP BY ec.id, ec.name`,
         [user.id],
       );
@@ -327,26 +327,27 @@ router.get(
       // Monthly progress
       const monthlyProgress = await client.query(
         `SELECT
-        DATE_TRUNC('month', se.completed_at) as month,
+        DATE_TRUNC('month', se.submitted_at) as month,
         COUNT(*) as exam_count,
         AVG(se.percentage) as average_percentage
        FROM student_exams se
-       WHERE se.student_id = $1 AND se.completed_at >= NOW() - INTERVAL '6 months'
-       GROUP BY DATE_TRUNC('month', se.completed_at)
+       WHERE (se.student_id = $1 OR se.external_student_id = $1)
+         AND se.submitted_at >= NOW() - INTERVAL '6 months'
+       GROUP BY DATE_TRUNC('month', se.submitted_at)
        ORDER BY month DESC`,
         [user.id],
       );
 
       // Awards Count (Percentage >= 70)
       const awardsCount = await client.query(
-        "SELECT COUNT(*) FROM student_exams WHERE student_id = $1 AND percentage >= 70 AND status = 'completed'",
+        "SELECT COUNT(*) FROM student_exams WHERE (student_id = $1 OR external_student_id = $1) AND percentage >= 70 AND status = 'completed'",
         [user.id]
       );
 
       // Percentile Calculation (relative to all students in school)
       let percentile = 50; // Default
       const avgQuery = await client.query(
-        "SELECT AVG(percentage) as avg_p FROM student_exams WHERE student_id = $1",
+        "SELECT AVG(percentage) as avg_p FROM student_exams WHERE (student_id = $1 OR external_student_id = $1)",
         [user.id]
       );
 
@@ -358,16 +359,18 @@ router.get(
              (SELECT COUNT(*) FROM (
                SELECT AVG(percentage) as p
                FROM student_exams se
-               JOIN students s ON se.student_id = s.id
-               WHERE s.school_id = $1
-               GROUP BY s.id
+               LEFT JOIN students s ON se.student_id = s.id
+               LEFT JOIN external_students ext ON se.external_student_id = ext.id
+               WHERE COALESCE(s.school_id, ext.school_id) = $1
+               GROUP BY COALESCE(s.id, ext.id)
              ) as school_avgs WHERE p < $2) as below,
              (SELECT COUNT(*) FROM (
                SELECT AVG(percentage) as p
                FROM student_exams se
-               JOIN students s ON se.student_id = s.id
-               WHERE s.school_id = $1
-               GROUP BY s.id
+               LEFT JOIN students s ON se.student_id = s.id
+               LEFT JOIN external_students ext ON se.external_student_id = ext.id
+               WHERE COALESCE(s.school_id, ext.school_id) = $1
+               GROUP BY COALESCE(s.id, ext.id)
              ) as school_avgs) as total`,
           [user.schoolId, studentAvg]
         );
@@ -547,10 +550,18 @@ router.get(
 
       // Fetch Student & School Details
       const studentQuery = await client.query(
-        `SELECT s.id, s.full_name, s.student_id as reg_number, s.email,
+        `SELECT s.id, s.full_name, s.student_id as reg_number, s.email, s.school_id,
               sc.name as category_name,
               sch.name as school_name, sch.address as school_address, sch.email as school_email, sch.phone as school_phone
        FROM students s
+       JOIN schools sch ON s.school_id = sch.id
+       LEFT JOIN student_categories sc ON s.category_id = sc.id
+       WHERE s.id = $1
+       UNION ALL
+       SELECT s.id, s.full_name, s.username as reg_number, s.email, s.school_id,
+              sc.name as category_name,
+              sch.name as school_name, sch.address as school_address, sch.email as school_email, sch.phone as school_phone
+       FROM external_students s
        JOIN schools sch ON s.school_id = sch.id
        LEFT JOIN student_categories sc ON s.category_id = sc.id
        WHERE s.id = $1`,
@@ -561,28 +572,20 @@ router.get(
         return ApiResponseHandler.notFound(res, "Student not found");
       }
 
+      const student = studentQuery.rows[0];
+
       // Verify school context — School Admin & Tutor must belong to same school as student
       if (
         user.role !== "super_admin" &&
         user.role !== "student" &&
-        user.schoolId !== studentQuery.rows[0].school_id
-      ) {
-        return ApiResponseHandler.forbidden(res, "Access denied. Student does not belong to your school.");
-      }
-      const student = studentQuery.rows[0];
-
-      // Authorization verify (ensure user belongs to same school as student)
-      if (
-        user.role !== "super_admin" &&
-        user.schoolId !== studentQuery.rows[0].school_id &&
-        user.role !== "student"
+        user.schoolId !== student.school_id
       ) {
         return ApiResponseHandler.forbidden(res, "Access denied. Student does not belong to your school.");
       }
 
       // Fetch Completed Exam Results
       const resultsQuery = await client.query(
-        `SELECT se.id, se.score, se.total_marks, se.percentage, se.status, se.completed_at,
+        `SELECT se.id, se.score, se.total_marks, se.percentage, se.status, se.submitted_at as completed_at,
               e.title as exam_title, e.exam_type, e.academic_session,
               ec.name as category_name,
               et.name as exam_type_name
@@ -590,8 +593,8 @@ router.get(
        JOIN exams e ON se.exam_id = e.id
        LEFT JOIN exam_categories ec ON e.category_id = ec.id
        LEFT JOIN exam_types et ON e.exam_type_id = et.id
-       WHERE se.student_id = $1 AND se.status = 'completed'
-       ORDER BY se.completed_at DESC`,
+       WHERE (se.student_id = $1 OR se.external_student_id = $1) AND se.status = 'completed'
+       ORDER BY se.submitted_at DESC`,
         [studentId],
       );
 
@@ -686,13 +689,22 @@ router.get(
 
       // Fetch Student Info and School Details
       const studentQuery = await client.query(
-        `SELECT s.id, s.full_name, s.student_id as reg_number, s.email,
-              sc.name as category_name, sch.name as school_name, sch.logo_url,
-              sch.address as school_address, sch.email as school_email, sch.phone as school_phone
-       FROM students s
-       JOIN schools sch ON s.school_id = sch.id
-       LEFT JOIN student_categories sc ON s.category_id = sc.id
-       WHERE s.id = $1 AND (s.school_id = $2 OR $3 = 'super_admin')`,
+        `SELECT * FROM (
+          SELECT s.id, s.full_name, s.student_id as reg_number, s.email, s.school_id,
+                 sc.name as category_name, sch.name as school_name, sch.logo_url,
+                 sch.address as school_address, sch.email as school_email, sch.phone as school_phone
+          FROM students s
+          JOIN schools sch ON s.school_id = sch.id
+          LEFT JOIN student_categories sc ON s.category_id = sc.id
+          UNION ALL
+          SELECT s.id, s.full_name, s.username as reg_number, s.email, s.school_id,
+                 sc.name as category_name, sch.name as school_name, sch.logo_url,
+                 sch.address as school_address, sch.email as school_email, sch.phone as school_phone
+          FROM external_students s
+          JOIN schools sch ON s.school_id = sch.id
+          LEFT JOIN student_categories sc ON s.category_id = sc.id
+        ) sub
+        WHERE id = $1 AND (school_id = $2 OR $3 = 'super_admin')`,
         [studentId, user.schoolId, user.role],
       );
 
@@ -731,7 +743,7 @@ router.get(
 
       // Fetch Results - Consolidated across all tutors in the same school
       const resultsQuery = await client.query(
-        `SELECT se.id, se.score, se.total_marks, se.percentage, se.status, se.completed_at,
+        `SELECT se.id, se.score, se.total_marks, se.percentage, se.status, se.submitted_at as completed_at,
                se.historical_level_name as level,
                e.title as exam_title, e.exam_type, e.academic_session,
                ec.name as exam_category, ec.id as exam_category_id,
@@ -742,8 +754,8 @@ router.get(
         JOIN tutors t ON e.tutor_id = t.id
         LEFT JOIN exam_categories ec ON e.category_id = ec.id
         LEFT JOIN exam_types et ON e.exam_type_id = et.id
-        WHERE se.student_id = $1 AND se.status = 'completed' ${filters}
-        ORDER BY se.completed_at DESC`,
+        WHERE (se.student_id = $1 OR se.external_student_id = $1) AND se.status = 'completed' ${filters}
+        ORDER BY se.submitted_at DESC`,
         queryParams,
       );
 
