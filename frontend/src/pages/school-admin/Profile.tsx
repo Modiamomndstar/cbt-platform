@@ -48,8 +48,15 @@ export default function SchoolProfile() {
           // Ensure we handle both camelCase and snake_case for the school state
           const mappedData = {
             ...data,
-            createdAt: data.createdAt || data.created_at,
-            isActive: data.isActive !== undefined ? data.isActive : data.is_active,
+            id: data.id || data.school_id,
+            name: data.name || data.school_name,
+            username: data.username || data.school_username,
+            email: data.email || data.school_email,
+            phone: data.phone || data.school_phone,
+            address: data.address || data.school_address,
+            description: data.description || data.school_description,
+            createdAt: data.createdAt || data.created_at || data.created_on,
+            isActive: data.isActive !== undefined ? data.isActive : (data.is_active !== undefined ? data.is_active : true),
             logoUrl: data.logoUrl || data.logo_url
           };
           setSchool(mappedData);
@@ -128,37 +135,59 @@ export default function SchoolProfile() {
     setError('');
 
     try {
+      console.log('Sending profile update:', {
+        name: formData.name,
+        email: formData.email,
+        logoUrl: logoUrl
+      });
+
       const response = await schoolAPI.updateProfile({
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
         address: formData.address,
         description: formData.description,
-        logoUrl: logoUrl, // Sending camelCase (preferred by transformer)
-        logo_url: logoUrl, // Fallback for safety
+        logoUrl: logoUrl,
+        logo_url: logoUrl,
       });
+
+      console.log('Profile update response:', response.data);
 
       if (response.data.success) {
         const updatedData = response.data.data;
         // Ensure we handle both camelCase and snake_case for the school state
-        setSchool({
+        const mappedData = {
           ...updatedData,
-          createdAt: updatedData.createdAt || updatedData.created_at,
-          isActive: updatedData.isActive !== undefined ? updatedData.isActive : updatedData.is_active,
+          id: updatedData.id || updatedData.school_id,
+          name: updatedData.name || updatedData.school_name,
+          username: updatedData.username || updatedData.school_username,
+          email: updatedData.email || updatedData.school_email,
+          phone: updatedData.phone || updatedData.school_phone,
+          address: updatedData.address || updatedData.school_address,
+          description: updatedData.description || updatedData.school_description,
+          createdAt: updatedData.createdAt || updatedData.created_at || updatedData.created_on,
+          isActive: updatedData.isActive !== undefined ? updatedData.isActive : (updatedData.is_active !== undefined ? updatedData.is_active : true),
           logoUrl: updatedData.logoUrl || updatedData.logo_url
-        });
+        };
+
+        setSchool(mappedData);
+        if (mappedData.logoUrl) {
+          setLogoUrl(mappedData.logoUrl);
+          setLogoPreview(mappedData.logoUrl);
+        }
 
         // Refresh global auth session to update sidebar logo, etc.
         await refreshUser();
 
         toast.success('School profile updated successfully');
       } else {
-        setError('Failed to update profile');
+        setError(response.data.message || 'Failed to update profile');
       }
     } catch (err: any) {
+      console.error('Profile update error:', err);
       const msg = err?.response?.data?.message || 'An error occurred. Please try again.';
       setError(msg);
-      console.error(err);
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }

@@ -173,7 +173,9 @@ router.put('/profile', authorize('school'), async (req, res, next) => {
     if (phone !== undefined) { updates.push(`phone = $${paramIndex++}`); values.push(phone); }
     if (address !== undefined) { updates.push(`address = $${paramIndex++}`); values.push(address); }
     if (description !== undefined) { updates.push(`description = $${paramIndex++}`); values.push(description); }
-    const logoToUpdate = logoUrl !== undefined ? logoUrl : (req.body.logo_url !== undefined ? req.body.logo_url : req.body.logo);
+    // Standardize logo field detection (handles logoUrl, logo_url, or logo)
+    const logoToUpdate = req.body.logoUrl !== undefined ? req.body.logoUrl :
+                        (req.body.logo_url !== undefined ? req.body.logo_url : req.body.logo);
 
     if (logoToUpdate !== undefined) {
       updates.push(`logo_url = $${paramIndex++}`);

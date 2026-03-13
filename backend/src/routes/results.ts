@@ -641,23 +641,30 @@ router.get(
 
       ApiResponseHandler.success(
         res,
-        transformResult(result.rows.map((row) => ({
-          id: row.id,
-          examTitle: row.exam_title,
-          examCategory: row.exam_category,
-          examType: row.exam_type_name || row.exam_type,
-          description: row.description,
-          tutorName: row.tutor_name || 'Tutor',
-          score: row.score,
-          totalMarks: row.total_marks,
-          percentage: row.percentage,
-          status: row.status,
-          passed: row.percentage >= row.passing_score,
-          timeSpentMinutes: row.time_spent_minutes,
-          scheduledDate: row.scheduled_date,
-          submittedAt: row.completed_at,
-          startedAt: row.started_at,
-        }))),
+        transformResult(result.rows.map((row) => {
+          const percentage = row.percentage !== null ? parseFloat(row.percentage) : 0;
+          const passingScore = row.passing_score !== null ? parseFloat(row.passing_score) : 50;
+          const passed = row.status === 'completed' && percentage >= passingScore;
+
+          return {
+            id: row.id,
+            examTitle: row.exam_title,
+            examCategory: row.exam_category,
+            categoryName: row.exam_category,
+            examType: row.exam_type_name || row.exam_type,
+            description: row.description,
+            tutorName: row.tutor_name || 'Tutor',
+            score: row.score,
+            totalMarks: row.total_marks,
+            percentage: percentage,
+            status: row.status,
+            passed: passed,
+            timeSpentMinutes: row.time_spent_minutes,
+            scheduledDate: row.scheduled_date,
+            submittedAt: row.completed_at,
+            startedAt: row.started_at,
+          };
+        })),
         "Student exam history retrieved",
         formatPaginationResponse(totalCount, pagination)
       );

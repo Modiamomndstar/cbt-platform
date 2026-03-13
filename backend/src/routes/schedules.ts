@@ -919,8 +919,10 @@ router.get(
           description: row.description,
           durationMinutes: row.duration,
           totalQuestions: row.total_questions,
-          totalMarks: row.total_marks, // Note: This is exam total. For student specific, we might need a join, but for list view this is fine.
+          questionCount: row.total_questions, // Added for mobile backwards compatibility
+          totalMarks: row.total_marks,
           examCategory: row.category_name,
+          categoryName: row.category_name, // Map for mobile ExamsScreen.tsx
           tutorName:
             row.tutor_full_name ||
             `${row.tutor_first_name || ""} ${row.tutor_last_name || ""}`.trim(),
@@ -935,6 +937,7 @@ router.get(
           isSecureMode: !!row.is_secure_mode,
           maxViolations: row.max_violations ?? 3,
           competitionId: row.db_competition_id,
+          isCompetition: !!row.db_competition_id, // Map for mobile ExamsScreen.tsx
           competitionRules: row.competition_rules
         })),
         "Student schedules retrieved",

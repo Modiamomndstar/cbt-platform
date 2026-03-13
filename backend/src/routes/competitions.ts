@@ -192,4 +192,19 @@ router.post('/:id/register', async (req, res) => {
   }
 });
 
+/**
+ * @route   GET /api/competitions/student/hub
+ * @desc    Get competitions available for the student to browse/register
+ * @access  Student
+ */
+router.get('/student/hub', async (req, res) => {
+  try {
+    const studentId = req.user!.id;
+    const competitions = await competitionService.getStudentHubCompetitions(studentId);
+    ApiResponseHandler.success(res, transformResult(competitions));
+  } catch (err: any) {
+    ApiResponseHandler.serverError(res, err.message);
+  }
+});
+
 export default router;

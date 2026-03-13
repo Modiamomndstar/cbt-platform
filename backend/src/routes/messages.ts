@@ -128,9 +128,22 @@ router.get("/inbox", authenticate, async (req: Request, res: Response) => {
       [user.role, user.schoolId || user.id]
     );
 
+    // Combine messages and broadcasts for mobile-friendly consumption if needed
+    const combined = [
+      ...directMessages.rows.map(m => ({ ...m, type: 'direct' })),
+      ...broadcasts.rows.map(b => ({
+        ...b,
+        type: 'broadcast',
+        subject: b.title,
+        message: b.content,
+        createdAt: b.created_at
+      }))
+    ].sort((a, b) => new Date(b.created_at || b.createdAt).getTime() - new Date(a.created_at || a.createdAt).getTime());
+
     ApiResponseHandler.success(res, transformResult({
       messages: directMessages.rows,
-      broadcasts: broadcasts.rows
+      broadcasts: broadcasts.rows,
+      data: combined // Flattened list for mobile
     }), "Inbox retrieved");
   } catch (error) {
     console.error("Get inbox error:", error);

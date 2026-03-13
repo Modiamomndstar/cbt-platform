@@ -45,7 +45,7 @@ export default function StudentResults() {
           setStats({
             totalExams: allResults.length,
             averageScore: Math.round(totalScore / allResults.length),
-            highestScore: highest,
+            highestScore: Math.round(highest),
             totalTimeSpent: totalTime,
           });
         }

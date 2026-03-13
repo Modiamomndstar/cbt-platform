@@ -281,5 +281,50 @@ export const competitionService = {
       [studentId]
     );
     return res.rows;
+  },
+
+  getStudentHubCompetitions: async (studentId: string): Promise<any[]> => {
+    // 1. Get student info (country/school)
+    const studentRes = await db.query(
+      `SELECT s.school_id, sch.country
+       FROM students s
+       JOIN schools sch ON s.school_id = sch.id
+       WHERE s.id = $1
+       UNION
+       SELECT s.school_id, sch.country
+       FROM external_students s
+       JOIN schools sch ON s.school_id = sch.id
+       WHERE s.id = $1`,
+      [studentId]
+    );
+
+    if (studentRes.rows.length === 0) return [];
+    const { country } = studentRes.rows[0];
+
+    // 2. Fetch competitions matching scope AND enrollment status
+    const res = await db.query(
+      `SELECT
+         c.id, c.title, c.description, c.banner_url,
+         (SELECT name FROM competition_categories WHERE competition_id = c.id LIMIT 1) as category_name,
+         (SELECT SUM(reward_value) FROM competition_rewards WHERE competition_id = c.id) as prize_pool,
+         (SELECT EXISTS(SELECT 1 FROM competition_registrations WHERE competition_id = c.id AND student_id = $1)) as is_registered,
+         (SELECT start_time FROM competition_stages WHERE competition_category_id IN (SELECT id FROM competition_categories WHERE competition_id = c.id) ORDER BY stage_number ASC LIMIT 1) as start_date
+       FROM competitions c
+       WHERE c.status IN ('registration_open', 'exam_in_progress')
+       AND (
+         c.scope = 'global' OR
+         (c.scope = 'national' AND $2 = ANY(c.target_countries)) OR
+         (c.scope = 'local' AND $2 = ANY(c.target_countries))
+       )
+       ORDER BY c.created_at DESC`,
+      [studentId, country]
+    );
+
+    return res.rows.map(row => ({
+      ...row,
+      prizePool: row.prize_pool || 0,
+      startDate: row.start_date,
+      categoryName: row.category_name || 'General'
+    }));
   }
 };

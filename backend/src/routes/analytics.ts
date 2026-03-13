@@ -449,6 +449,7 @@ router.get(
           upcomingExams: upcomingExams.rows.map((e) => ({
             id: e.id,
             examTitle: e.exam_title,
+            duration: e.duration, // Added for mobile backwards compatibility
             durationMinutes: e.duration,
             scheduledDate: e.scheduled_date,
             startTime: e.start_time,
@@ -457,6 +458,7 @@ router.get(
           categoryPerformance: categoryPerformance.rows.map((c) => ({
             subject: c.category_name, // Map for radar chart
             A: parseFloat(c.average_percentage || 0).toFixed(1), // Map for radar chart
+            percentage: parseFloat(c.average_percentage || 0).toFixed(1),
             examCount: parseInt(c.exam_count),
           })),
           monthlyProgress: monthlyProgress.rows.map((m) => ({
@@ -975,6 +977,75 @@ router.get(
     } catch (error) {
       console.error("Get issued report error:", error);
       ApiResponseHandler.serverError(res, "Failed to retrieve issued report");
+    } finally {
+      client.release();
+    }
+  }
+);
+
+// Get student performance analytics for mobile PerformanceScreen.tsx
+router.get(
+  "/student/performance",
+  authenticate,
+  requireRole(["student"]),
+  async (req: Request, res: Response) => {
+    const client = await pool.connect();
+    try {
+      const user = req.user!;
+
+      // Fetch student info
+      const studentInfo = await client.query(
+        'SELECT email, phone FROM students WHERE id = $1 UNION SELECT email, phone FROM external_students WHERE id = $1',
+        [user.id]
+      );
+      const email = studentInfo.rows[0]?.email;
+      const phone = studentInfo.rows[0]?.phone;
+
+      // Overview Stats
+      const stats = await client.query(
+        `SELECT
+           COUNT(*) as total_exams,
+           AVG(percentage) as average_score,
+           COUNT(CASE WHEN percentage >= 50 THEN 1 END) as passed_count
+         FROM student_exams
+         WHERE (student_id = $1 OR external_student_id = $1)
+            OR (email = $2 AND $2 IS NOT NULL AND $2 != '')
+            OR (phone = $3 AND $3 IS NOT NULL AND $3 != '')`,
+        [user.id, email, phone]
+      );
+
+      const totalExams = parseInt(stats.rows[0].total_exams) || 0;
+      const passRate = totalExams > 0
+        ? Math.round((parseInt(stats.rows[0].passed_count) / totalExams) * 100)
+        : 0;
+
+      // Subject Breakdown
+      const subjects = await client.query(
+        `SELECT
+           ec.name as name,
+           AVG(se.percentage) as score
+         FROM student_exams se
+         JOIN exams e ON se.exam_id = e.id
+         JOIN exam_categories ec ON e.category_id = ec.id
+         WHERE (se.student_id = $1 OR se.external_student_id = $1)
+            OR (se.email = $2 AND $2 IS NOT NULL AND $2 != '')
+            OR (se.phone = $3 AND $3 IS NOT NULL AND $3 != '')
+         GROUP BY ec.id, ec.name`,
+        [user.id, email, phone]
+      );
+
+      ApiResponseHandler.success(res, transformResult({
+        totalExams,
+        averageScore: Math.round(parseFloat(stats.rows[0].average_score || 0)),
+        passRate,
+        subjects: subjects.rows.map(s => ({
+          name: s.name,
+          score: Math.round(parseFloat(s.score || 0))
+        }))
+      }), "Performance analytics retrieved");
+    } catch (error) {
+      console.error("Student performance analytics error:", error);
+      ApiResponseHandler.serverError(res, "Failed to fetch performance data");
     } finally {
       client.release();
     }
