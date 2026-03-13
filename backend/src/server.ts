@@ -146,7 +146,8 @@ app.use(
 );
 
 // Static files
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+// Static files
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // Health check endpoint (both /health and /api/health for Caddy passthrough)
 app.get(["/health", "/api/health"], (req, res) => {

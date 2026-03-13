@@ -21,7 +21,7 @@ const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
 // Ensure upload directories exist
-const UPLOAD_DIR = path.join(__dirname, '../../uploads');
+const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
 const LOGO_DIR = path.join(UPLOAD_DIR, 'logos');
 [UPLOAD_DIR, LOGO_DIR].forEach((dir) => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
