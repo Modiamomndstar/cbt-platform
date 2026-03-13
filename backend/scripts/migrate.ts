@@ -141,6 +141,33 @@ async function migrate() {
             END IF;
           END $$;
         `
+      },
+      {
+        name: '008_add_student_exams_contact',
+        sql: `
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                          WHERE table_name = 'student_exams' AND column_name = 'email') THEN
+              ALTER TABLE student_exams ADD COLUMN email VARCHAR(255);
+              ALTER TABLE student_exams ADD COLUMN phone VARCHAR(20);
+
+              -- Populate data from students
+              UPDATE student_exams se
+              SET email = s.email, phone = s.phone
+              FROM students s
+              WHERE se.student_id = s.id
+              AND se.email IS NULL;
+
+              -- Populate data from external_students
+              UPDATE student_exams se
+              SET email = ext.email, phone = ext.phone
+              FROM external_students ext
+              WHERE se.external_student_id = ext.id
+              AND se.email IS NULL;
+            END IF;
+          END $$;
+        `
       }
     ];
 
