@@ -395,20 +395,22 @@ router.get(
       const snapshotMetadata = row.snapshot_metadata || {};
       const flaggedQuestions = snapshotMetadata.flagged_questions || [];
 
+      // Pre-fetch all live question data in ONE query to avoid concurrent client issues and improve performance
+      const questionIds = Array.from(new Set(assignedQuestions.map((q: any) => q.id)));
+      const liveQuestionsResult = await client.query(
+        'SELECT id, correct_answer, options, question_type FROM questions WHERE id = ANY($1)',
+        [questionIds]
+      );
+      const liveQuestionsMap = new Map(liveQuestionsResult.rows.map(q => [q.id, q]));
+
       // Map answers to questions for a complete view
-      const detailedQuestions = await Promise.all(assignedQuestions.map(async (q: any) => {
+      const detailedQuestions = assignedQuestions.map((q: any) => {
         const answerRecord = answers.find((a: any) => a.questionId === q.id);
         let studentAnswer = answerRecord ? answerRecord.studentAnswer : null;
         const marksObtained = answerRecord ? answerRecord.marksObtained : 0;
         const isCorrect = answerRecord ? answerRecord.isCorrect : false;
 
-        // Try to get live question data as fallback for correct answer/options
-        const liveQuestion = await client.query(
-          'SELECT correct_answer, options, question_type, explanation FROM questions WHERE id = $1',
-          [q.id]
-        );
-
-        const currentQ = liveQuestion.rows.length > 0 ? liveQuestion.rows[0] : q;
+        const currentQ = liveQuestionsMap.get(q.id) || q;
         let correctAnswer = currentQ.correct_answer;
         const options = currentQ.options || q.options;
         const qType = currentQ.question_type || q.question_type;
@@ -448,10 +450,10 @@ router.get(
           studentAnswer,
           marksObtained,
           isCorrect,
-          explanation: currentQ.explanation || q.explanation || null,
+          explanation: (currentQ as any).explanation || q.explanation || null,
           isFlagged: flaggedQuestions.includes(q.id)
         };
-      }));
+      });
 
       ApiResponseHandler.success(res, transformResult({
         id: row.id,
