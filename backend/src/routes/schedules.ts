@@ -27,93 +27,133 @@ router.get(
       const { examId, categoryId } = req.query;
       const user = req.user!;
 
-      let query = `
-      SELECT s.id, s.full_name, s.first_name, s.last_name, s.email, s.student_id, s.category_id,
-             sc.name as category_name
-      FROM students s
-      LEFT JOIN student_categories sc ON s.category_id = sc.id
-      WHERE s.school_id = $1
-        AND s.is_active = true
-        AND s.id NOT IN (
-          SELECT student_id FROM exam_schedules
-          WHERE exam_id = $2 AND status NOT IN ('cancelled', 'expired')
-        )
-    `;
+      // ─── Query Logic ───
+      // If "external" selected, we only show external_students
+      if (categoryId === "external") {
+        const extParams: any[] = [user.schoolId, examId];
+        let extQuery = `
+          SELECT s.id, s.full_name, s.first_name, s.last_name, s.email, s.username as student_id, s.category_id,
+                 sc.name as category_name
+          FROM external_students s
+          LEFT JOIN student_categories sc ON s.category_id = sc.id
+          WHERE s.school_id = $1
+            AND s.is_active = true
+            AND s.id NOT IN (
+              SELECT external_student_id FROM exam_schedules
+              WHERE exam_id = $2 AND status NOT IN ('cancelled', 'expired') AND external_student_id IS NOT NULL
+            )
+        `;
 
-      const params: any[] = [user.schoolId, examId];
+        if (user.role === "tutor") {
+          extQuery += ` AND s.tutor_id = $${extParams.length + 1}`;
+          extParams.push(user.id);
+        }
+
+        extQuery += ` ORDER BY s.full_name, s.last_name, s.first_name`;
+        const extResult = await client.query(extQuery, extParams);
+
+        return ApiResponseHandler.success(
+          res,
+          transformResult(extResult.rows.map((s) => ({
+            id: s.id,
+            studentName: s.full_name || `${s.first_name || ""} ${s.last_name || ""}`.trim() || "Unknown",
+            firstName: s.first_name,
+            lastName: s.last_name,
+            email: s.email,
+            registrationNumber: s.student_id,
+            categoryId: s.category_id,
+            categoryName: s.category_name,
+            isExternal: true
+          }))),
+          "Available external students retrieved"
+        );
+      }
+
+      // If categoryId is specific (UUID), we should ideally check BOTH tables for students in that category
+      // However, the standard "all" (Default) only shows internal students.
+      // We'll maintain that "all" = internal, "external" = all external, but custom category = both if they exist.
+
+      const allResults: any[] = [];
+
+      // 1. Check Internal Students
+      let intQuery = `
+        SELECT s.id, s.full_name, s.first_name, s.last_name, s.email, s.student_id, s.category_id,
+               sc.name as category_name
+        FROM students s
+        LEFT JOIN student_categories sc ON s.category_id = sc.id
+        WHERE s.school_id = $1
+          AND s.is_active = true
+          AND s.id NOT IN (
+            SELECT student_id FROM exam_schedules
+            WHERE exam_id = $2 AND status NOT IN ('cancelled', 'expired')
+          )
+      `;
+      const intParams: any[] = [user.schoolId, examId];
 
       if (user.role === "tutor") {
-        query += ` AND s.id IN (SELECT student_id FROM student_tutors WHERE tutor_id = $${params.length + 1})`;
-        params.push(user.id);
+        intQuery += ` AND s.id IN (SELECT student_id FROM student_tutors WHERE tutor_id = $3)`;
+        intParams.push(user.id);
       }
 
       if (categoryId && categoryId !== "all") {
-        if (categoryId === "external") {
-          // If external selected, we need to query the external_students table instead
-          const extParams: any[] = [user.schoolId, examId];
-          let extQuery = `
-            SELECT s.id, s.full_name, s.first_name, s.last_name, s.email, s.username as student_id, s.category_id,
-                   sc.name as category_name
-            FROM external_students s
-            LEFT JOIN student_categories sc ON s.category_id = sc.id
-            WHERE s.school_id = $1
-              AND s.is_active = true
-              AND s.id NOT IN (
-                SELECT external_student_id FROM exam_schedules
-                WHERE exam_id = $2 AND status NOT IN ('cancelled', 'expired') AND external_student_id IS NOT NULL
-              )
-          `;
-
-          if (user.role === "tutor") {
-            extQuery += ` AND s.tutor_id = $${extParams.length + 1}`;
-            extParams.push(user.id);
-          }
-
-          extQuery += ` ORDER BY s.full_name, s.last_name, s.first_name`;
-          const extResult = await client.query(extQuery, extParams);
-
-          return ApiResponseHandler.success(
-            res,
-            transformResult(extResult.rows.map((s) => ({
-              id: s.id,
-              studentName: s.full_name || `${s.first_name || ""} ${s.last_name || ""}`.trim() || "Unknown",
-              firstName: s.first_name,
-              lastName: s.last_name,
-              email: s.email,
-              registrationNumber: s.student_id,
-              categoryId: s.category_id,
-              categoryName: s.category_name,
-              isExternal: true
-            }))),
-            "Available external students retrieved"
-          );
-        } else {
-          query += ` AND s.category_id = $${params.length + 1}`;
-          params.push(categoryId);
-        }
+        intQuery += ` AND s.category_id = $${intParams.length + 1}`;
+        intParams.push(categoryId);
       }
 
-      query += ` ORDER BY s.full_name, s.last_name, s.first_name`;
+      const intResult = await client.query(intQuery, intParams);
+      allResults.push(...intResult.rows.map(s => ({
+        id: s.id,
+        studentName: s.full_name || `${s.first_name || ""} ${s.last_name || ""}`.trim() || "Unknown",
+        firstName: s.first_name,
+        lastName: s.last_name,
+        email: s.email,
+        registrationNumber: s.student_id,
+        categoryId: s.category_id,
+        categoryName: s.category_name,
+        isExternal: false
+      })));
 
-      const result = await client.query(query, params);
+      // 2. ONLY if a specific categoryId is provided, we ALSO check external students for that category
+      if (categoryId && categoryId !== "all" && categoryId !== "external") {
+        const extParams: any[] = [user.schoolId, examId];
+        let extQuery = `
+          SELECT s.id, s.full_name, s.first_name, s.last_name, s.email, s.username as student_id, s.category_id,
+                 sc.name as category_name
+          FROM external_students s
+          LEFT JOIN student_categories sc ON s.category_id = sc.id
+          WHERE s.school_id = $1
+            AND s.is_active = true
+            AND s.category_id = $3
+            AND s.id NOT IN (
+              SELECT external_student_id FROM exam_schedules
+              WHERE exam_id = $2 AND status NOT IN ('cancelled', 'expired') AND external_student_id IS NOT NULL
+            )
+        `;
+        extParams.push(categoryId);
+
+        if (user.role === "tutor") {
+          extQuery += ` AND s.tutor_id = $4`;
+          extParams.push(user.id);
+        }
+
+        const extResult = await client.query(extQuery, extParams);
+        allResults.push(...extResult.rows.map(s => ({
+            id: s.id,
+            studentName: s.full_name || `${s.first_name || ""} ${s.last_name || ""}`.trim() || "Unknown",
+            firstName: s.first_name,
+            lastName: s.last_name,
+            email: s.email,
+            registrationNumber: s.student_id,
+            categoryId: s.category_id,
+            categoryName: s.category_name,
+            isExternal: true
+        })));
+      }
 
       ApiResponseHandler.success(
         res,
-        transformResult(result.rows.map((s) => ({
-          id: s.id,
-          studentName:
-            s.full_name ||
-            `${s.first_name || ""} ${s.last_name || ""}`.trim() ||
-            "Unknown",
-          firstName: s.first_name,
-          lastName: s.last_name,
-          email: s.email,
-          registrationNumber: s.student_id,
-          categoryId: s.category_id,
-          categoryName: s.category_name,
-          isExternal: false
-        }))),
-        "Available students retrieved",
+        transformResult(allResults.sort((a, b) => a.studentName.localeCompare(b.studentName))),
+        "Available students retrieved"
       );
     } catch (error) {
       console.error("Get available students error:", error);
