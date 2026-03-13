@@ -45,10 +45,16 @@ app.set("trust proxy", 1);
 const PORT = process.env.PORT || 5000;
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: false, // Disable CSP for API to allow mobile flexibility
+}));
+
 app.use(
   cors({
     origin: (origin, callback) => {
+      // For APIs, it's often better to be more permissive with origins
+      // especially when dealing with mobile apps and local dev
       const allowed = [
         process.env.FRONTEND_URL,
         "https://mycbtplatform.cc",
@@ -57,28 +63,33 @@ app.use(
         "http://localhost",
         "http://localhost:5173",
         "http://localhost:8081",
-        "http://10.0.2.2:5000", // Android Emulator
-        "http://10.0.2.2:8081", // Android Emulator Expo
+        "http://10.0.2.2", // Android Emulator
+        "http://10.0.2.2:5000",
+        "http://10.0.2.2:8081",
       ].filter(Boolean);
 
-      // If no origin (mobile app, direct request) or in allowed list
+      // If no origin (standard for many mobile app requests) or in allowed list
       if (!origin || allowed.includes(origin)) {
         return callback(null, true);
       }
 
-      // Check for mobile app custom schemes or local IP development
+      // Check for mobile app custom schemes, local network, or specific subdomains
       if (
         origin.startsWith("http://192.168.") ||
         origin.startsWith("http://10.") ||
-        origin.startsWith("exp://")
+        origin.startsWith("exp://") ||
+        origin.includes("mycbtplatform.cc") ||
+        origin.includes("localhost")
       ) {
         return callback(null, true);
       }
 
-      if (process.env.NODE_ENV === "production") {
-        logger.warn(`Rejected CORS origin: ${origin}`);
+      // In development, allow all
+      if (process.env.NODE_ENV !== "production") {
+        return callback(null, true);
       }
 
+      logger.warn(`Rejected CORS origin: ${origin}`);
       callback(new Error(`CORS policy: origin ${origin} not allowed`));
     },
     credentials: true,
@@ -87,19 +98,19 @@ app.use(
   }),
 );
 
-// Rate limiting
+// Rate limiting - Significantly increased for production stability
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 2000, // 2000 requests per 15 minutes (much safer for mobile apps)
   message: "Too many requests from this IP, please try again later.",
   handler: (req, res) => ApiResponseHandler.badRequest(res, "Too many requests from this IP, please try again later.", { code: 'RATE_LIMIT_EXCEEDED' }),
 });
 app.use("/api/", limiter);
 
-// Rate limiting for auth routes
+// Rate limiting for auth routes - Also increased
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20, // slightly more generous for schools/tutors
+  max: 100,
   message: {
     success: false,
     message: "Too many login attempts, please try again after 15 minutes",
