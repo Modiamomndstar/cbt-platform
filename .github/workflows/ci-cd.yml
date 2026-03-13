@@ -45,6 +45,8 @@ jobs:
           file: ./backend/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ghcr.io/${{ steps.owner.outputs.lowercase }}/cbt-platform-backend:${{ github.sha }}
             ghcr.io/${{ steps.owner.outputs.lowercase }}/cbt-platform-backend:latest
@@ -56,6 +58,8 @@ jobs:
           file: ./frontend/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ghcr.io/${{ steps.owner.outputs.lowercase }}/cbt-platform-frontend:${{ github.sha }}
             ghcr.io/${{ steps.owner.outputs.lowercase }}/cbt-platform-frontend:latest
