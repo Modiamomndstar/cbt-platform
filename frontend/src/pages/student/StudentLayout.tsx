@@ -67,18 +67,18 @@ export default function StudentLayout() {
       <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-gray-200 fixed h-full">
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center space-x-3">
-            {user?.schoolLogo ? (
+            {user?.schoolLogo && !user?.isExternal ? (
               <img src={user.schoolLogo} alt="School Logo" className="h-10 w-10 object-contain rounded-md" />
             ) : (
               <GraduationCap className="h-10 w-10 text-emerald-600" />
             )}
             <div className="flex-1 min-w-0">
               <p className="font-bold text-gray-900 truncate leading-tight">
-                {user?.schoolName || (user?.isExternal ? 'Exam Access Area' : 'Student Portal')}
+                {!user?.isExternal ? user?.schoolName : (user?.isExternal ? 'Exam Access Area' : 'Student Portal')}
               </p>
-              {user?.schoolName && (
+              {!user?.isExternal && user?.schoolName && (
                 <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mt-0.5">
-                   {user?.isExternal ? 'Exam Access' : 'Student Portal'}
+                   Student Portal
                 </p>
               )}
             </div>
@@ -141,13 +141,13 @@ export default function StudentLayout() {
           <aside className="absolute left-0 top-0 bottom-0 w-64 bg-white shadow-xl">
             <div className="p-4 border-b border-gray-200 flex justify-between items-center">
                <div className="flex items-center space-x-2">
-                {user?.schoolLogo ? (
+                {user?.schoolLogo && !user?.isExternal ? (
                   <img src={user.schoolLogo} alt="School Logo" className="h-8 w-8 object-contain rounded" />
                 ) : (
                   <GraduationCap className="h-8 w-8 text-emerald-600" />
                 )}
                 <span className="font-bold text-gray-900 truncate max-w-[140px]">
-                  {user?.schoolName || (user?.isExternal ? 'Exam Access' : 'Student Portal')}
+                  {!user?.isExternal ? user?.schoolName : 'Exam Access'}
                 </span>
               </div>
               <button onClick={() => setSidebarOpen(false)} className="p-1 hover:bg-gray-100 rounded-full">
@@ -191,7 +191,51 @@ export default function StudentLayout() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-64">
+      <main className="flex-1 lg:ml-64 relative">
+        {/* Top Header - Desktop Branded & Student Profile */}
+        <header className="hidden lg:flex bg-white/80 backdrop-blur-md border-b border-gray-200 p-4 sticky top-0 z-30 justify-between items-center px-8 shadow-sm">
+          {!user?.isExternal ? (
+            <div className="flex items-center space-x-4">
+              {user?.schoolLogo ? (
+                <div className="bg-white p-1.5 rounded-xl shadow-sm border border-gray-100">
+                  <img src={user.schoolLogo} alt="School Logo" className="h-10 w-10 object-contain" />
+                </div>
+              ) : (
+                <div className="bg-emerald-50 p-2 rounded-xl">
+                  <GraduationCap className="h-8 w-8 text-emerald-600" />
+                </div>
+              )}
+              <div>
+                <h1 className="text-xl font-black text-gray-900 tracking-tight leading-none">
+                  {user?.schoolName}
+                </h1>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em] mt-1">
+                  Student Learning Management System
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-3">
+              <div className="bg-gray-50 p-2 rounded-xl border border-gray-100">
+                <LayoutDashboard className="h-6 w-6 text-gray-400" />
+              </div>
+              <h1 className="text-lg font-bold text-gray-600 tracking-tight">Exam Access Area</h1>
+            </div>
+          )}
+
+          <div className="flex items-center space-x-4">
+            <div className="text-right flex flex-col justify-center">
+              <p className="text-sm font-black text-gray-900 leading-none">{studentName}</p>
+              <p className="text-[10px] text-emerald-600 font-bold mt-1 uppercase tracking-wider">Active Student</p>
+            </div>
+            <div className="w-12 h-12 bg-gradient-to-br from-emerald-400 to-teal-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-200 transform transition-transform hover:scale-105 cursor-pointer border-2 border-white">
+              <span className="text-white font-black text-lg">
+                {studentName.charAt(0)}
+              </span>
+            </div>
+          </div>
+        </header>
+
         {/* Mobile Header */}
         <header className="lg:hidden bg-white border-b border-gray-200 p-4 sticky top-0 z-30 shadow-sm">
           <div className="flex justify-between items-center">
@@ -199,11 +243,11 @@ export default function StudentLayout() {
               <button onClick={() => setSidebarOpen(true)} className="p-1 hover:bg-gray-100 rounded-lg">
                 <Menu className="h-6 w-6 text-gray-600" />
               </button>
-              {user?.schoolLogo && (
+              {user?.schoolLogo && !user?.isExternal && (
                 <img src={user.schoolLogo} alt="School Logo" className="h-8 w-8 object-contain rounded" />
               )}
               <span className="font-bold text-gray-900 truncate max-w-[180px]">
-                {user?.schoolName || 'Student Portal'}
+                {!user?.isExternal ? user?.schoolName : 'Exam Access Area'}
               </span>
             </div>
             <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
