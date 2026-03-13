@@ -396,51 +396,62 @@ router.get(
       const flaggedQuestions = snapshotMetadata.flagged_questions || [];
 
       // Map answers to questions for a complete view
-      const detailedQuestions = assignedQuestions.map((q: any) => {
+      const detailedQuestions = await Promise.all(assignedQuestions.map(async (q: any) => {
         const answerRecord = answers.find((a: any) => a.questionId === q.id);
         let studentAnswer = answerRecord ? answerRecord.studentAnswer : null;
         const marksObtained = answerRecord ? answerRecord.marksObtained : 0;
         const isCorrect = answerRecord ? answerRecord.isCorrect : false;
-        let correctAnswer = q.correct_answer;
+
+        // Try to get live question data as fallback for correct answer/options
+        const liveQuestion = await client.query(
+          'SELECT correct_answer, options, question_type, explanation FROM questions WHERE id = $1',
+          [q.id]
+        );
+
+        const currentQ = liveQuestion.rows.length > 0 ? liveQuestion.rows[0] : q;
+        let correctAnswer = currentQ.correct_answer;
+        const options = currentQ.options || q.options;
+        const qType = currentQ.question_type || q.question_type;
 
         // Map index to text for multiple choice and true/false
-        const mapAnswer = (ans: any) => {
-          if (ans === null || ans === undefined || ans === "") return ans;
+        const mapAnswerText = (ans: any, type: string, opts: any[]) => {
+          if (ans === null || ans === undefined || String(ans).trim() === "") return ans;
 
-          if (q.question_type === 'multiple_choice' && Array.isArray(q.options)) {
-            // Check if answer is a number or a string representing a number
+          if (type === 'multiple_choice' && Array.isArray(opts)) {
             if (/^\d+$/.test(String(ans))) {
               const idx = parseInt(String(ans));
-              if (idx >= 0 && idx < q.options.length) {
-                const opt = q.options[idx];
+              if (idx >= 0 && idx < opts.length) {
+                const opt = opts[idx];
                 return typeof opt === 'string' ? opt : (opt.text || opt.label || ans);
               }
             }
-          } else if (q.question_type === 'true_false') {
-             // Handle 0=True, 1=False to match index-based system
+          } else if (type === 'true_false') {
              if (String(ans) === '0' || String(ans).toLowerCase() === 'true') return 'True';
              if (String(ans) === '1' || String(ans).toLowerCase() === 'false') return 'False';
+          } else if (type === 'fill_blank' || type === 'theory') {
+             // For theory/fill_blank, if correct_answer is '0' and it's a theory question, it's likely uninitialized
+             if (type === 'theory' && String(correctAnswer) === '0') return 'N/A (Graded by Tutor)';
           }
           return ans;
         };
 
-        studentAnswer = mapAnswer(studentAnswer);
-        correctAnswer = mapAnswer(correctAnswer);
+        studentAnswer = mapAnswerText(studentAnswer, qType, options);
+        correctAnswer = mapAnswerText(correctAnswer, qType, options);
 
         return {
           id: q.id,
           text: q.question_text,
-          type: q.question_type,
-          options: q.options,
+          type: qType,
+          options: options,
           correctAnswer,
           marks: parseFloat(q.marks),
           studentAnswer,
           marksObtained,
           isCorrect,
-          explanation: q.explanation || null,
+          explanation: currentQ.explanation || q.explanation || null,
           isFlagged: flaggedQuestions.includes(q.id)
         };
-      });
+      }));
 
       ApiResponseHandler.success(res, transformResult({
         id: row.id,
