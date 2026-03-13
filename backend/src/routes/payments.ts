@@ -39,6 +39,16 @@ router.get("/plans", async (req: Request, res: Response) => {
   }
 });
 
+// Helper to check if a key is a real key or a placeholder
+const isConfigured = (key: string | undefined, prefix: string): boolean => {
+  if (!key) return false;
+  // Check if it's a placeholder (contains "your_" or doesn't have the standard prefix)
+  if (key.includes("your_") || key.includes("sk_prod_") || !key.startsWith(prefix)) {
+    return false;
+  }
+  return true;
+};
+
 // Unified Payment Config for Frontend
 router.get("/config", async (req: Request, res: Response) => {
   try {
@@ -48,10 +58,20 @@ router.get("/config", async (req: Request, res: Response) => {
     const settings: Record<string, string> = {};
     settingsRes.rows.forEach(r => settings[r.key] = r.value);
 
+    const stripeActive = isConfigured(process.env.STRIPE_SECRET_KEY, "sk_");
+    const paystackActive = isConfigured(process.env.PAYSTACK_SECRET_KEY, "sk_");
+
     ApiResponseHandler.success(res, transformResult({
       crypto: {
         address: settings.crypto_usdt_trc20_address,
-        network: settings.crypto_usdt_network || 'TRC20'
+        network: settings.crypto_usdt_network || 'TRC20',
+        available: !!settings.crypto_usdt_trc20_address
+      },
+      stripe: {
+        available: stripeActive
+      },
+      paystack: {
+        available: paystackActive
       },
       credits: {
         priceUsd: parseFloat(settings.credit_price_usd || '0.1'),

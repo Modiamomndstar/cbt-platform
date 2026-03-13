@@ -21,6 +21,13 @@ interface PaymentConfig {
     crypto: {
         address: string;
         network: string;
+        available: boolean;
+    };
+    stripe: {
+        available: boolean;
+    };
+    paystack: {
+        available: boolean;
     };
     credits: {
         priceUsd: number;
@@ -135,6 +142,9 @@ export default function CheckoutPage() {
         );
     }
 
+    // Check if no providers are available
+    const anyProviderAvailable = config?.stripe.available || config?.paystack.available || config?.crypto.available;
+
     return (
         <div className="min-h-screen bg-slate-50 pb-20 pt-8 px-4">
             <div className="max-w-4xl mx-auto">
@@ -156,36 +166,54 @@ export default function CheckoutPage() {
                                     <CardDescription>Choose how you would like to pay for your {type === 'upgrade' ? 'plan upgrade' : 'credits'}</CardDescription>
                                 </CardHeader>
                                 <CardContent className="p-8 space-y-4">
-                                    <ProviderButton
-                                        id="paystack"
-                                        title="Paystack (NGN)"
-                                        description="Pay with Card, Bank Transfer, or USSD in Naira"
-                                        icon={CreditCard}
-                                        color="text-emerald-600"
-                                        bgColor="bg-emerald-50"
-                                        loading={initializing && provider === 'paystack'}
-                                        onClick={() => handleInitialize('paystack')}
-                                    />
-                                    <ProviderButton
-                                        id="stripe"
-                                        title="Stripe (USD)"
-                                        description="Secure international payment with Credit/Debit Card"
-                                        icon={ShieldCheck}
-                                        color="text-indigo-600"
-                                        bgColor="bg-indigo-50"
-                                        loading={initializing && provider === 'stripe'}
-                                        onClick={() => handleInitialize('stripe')}
-                                    />
-                                    <ProviderButton
-                                        id="crypto"
-                                        title="Crypto / USDT (USD)"
-                                        description="Anonymous & secure payment via USDT TRC20"
-                                        icon={Bitcoin}
-                                        color="text-amber-600"
-                                        bgColor="bg-amber-50"
-                                        loading={initializing && provider === 'crypto'}
-                                        onClick={() => handleInitialize('crypto')}
-                                    />
+                                    {!anyProviderAvailable && (
+                                        <div className="p-8 text-center space-y-4">
+                                            <div className="h-16 w-16 bg-amber-50 rounded-full flex items-center justify-center mx-auto">
+                                                <AlertCircle className="h-8 w-8 text-amber-500" />
+                                            </div>
+                                            <div>
+                                                <p className="font-black text-gray-900">No Payment Methods Configured</p>
+                                                <p className="text-sm text-gray-500 mt-1">Please contact support to complete your purchase.</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {config?.paystack.available && (
+                                        <ProviderButton
+                                            id="paystack"
+                                            title="Paystack (NGN)"
+                                            description="Pay with Card, Bank Transfer, or USSD in Naira"
+                                            icon={CreditCard}
+                                            color="text-emerald-600"
+                                            bgColor="bg-emerald-50"
+                                            loading={initializing && provider === 'paystack'}
+                                            onClick={() => handleInitialize('paystack')}
+                                        />
+                                    )}
+                                    {config?.stripe.available && (
+                                        <ProviderButton
+                                            id="stripe"
+                                            title="Stripe (USD)"
+                                            description="Secure international payment with Credit/Debit Card"
+                                            icon={ShieldCheck}
+                                            color="text-indigo-600"
+                                            bgColor="bg-indigo-50"
+                                            loading={initializing && provider === 'stripe'}
+                                            onClick={() => handleInitialize('stripe')}
+                                        />
+                                    )}
+                                    {config?.crypto.available && (
+                                        <ProviderButton
+                                            id="crypto"
+                                            title="Crypto / USDT (USD)"
+                                            description="Anonymous & secure payment via USDT TRC20"
+                                            icon={Bitcoin}
+                                            color="text-amber-600"
+                                            bgColor="bg-amber-50"
+                                            loading={initializing && provider === 'crypto'}
+                                            onClick={() => handleInitialize('crypto')}
+                                        />
+                                    )}
                                 </CardContent>
                             </Card>
                         )}
