@@ -111,10 +111,16 @@ router.put(
         [is_active, id, schoolId],
       );
 
-      if (result.rows.length === 0) {
-        ApiResponseHandler.notFound(res, "Tutor not found");
-        return;
-      }
+      const tutorNameResult = await db.query('SELECT full_name FROM tutors WHERE id = $1', [id]);
+      const tutorName = tutorNameResult.rows[0]?.full_name;
+
+      // Log status toggle
+      await logUserActivity(req, 'tutor_status_toggle', {
+        targetType: 'tutor',
+        targetId: id,
+        targetName: tutorName,
+        details: { is_active }
+      });
 
       ApiResponseHandler.success(
         res,

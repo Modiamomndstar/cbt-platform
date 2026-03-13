@@ -201,6 +201,20 @@ router.put('/profile', authorize('school'), async (req, res, next) => {
       values
     );
 
+    // Log profile update
+    await logActivity({
+      schoolId: schoolId,
+      userId: schoolId,
+      userType: 'school',
+      actorName: name || result.rows[0].name,
+      action: 'profile_update',
+      targetType: 'school',
+      targetId: schoolId,
+      targetName: name || result.rows[0].name,
+      request: req,
+      details: { updated_fields: Object.keys(req.body) }
+    });
+
     ApiResponseHandler.success(res, transformResult(result.rows[0]), 'Profile updated');
   } catch (error) {
     next(error);

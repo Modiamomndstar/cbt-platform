@@ -49,9 +49,6 @@ app.use(helmet());
 app.use(
   cors({
     origin: (origin, callback) => {
-      // 💡 Production Tip:
-      // Mobile apps often send no origin, 'null' origin, or a custom protocol.
-      // We explicitly allow 'null' for production and standard local origins.
       const allowed = [
         process.env.FRONTEND_URL,
         "https://mycbtplatform.cc",
@@ -60,22 +57,26 @@ app.use(
         "http://localhost",
         "http://localhost:5173",
         "http://localhost:8081",
-        "http://10.143.80.37:5000",
+        "http://10.0.2.2:5000", // Android Emulator
+        "http://10.0.2.2:8081", // Android Emulator Expo
       ].filter(Boolean);
 
-      // Log rejected origins in production to debug 403s
-      if (process.env.NODE_ENV === "production" && origin && !allowed.includes(origin)) {
-        logger.warn(`Rejected CORS origin: ${origin}`);
-      }
-
-      // If no origin (mobile app, curl, etc.) or in the allowed list, approve it
+      // If no origin (mobile app, direct request) or in allowed list
       if (!origin || allowed.includes(origin)) {
         return callback(null, true);
       }
 
-      // Allow mobile app requests that might have custom headers but no origin
-      if (allowed.some(a => a && origin.startsWith(a))) {
+      // Check for mobile app custom schemes or local IP development
+      if (
+        origin.startsWith("http://192.168.") ||
+        origin.startsWith("http://10.") ||
+        origin.startsWith("exp://")
+      ) {
         return callback(null, true);
+      }
+
+      if (process.env.NODE_ENV === "production") {
+        logger.warn(`Rejected CORS origin: ${origin}`);
       }
 
       callback(new Error(`CORS policy: origin ${origin} not allowed`));

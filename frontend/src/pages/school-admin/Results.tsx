@@ -174,8 +174,19 @@ export default function Results() {
                         <p className="text-xs font-medium text-gray-900">
                           {formatDate(result.completedAt || result.createdAt)}
                         </p>
-                        <Badge variant={result.status === 'graded' ? 'default' : 'secondary'} className="mt-1 text-[10px] h-4">
-                          {result.status}
+                        <Badge
+                          variant={
+                            result.status === 'completed' || result.status === 'graded'
+                              ? 'default'
+                              : result.status === 'pending_grading'
+                                ? 'outline'
+                                : 'secondary'
+                          }
+                          className={`mt-1 text-[10px] h-4 ${
+                            result.status === 'pending_grading' ? 'border-amber-200 text-amber-700 bg-amber-50' : ''
+                          }`}
+                        >
+                          {result.status?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                         </Badge>
                       </div>
                     </div>

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { schoolAPI, uploadAPI } from '@/services/api';
+import { schoolAPI, uploadAPI, API_BASE_URL } from '@/services/api';
 import { Save, Building2, Upload, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDate } from '@/lib/dateUtils';
@@ -22,6 +22,14 @@ export default function SchoolProfile() {
   const [error, setError] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+
+  // Helper to get full image URL
+  const getFullImageUrl = (path: string | null) => {
+    if (!path) return null;
+    if (path.startsWith('data:') || path.startsWith('http')) return path;
+    const baseUrl = API_BASE_URL.replace(/\/api$/, ''); // Get backend root
+    return `${baseUrl}${path}`;
+  };
 
   const [formData, setFormData] = useState({
     name: '',
@@ -209,7 +217,7 @@ export default function SchoolProfile() {
                 ) : logoPreview ? (
                   <div className="flex flex-col items-center">
                     <img
-                      src={logoPreview}
+                      src={getFullImageUrl(logoPreview) || undefined}
                       alt="School logo"
                       className="h-32 w-32 object-contain rounded mb-3 border"
                     />

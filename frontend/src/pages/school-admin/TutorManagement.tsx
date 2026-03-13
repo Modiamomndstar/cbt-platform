@@ -257,6 +257,7 @@ export default function TutorManagement() {
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Username</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Email</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Subjects</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Registered On</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Actions</th>
                   </tr>
@@ -287,6 +288,9 @@ export default function TutorManagement() {
                             </span>
                           ))}
                         </div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 text-sm">
+                        {tutor.createdAt ? new Date(tutor.createdAt).toLocaleDateString() : '-'}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 text-xs rounded-full ${

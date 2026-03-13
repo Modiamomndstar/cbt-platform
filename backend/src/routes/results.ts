@@ -6,6 +6,7 @@ import { validateAnswer } from "../utils/answerValidator";
 import { getPaginationOptions, formatPaginationResponse } from "../utils/pagination";
 import { promotionService } from "../services/promotionService";
 import { transformResult } from "../utils/responseTransformer";
+import { logUserActivity } from "../utils/auditLogger";
 
 const router = Router();
 
@@ -640,7 +641,7 @@ router.get(
 
       ApiResponseHandler.success(
         res,
-        result.rows.map((row) => ({
+        transformResult(result.rows.map((row) => ({
           id: row.id,
           examTitle: row.exam_title,
           examCategory: row.exam_category,
@@ -656,7 +657,7 @@ router.get(
           scheduledDate: row.scheduled_date,
           submittedAt: row.completed_at,
           startedAt: row.started_at,
-        })),
+        }))),
         "Student exam history retrieved",
         formatPaginationResponse(totalCount, pagination)
       );
@@ -736,11 +737,22 @@ router.post(
         ],
       );
 
-      ApiResponseHandler.success(res, {
+      // Log theory grading
+      await logUserActivity(req, 'theory_question_graded', {
+        targetType: 'student_exam',
+        targetId: studentExamId,
+        details: {
+          score: totalScore,
+          percentage: percentage.toFixed(2),
+          graded_count: grades.length
+        }
+      });
+
+      ApiResponseHandler.success(res, transformResult({
         score: totalScore,
         totalMarks: studentExam.total_marks,
         percentage: percentage.toFixed(2),
-      }, "Theory questions graded successfully");
+      }), "Theory questions graded successfully");
     } catch (error) {
       console.error("Grade theory error:", error);
       ApiResponseHandler.serverError(res, "Failed to grade theory questions");

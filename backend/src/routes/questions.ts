@@ -5,6 +5,7 @@ import { ApiResponseHandler } from "../utils/apiResponse";
 import { getPaginationOptions, formatPaginationResponse } from "../utils/pagination";
 import { transformResult } from "../utils/responseTransformer";
 import { aiService } from "../services/aiService";
+import { logUserActivity } from "../utils/auditLogger";
 
 const router = Router();
 
@@ -118,15 +119,17 @@ router.post(
         ],
       );
 
-      // Update exam total marks
-      await client.query(
-        `UPDATE exams SET total_marks = (
-        SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1
-      ) WHERE id = $1`,
-        [examId],
-      );
+      const question = result.rows[0];
 
-      ApiResponseHandler.created(res, result.rows[0], "Question created successfully");
+      // Log question creation
+      await logUserActivity(req, 'question_creation', {
+        targetType: 'question',
+        targetId: question.id,
+        targetName: questionText.substring(0, 50),
+        details: { exam_id: examId, type: questionType }
+      });
+
+      ApiResponseHandler.created(res, transformResult(question), "Question created successfully");
     } catch (error) {
       console.error("Create question error:", error);
       ApiResponseHandler.serverError(res, "Failed to create question");
@@ -191,7 +194,14 @@ router.post(
 
       await client.query("COMMIT");
 
-      ApiResponseHandler.created(res, createdQuestions, `${createdQuestions.length} questions created successfully`);
+      // Log bulk question creation
+      await logUserActivity(req, 'question_bulk_creation', {
+        targetType: 'exam',
+        targetId: examId,
+        details: { count: createdQuestions.length }
+      });
+
+      ApiResponseHandler.created(res, transformResult(createdQuestions), `${createdQuestions.length} questions created successfully`);
     } catch (error) {
       await client.query("ROLLBACK");
       console.error("Bulk create questions error:", error);
@@ -263,15 +273,17 @@ router.put(
         ],
       );
 
-      // Update exam total marks
-      await client.query(
-        `UPDATE exams SET total_marks = (
-        SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1
-      ) WHERE id = $1`,
-        [questionCheck.rows[0].exam_id],
-      );
+      const updatedQuestion = result.rows[0];
 
-      ApiResponseHandler.success(res, result.rows[0], "Question updated successfully");
+      // Log question update
+      await logUserActivity(req, 'question_update', {
+        targetType: 'question',
+        targetId: id,
+        targetName: updatedQuestion.question_text.substring(0, 50),
+        details: { updates: Object.keys(req.body).filter(k => k !== 'examId') }
+      });
+
+      ApiResponseHandler.success(res, transformResult(updatedQuestion), "Question updated successfully");
     } catch (error) {
       console.error("Update question error:", error);
       ApiResponseHandler.serverError(res, "Failed to update question");
@@ -310,18 +322,14 @@ router.delete(
         return ApiResponseHandler.forbidden(res, "Access denied");
       }
 
-      await client.query(
-        "DELETE FROM questions WHERE id = $1",
-        [id],
-      );
+      const deletedQuestion = questionCheck.rows[0];
 
-      // Update exam total marks
-      await client.query(
-        `UPDATE exams SET total_marks = (
-        SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1
-      ) WHERE id = $1`,
-        [questionCheck.rows[0].exam_id],
-      );
+      // Log question deletion
+      await logUserActivity(req, 'question_deletion', {
+        targetType: 'question',
+        targetId: id,
+        targetName: deletedQuestion.question_text.substring(0, 50)
+      });
 
       ApiResponseHandler.success(res, null, "Question deleted successfully");
     } catch (error) {
@@ -334,7 +342,6 @@ router.delete(
 );
 
 import { getSchoolPlan, getSchoolUsage, getUserAiUsage } from "../services/planService";
-import { logUserActivity } from "../utils/auditLogger";
 import { paygService } from "../services/paygService";
 
 // AI Generate questions
@@ -448,6 +455,13 @@ router.post(
       }
 
       await client.query("COMMIT");
+
+      // Log reorder
+      await logUserActivity(req, 'questions_reordered', {
+        targetType: 'exam',
+        targetId: examId,
+        details: { count: questionOrders.length }
+      });
 
       ApiResponseHandler.success(res, null, "Questions reordered successfully");
     } catch (error) {

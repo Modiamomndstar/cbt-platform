@@ -660,6 +660,13 @@ router.post(
         [id, tutorId]
       );
 
+      // Log tutor assignment
+      await logUserActivity(req, 'student_tutor_assigned', {
+        targetType: 'student',
+        targetId: id,
+        details: { tutor_id: tutorId }
+      });
+
       ApiResponseHandler.success(res, null, "Tutor assigned successfully");
     } catch (error) {
       next(error);
@@ -709,6 +716,13 @@ router.post(
         queryParams
       );
 
+      // Log bulk assignment
+      await logUserActivity(req, 'student_tutor_bulk_assigned', {
+        targetType: 'tutor',
+        targetId: tutorId,
+        details: { count: validStudentIds.length }
+      });
+
       ApiResponseHandler.success(res, null, `Tutor assigned to ${validStudentIds.length} students`);
     } catch (error) {
       next(error);
@@ -743,6 +757,13 @@ router.delete(
       if (result.rowCount === 0) {
         return ApiResponseHandler.notFound(res, "Assignment not found or unauthorized");
       }
+
+      // Log tutor removal
+      await logUserActivity(req, 'student_tutor_removed', {
+        targetType: 'student',
+        targetId: id,
+        details: { tutor_id: tutorId }
+      });
 
       ApiResponseHandler.success(res, null, "Tutor removed successfully");
     } catch (error) {
