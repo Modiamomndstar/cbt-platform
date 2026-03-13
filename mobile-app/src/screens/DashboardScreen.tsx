@@ -9,6 +9,7 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -245,8 +246,29 @@ export default function DashboardScreen({ navigation }: any) {
       }
     >
       <View style={styles.header}>
-        <Text style={styles.welcomeText}>Welcome back,</Text>
-        <Text style={styles.nameText}>{user?.fullName || 'Student'}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.welcomeText}>Welcome back,</Text>
+            <Text style={styles.nameText}>{user?.fullName || 'Student'}</Text>
+          </View>
+          {user?.schoolLogo && (
+            <Image
+              source={{ uri: user.schoolLogo }}
+              style={{ width: 60, height: 60, borderRadius: 12, backgroundColor: '#fff' }}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+          <MaterialCommunityIcons name="office-building" size={16} color="rgba(255,255,255,0.7)" />
+          <Text
+            style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, marginLeft: 4, fontWeight: '600', flex: 1 }}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {user?.schoolName || 'CBT Platform'}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.statsContainer}>

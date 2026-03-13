@@ -66,17 +66,26 @@ export default function StudentLayout() {
       {/* Sidebar - Desktop */}
       <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-gray-200 fixed h-full">
         <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center space-x-2">
-            <GraduationCap className="h-8 w-8 text-emerald-600" />
+          <div className="flex items-center space-x-3">
+            {user?.schoolLogo ? (
+              <img src={user.schoolLogo} alt="School Logo" className="h-10 w-10 object-contain rounded-md" />
+            ) : (
+              <GraduationCap className="h-10 w-10 text-emerald-600" />
+            )}
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-gray-900 truncate">
-                {user?.isExternal ? 'Exam Access Area' : 'Student Portal'}
+              <p className="font-bold text-gray-900 truncate leading-tight">
+                {user?.schoolName || (user?.isExternal ? 'Exam Access Area' : 'Student Portal')}
               </p>
+              {user?.schoolName && (
+                <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mt-0.5">
+                   {user?.isExternal ? 'Exam Access' : 'Student Portal'}
+                </p>
+              )}
             </div>
           </div>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => (
             <button
               key={item.name}
@@ -85,7 +94,7 @@ export default function StudentLayout() {
             >
               <div className="flex items-center space-x-3">
                 <item.icon className="h-5 w-5" />
-                <span>{item.name}</span>
+                <span className="font-medium">{item.name}</span>
               </div>
               <div className="flex items-center space-x-2">
                 {item.badge !== undefined && item.badge > 0 && (
@@ -99,16 +108,16 @@ export default function StudentLayout() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-gray-200">
-          <div className="flex items-center space-x-3 mb-4 px-4">
-            <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
-              <span className="text-emerald-700 font-semibold">
+        <div className="p-4 border-t border-gray-200 bg-gray-50/50">
+          <div className="flex items-center space-x-3 mb-4 px-2">
+            <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center shadow-sm">
+              <span className="text-emerald-700 font-bold">
                 {studentName.charAt(0)}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{studentName}</p>
-              <p className="text-xs text-gray-500">Student</p>
+              <p className="text-sm font-semibold text-gray-900 truncate">{studentName}</p>
+              <p className="text-xs text-gray-500 font-medium">Student</p>
             </div>
           </div>
           <Button
@@ -129,13 +138,20 @@ export default function StudentLayout() {
             className="absolute inset-0 bg-black/50"
             onClick={() => setSidebarOpen(false)}
           />
-          <aside className="absolute left-0 top-0 bottom-0 w-64 bg-white">
+          <aside className="absolute left-0 top-0 bottom-0 w-64 bg-white shadow-xl">
             <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-              <span className="font-bold text-gray-900">
-                {user?.isExternal ? 'Exam Access Area' : 'Student Portal'}
-              </span>
-              <button onClick={() => setSidebarOpen(false)}>
-                <X className="h-6 w-6" />
+               <div className="flex items-center space-x-2">
+                {user?.schoolLogo ? (
+                  <img src={user.schoolLogo} alt="School Logo" className="h-8 w-8 object-contain rounded" />
+                ) : (
+                  <GraduationCap className="h-8 w-8 text-emerald-600" />
+                )}
+                <span className="font-bold text-gray-900 truncate max-w-[140px]">
+                  {user?.schoolName || (user?.isExternal ? 'Exam Access' : 'Student Portal')}
+                </span>
+              </div>
+              <button onClick={() => setSidebarOpen(false)} className="p-1 hover:bg-gray-100 rounded-full">
+                <X className="h-6 w-6 text-gray-500" />
               </button>
             </div>
             <nav className="p-4 space-y-1">
@@ -177,16 +193,21 @@ export default function StudentLayout() {
       {/* Main Content */}
       <main className="flex-1 lg:ml-64">
         {/* Mobile Header */}
-        <header className="lg:hidden bg-white border-b border-gray-200 p-4">
+        <header className="lg:hidden bg-white border-b border-gray-200 p-4 sticky top-0 z-30 shadow-sm">
           <div className="flex justify-between items-center">
-            <button onClick={() => setSidebarOpen(true)}>
-              <Menu className="h-6 w-6" />
-            </button>
-            <span className="font-bold text-gray-900">
-              {user?.isExternal ? 'Exam Access Area' : 'Student Portal'}
-            </span>
+            <div className="flex items-center space-x-3">
+              <button onClick={() => setSidebarOpen(true)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <Menu className="h-6 w-6 text-gray-600" />
+              </button>
+              {user?.schoolLogo && (
+                <img src={user.schoolLogo} alt="School Logo" className="h-8 w-8 object-contain rounded" />
+              )}
+              <span className="font-bold text-gray-900 truncate max-w-[180px]">
+                {user?.schoolName || 'Student Portal'}
+              </span>
+            </div>
             <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
-              <span className="text-emerald-700 font-semibold text-sm">
+              <span className="text-emerald-700 font-bold text-sm">
                 {studentName.charAt(0)}
               </span>
             </div>

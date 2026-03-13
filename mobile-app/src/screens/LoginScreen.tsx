@@ -41,7 +41,7 @@ export default function LoginScreen({ navigation }: any) {
       if (activeTab === 'exam' && result.data?.exam?.scheduleId) {
         navigation.replace('TakeExam', { scheduleId: result.data.exam.scheduleId });
       } else {
-        navigation.replace('Dashboard');
+        navigation.replace('Main');
       }
     } else {
       Alert.alert('Login Failed', result.message || 'Invalid credentials');

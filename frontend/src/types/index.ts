@@ -124,6 +124,8 @@ export interface UserSession {
   email?: string;
   name: string;
   schoolId?: string;
+  schoolName?: string;
+  schoolLogo?: string;
   tutorId?: string;
   studentId?: string;
   isExternal?: boolean;

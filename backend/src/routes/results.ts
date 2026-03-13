@@ -599,6 +599,14 @@ router.get(
       const user = req.user!;
       const pagination = getPaginationOptions(req, 10);
 
+      // Fetch student's email/phone to merge historical external data
+      const studentInfo = await client.query(
+        'SELECT email, phone FROM students WHERE id = $1 UNION SELECT email, phone FROM external_students WHERE id = $1',
+        [user.id]
+      );
+      const email = studentInfo.rows[0]?.email;
+      const phone = studentInfo.rows[0]?.phone;
+
       const result = await client.query(
         `SELECT se.*,
               e.title as exam_title, e.description, e.duration, e.passing_score,
@@ -613,14 +621,19 @@ router.get(
        JOIN tutors t ON e.tutor_id = t.id
        LEFT JOIN exam_types et ON e.exam_type_id = et.id
        WHERE (se.student_id = $1 OR se.external_student_id = $1)
+          OR (se.email = $4 AND $4 IS NOT NULL AND $4 != '')
+          OR (se.phone = $5 AND $5 IS NOT NULL AND $5 != '')
        ORDER BY se.completed_at DESC
        LIMIT $2 OFFSET $3`,
-        [user.id, pagination.limit, pagination.offset],
+        [user.id, pagination.limit, pagination.offset, email, phone],
       );
 
       const countResult = await client.query(
-        `SELECT COUNT(*) FROM student_exams WHERE student_id = $1 OR external_student_id = $1`,
-        [user.id],
+        `SELECT COUNT(*) FROM student_exams
+         WHERE (student_id = $1 OR external_student_id = $1)
+            OR (email = $2 AND $2 IS NOT NULL AND $2 != '')
+            OR (phone = $3 AND $3 IS NOT NULL AND $3 != '')`,
+        [user.id, email, phone],
       );
 
       const totalCount = parseInt(countResult.rows[0].count);

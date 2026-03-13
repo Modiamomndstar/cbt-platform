@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { db } from "../config/database";
 import { ApiResponseHandler } from "../utils/apiResponse";
+import { logger } from "../utils/logger";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -17,6 +18,8 @@ declare global {
         id: string;
         role: "super_admin" | "school" | "tutor" | "student";
         schoolId?: string;
+        schoolName?: string;
+        schoolLogo?: string;
         tutorId?: string;
         studentId?: string;
         isExternal?: boolean;
@@ -30,6 +33,8 @@ export interface JWTPayload {
   id: string;
   role: "super_admin" | "school" | "tutor" | "student";
   schoolId?: string;
+  schoolName?: string;
+  schoolLogo?: string;
   tutorId?: string;
   studentId?: string;
   isExternal?: boolean;
@@ -146,6 +151,7 @@ export const authorize = (...roles: string[]) => {
     }
 
     if (!roles.includes(req.user.role)) {
+      logger.warn(`Auth Forbidden: Role mismatch. User ${req.user.id} has role [${req.user.role}], but required one of [${roles.join(', ')}] for ${req.originalUrl}`);
       ApiResponseHandler.forbidden(res, "Access denied. Insufficient permissions.");
       return;
     }

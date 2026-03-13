@@ -40,8 +40,9 @@ export default function SchoolAdminLayout() {
       try {
         const response = await schoolAPI.getProfile();
         if (response.data.success) {
-          setSchoolName(response.data.data.name || '');
-          setSchoolLogo(response.data.data.logo_url || '');
+          const data = response.data.data;
+          setSchoolName(data.name || '');
+          setSchoolLogo(data.logoUrl || data.logo_url || '');
         }
       } catch {
         // Fallback to session data

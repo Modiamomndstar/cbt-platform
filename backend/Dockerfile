@@ -1,5 +1,5 @@
 # Backend Dockerfile (multi-stage)
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /usr/src/app
 
@@ -12,7 +12,7 @@ COPY . .
 RUN npm run build
 
 # Runtime image
-FROM node:18-alpine
+FROM node:20-alpine
 WORKDIR /usr/src/app
 
 # Install netcat for simple "wait for" checks

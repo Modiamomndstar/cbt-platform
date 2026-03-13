@@ -54,6 +54,8 @@ app.use(
       // We explicitly allow 'null' for production and standard local origins.
       const allowed = [
         process.env.FRONTEND_URL,
+        "https://mycbtplatform.cc",
+        "https://www.mycbtplatform.cc",
         "null",
         "http://localhost",
         "http://localhost:5173",

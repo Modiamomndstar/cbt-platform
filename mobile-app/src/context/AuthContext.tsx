@@ -10,6 +10,8 @@ interface User {
   fullName?: string;
   role: string;
   schoolId: string;
+  schoolName?: string;
+  schoolLogo?: string;
   isExternal?: boolean;
 }
 

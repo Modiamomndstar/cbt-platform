@@ -265,14 +265,33 @@ router.get(
     try {
       const user = req.user!;
 
+      // Fetch student's email/phone to merge historical external data
+      const studentInfo = await client.query(
+        'SELECT email, phone, school_id FROM students WHERE id = $1 UNION SELECT email, phone, school_id FROM external_students WHERE id = $1',
+        [user.id]
+      );
+      const email = studentInfo.rows[0]?.email;
+      const phone = studentInfo.rows[0]?.phone;
+      const schoolId = studentInfo.rows[0]?.school_id;
+
+      // Fetch school branding info
+      const schoolResult = await client.query(
+        'SELECT name, logo_url FROM schools WHERE id = $1',
+        [schoolId]
+      );
+      const schoolInfo = schoolResult.rows[0] || { name: 'Portal', logo_url: null };
+
       // Total exams taken
       const examStats = await client.query(
         `SELECT
         COUNT(*) as total_exams,
         COUNT(CASE WHEN status = 'completed' THEN 1 END) as passed_count,
         COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_count
-       FROM student_exams WHERE (student_id = $1 OR external_student_id = $1)`,
-        [user.id],
+       FROM student_exams
+       WHERE (student_id = $1 OR external_student_id = $1)
+          OR (email = $2 AND $2 IS NOT NULL AND $2 != '')
+          OR (phone = $3 AND $3 IS NOT NULL AND $3 != '')`,
+        [user.id, email, phone],
       );
 
       // Average score
@@ -282,8 +301,11 @@ router.get(
         AVG(score) as average_score,
         MAX(percentage) as highest_percentage,
         MAX(score) as highest_score
-       FROM student_exams WHERE (student_id = $1 OR external_student_id = $1)`,
-        [user.id],
+       FROM student_exams
+       WHERE (student_id = $1 OR external_student_id = $1)
+          OR (email = $2 AND $2 IS NOT NULL AND $2 != '')
+          OR (phone = $3 AND $3 IS NOT NULL AND $3 != '')`,
+        [user.id, email, phone],
       );
 
       // Recent exams
@@ -292,9 +314,11 @@ router.get(
        FROM student_exams se
        JOIN exams e ON se.exam_id = e.id
        WHERE (se.student_id = $1 OR se.external_student_id = $1)
+          OR (se.email = $2 AND $2 IS NOT NULL AND $2 != '')
+          OR (se.phone = $3 AND $3 IS NOT NULL AND $3 != '')
        ORDER BY se.completed_at DESC
        LIMIT 5`,
-        [user.id],
+        [user.id, email, phone],
       );
 
       // Upcoming scheduled exams
@@ -303,11 +327,13 @@ router.get(
        FROM exam_schedules es
        JOIN exams e ON es.exam_id = e.id
        WHERE (es.student_id = $1 OR es.external_student_id = $1)
+          OR (es.email = $2 AND $2 IS NOT NULL AND $2 != '')
+          OR (es.phone = $3 AND $3 IS NOT NULL AND $3 != '')
          AND es.status = 'scheduled'
          AND es.scheduled_date >= CURRENT_DATE
        ORDER BY es.scheduled_date, es.start_time
        LIMIT 5`,
-        [user.id],
+        [user.id, email, phone],
       );
 
       // Performance by subject/category
@@ -320,8 +346,10 @@ router.get(
        JOIN exams e ON se.exam_id = e.id
        JOIN exam_categories ec ON e.category_id = ec.id
        WHERE (se.student_id = $1 OR se.external_student_id = $1)
+          OR (se.email = $2 AND $2 IS NOT NULL AND $2 != '')
+          OR (se.phone = $3 AND $3 IS NOT NULL AND $3 != '')
        GROUP BY ec.id, ec.name`,
-        [user.id],
+        [user.id, email, phone],
       );
 
       // Monthly progress
@@ -340,15 +368,22 @@ router.get(
 
       // Awards Count (Percentage >= 70)
       const awardsCount = await client.query(
-        "SELECT COUNT(*) FROM student_exams WHERE (student_id = $1 OR external_student_id = $1) AND percentage >= 70 AND status = 'completed'",
-        [user.id]
+        `SELECT COUNT(*) FROM student_exams
+         WHERE ((student_id = $1 OR external_student_id = $1)
+            OR (email = $2 AND $2 IS NOT NULL AND $2 != '')
+            OR (phone = $3 AND $3 IS NOT NULL AND $3 != ''))
+           AND percentage >= 70 AND status = 'completed'`,
+        [user.id, email, phone]
       );
 
       // Percentile Calculation (relative to all students in school)
       let percentile = 50; // Default
       const avgQuery = await client.query(
-        "SELECT AVG(percentage) as avg_p FROM student_exams WHERE (student_id = $1 OR external_student_id = $1)",
-        [user.id]
+        `SELECT AVG(percentage) as avg_p FROM student_exams
+         WHERE (student_id = $1 OR external_student_id = $1)
+            OR (email = $2 AND $2 IS NOT NULL AND $2 != '')
+            OR (phone = $3 AND $3 IS NOT NULL AND $3 != '')`,
+        [user.id, email, phone]
       );
 
       if (avgQuery.rows[0].avg_p !== null) {
@@ -384,6 +419,7 @@ router.get(
       ApiResponseHandler.success(
         res,
         transformResult({
+          school: schoolInfo,
           totalExams: parseInt(examStats.rows[0].total_exams),
           passedCount: parseInt(examStats.rows[0].passed_count),
           failedCount: parseInt(examStats.rows[0].failed_count),

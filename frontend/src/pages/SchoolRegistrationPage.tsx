@@ -7,8 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
-import { schoolAPI } from '@/services/api';
-import { GraduationCap, ArrowLeft, Upload, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { schoolAPI, uploadAPI } from '@/services/api';
+import { GraduationCap, ArrowLeft, Upload, CheckCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function SchoolRegistrationPage() {
@@ -20,6 +20,7 @@ export default function SchoolRegistrationPage() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [searchParams] = useSearchParams();
 
@@ -51,7 +52,7 @@ export default function SchoolRegistrationPage() {
     setError('');
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
@@ -59,13 +60,23 @@ export default function SchoolRegistrationPage() {
         return;
       }
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setLogoPreview(result);
-        setFormData(prev => ({ ...prev, logo: result }));
-      };
-      reader.readAsDataURL(file);
+      setIsUploadingLogo(true);
+      setError('');
+
+      try {
+        const response = await uploadAPI.uploadPublicImage(file);
+        const uploadedUrl = response.data.data.url;
+
+        setLogoPreview(URL.createObjectURL(file)); // Local preview for speed
+        setFormData(prev => ({ ...prev, logo: uploadedUrl }));
+        toast.success('Logo uploaded successfully');
+      } catch (err: any) {
+        const msg = err?.response?.data?.message || 'Failed to upload logo. Please try again.';
+        setError(msg);
+        console.error(err);
+      } finally {
+        setIsUploadingLogo(false);
+      }
     }
   };
 
@@ -294,7 +305,12 @@ export default function SchoolRegistrationPage() {
           onClick={() => fileInputRef.current?.click()}
           className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-indigo-500 transition-colors"
         >
-          {logoPreview ? (
+          {isUploadingLogo ? (
+            <div className="flex flex-col items-center py-4">
+              <Loader2 className="h-12 w-12 text-indigo-500 animate-spin mb-4" />
+              <p className="text-sm text-gray-600">Uploading logo...</p>
+            </div>
+          ) : logoPreview ? (
             <div className="flex flex-col items-center">
               <img
                 src={logoPreview}

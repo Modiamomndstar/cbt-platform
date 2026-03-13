@@ -66,6 +66,43 @@ router.post(
   },
 );
 
+// POST /api/uploads/public/image — Public image upload for school registration
+router.post(
+  '/public/image',
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.files || Object.keys(req.files).length === 0) {
+        return ApiResponseHandler.badRequest(res, 'No file uploaded');
+      }
+
+      const file = req.files.image as UploadedFile;
+
+      // Server-side MIME type validation
+      if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
+        return ApiResponseHandler.badRequest(res, 'Invalid file type. Only JPEG, PNG, WebP, and GIF are allowed.');
+      }
+
+      // Stricter size limit for public uploads (2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        return ApiResponseHandler.badRequest(res, 'File too large. Maximum size for public uploads is 2MB.');
+      }
+
+      const ext = path.extname(file.name).toLowerCase() || '.jpg';
+      const uniqueName = `pub-${Date.now()}-${Math.random().toString(36).substring(2, 9)}${ext}`;
+      const uploadPath = path.join(LOGO_DIR, uniqueName);
+
+      await file.mv(uploadPath);
+
+      const publicUrl = `/uploads/logos/${uniqueName}`;
+
+      ApiResponseHandler.success(res, transformResult({ url: publicUrl }), 'Public image uploaded successfully');
+    } catch (error) {
+      console.error('Public image upload error:', error);
+      ApiResponseHandler.serverError(res, 'Failed to upload public image');
+    }
+  },
+);
+
 
 // Parse CSV buffer
 const parseCSV = (buffer: Buffer): Promise<any[]> => {

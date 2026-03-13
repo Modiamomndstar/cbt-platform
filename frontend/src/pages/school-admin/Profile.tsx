@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { formatDate } from '@/lib/dateUtils';
 
 export default function SchoolProfile() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [school, setSchool] = useState<any>(null);
@@ -37,17 +37,24 @@ export default function SchoolProfile() {
         const response = await schoolAPI.getProfile();
         if (response.data.success) {
           const data = response.data.data;
-          setSchool(data);
+          // Ensure we handle both camelCase and snake_case for the school state
+          const mappedData = {
+            ...data,
+            createdAt: data.createdAt || data.created_at,
+            isActive: data.isActive !== undefined ? data.isActive : data.is_active,
+            logoUrl: data.logoUrl || data.logo_url
+          };
+          setSchool(mappedData);
           setFormData({
-            name: data.name || '',
-            email: data.email || '',
-            phone: data.phone || '',
-            address: data.address || '',
-            description: data.description || '',
+            name: mappedData.name || '',
+            email: mappedData.email || '',
+            phone: mappedData.phone || '',
+            address: mappedData.address || '',
+            description: mappedData.description || '',
           });
-          if (data.logo_url) {
-            setLogoUrl(data.logo_url);
-            setLogoPreview(data.logo_url);
+          if (mappedData.logoUrl) {
+            setLogoUrl(mappedData.logoUrl);
+            setLogoPreview(mappedData.logoUrl);
           }
         }
       } catch (err) {
@@ -119,11 +126,23 @@ export default function SchoolProfile() {
         phone: formData.phone,
         address: formData.address,
         description: formData.description,
-        logo_url: logoUrl,
+        logoUrl: logoUrl, // Sending camelCase (preferred by transformer)
+        logo_url: logoUrl, // Fallback for safety
       });
 
       if (response.data.success) {
-        setSchool(response.data.data);
+        const updatedData = response.data.data;
+        // Ensure we handle both camelCase and snake_case for the school state
+        setSchool({
+          ...updatedData,
+          createdAt: updatedData.createdAt || updatedData.created_at,
+          isActive: updatedData.isActive !== undefined ? updatedData.isActive : updatedData.is_active,
+          logoUrl: updatedData.logoUrl || updatedData.logo_url
+        });
+
+        // Refresh global auth session to update sidebar logo, etc.
+        await refreshUser();
+
         toast.success('School profile updated successfully');
       } else {
         setError('Failed to update profile');
@@ -213,7 +232,7 @@ export default function SchoolProfile() {
                   className="hidden"
                 />
               </div>
-              {logoUrl && logoUrl !== school.logo_url && (
+              {logoUrl && logoUrl !== school.logoUrl && (
                 <p className="text-xs text-amber-600 text-center">
                   ⚠ Logo uploaded but not saved yet — click Save Changes below.
                 </p>
@@ -321,16 +340,16 @@ export default function SchoolProfile() {
               </div>
               <div>
                 <p className="text-gray-500">Created On</p>
-                <p className="font-medium">{formatDate(school.created_at)}</p>
+                <p className="font-medium">{formatDate(school.createdAt || school.created_at)}</p>
               </div>
               <div>
                 <p className="text-gray-500">Status</p>
                 <span className={`px-2 py-1 text-xs rounded-full ${
-                  school.is_active
+                  (school.isActive ?? school.is_active)
                     ? 'bg-emerald-100 text-emerald-700'
                     : 'bg-red-100 text-red-700'
                 }`}>
-                  {school.is_active ? 'Active' : 'Inactive'}
+                  {(school.isActive ?? school.is_active) ? 'Active' : 'Inactive'}
                 </span>
               </div>
             </div>

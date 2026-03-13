@@ -173,9 +173,21 @@ router.put('/profile', authorize('school'), async (req, res, next) => {
     if (phone !== undefined) { updates.push(`phone = $${paramIndex++}`); values.push(phone); }
     if (address !== undefined) { updates.push(`address = $${paramIndex++}`); values.push(address); }
     if (description !== undefined) { updates.push(`description = $${paramIndex++}`); values.push(description); }
-    if (logoUrl !== undefined) { updates.push(`logo_url = $${paramIndex++}`); values.push(logoUrl); }
+    const logoToUpdate = logoUrl !== undefined ? logoUrl : (req.body.logo_url !== undefined ? req.body.logo_url : req.body.logo);
+
+    if (logoToUpdate !== undefined) {
+      updates.push(`logo_url = $${paramIndex++}`);
+      values.push(logoToUpdate === '' ? null : logoToUpdate);
+    }
+
     if (country) { updates.push(`country = $${paramIndex++}`); values.push(country); }
     if (timezone) { updates.push(`timezone = $${paramIndex++}`); values.push(timezone); }
+
+    logger.info(`Updating school profile for ID: ${schoolId}`, {
+      updates,
+      receivedBody: { ...req.body, password: '***' },
+      finalValues: values
+    });
 
     if (updates.length === 0) {
       return ApiResponseHandler.badRequest(res, 'No fields to update');

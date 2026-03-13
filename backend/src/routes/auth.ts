@@ -31,7 +31,7 @@ router.post(
       // Find school by username, join with subscription to check status
       const result = await db.query(
         `SELECT s.id, s.name, s.username, s.password_hash, s.email,
-                s.is_active, s.is_email_verified, s.plan_type,
+                s.is_active, s.is_email_verified, s.plan_type, s.created_at, s.logo_url,
                 ss.status as sub_status
          FROM schools s
          LEFT JOIN school_subscriptions ss ON s.id = ss.school_id
@@ -88,6 +88,9 @@ router.post(
           email: school.email,
           planType: school.plan_type,
           role: "school_admin",
+          createdAt: school.created_at,
+          logoUrl: school.logo_url,
+          isActive: school.is_active,
         },
       }), "Login successful");
     } catch (error) {
@@ -228,7 +231,7 @@ router.post(
       // Find tutor
       const result = await db.query(
         `SELECT t.id, t.username, t.password_hash, t.full_name, t.email, t.subjects, t.is_active,
-              s.id as school_id, s.name as school_name
+              s.id as school_id, s.name as school_name, s.logo_url as school_logo
        FROM tutors t
        JOIN schools s ON t.school_id = s.id
        WHERE t.school_id = $1 AND t.username = $2`,
@@ -240,6 +243,7 @@ router.post(
       }
 
       const tutor = result.rows[0];
+      // No changes needed to result mapping if we join logo in SQL below
 
       if (!tutor.is_active) {
         return ApiResponseHandler.unauthorized(res, "Account is inactive. Please contact your school administrator.");
@@ -280,6 +284,7 @@ router.post(
           subjects: tutor.subjects,
           schoolId: tutor.school_id,
           schoolName: tutor.school_name,
+          schoolLogo: tutor.school_logo,
           role: "tutor",
         },
       }), "Login successful");
@@ -384,10 +389,12 @@ router.post(
 
       // Generate token
       const token = generateToken({
-        id: effectiveStudentId,
+        id: schedule.student_id || schedule.external_student_id,
         role: "student",
         schoolId: schedule.school_id,
-        studentId: effectiveStudentId,
+        schoolName: schedule.school_name,
+        schoolLogo: schedule.school_logo,
+        studentId: schedule.student_id || schedule.external_student_id,
         isExternal: !!schedule.external_student_id
       });
 
@@ -397,6 +404,8 @@ router.post(
           id: effectiveStudentId,
           fullName: schedule.student_name,
           schoolId: schedule.school_id,
+          schoolName: schedule.school_name,
+          schoolLogo: schedule.school_logo,
           role: "student",
           isExternal: !!schedule.external_student_id
         },
@@ -435,12 +444,12 @@ router.post(
       const { password } = req.body;
 
       // Find student by username
-      const result = await db.query(
-        `SELECT s.id, s.username, s.password_hash, s.full_name, s.email, s.school_id, s.is_active,
-                sch.name as school_name
-         FROM students s
-         JOIN schools sch ON s.school_id = sch.id
-         WHERE s.username = $1`,
+       const result = await db.query(
+         `SELECT s.id, s.username, s.password_hash, s.full_name, s.email, s.school_id, s.is_active,
+                 sch.name as school_name, sch.logo_url as school_logo
+          FROM students s
+          JOIN schools sch ON s.school_id = sch.id
+          WHERE s.username = $1`,
         [username],
       );
 
@@ -472,6 +481,8 @@ router.post(
         id: student.id,
         role: "student",
         schoolId: student.school_id,
+        schoolName: student.school_name,
+        schoolLogo: student.school_logo,
         studentId: student.id,
         isExternal: false
       });
@@ -491,6 +502,7 @@ router.post(
           email: student.email,
           schoolId: student.school_id,
           schoolName: student.school_name,
+          schoolLogo: student.school_logo,
           role: "student",
         },
       }), "Login successful");
@@ -560,18 +572,18 @@ router.get("/me", authenticate, async (req, res, next) => {
         break;
       case "school":
         const schoolResult = await db.query(
-          "SELECT id, name, username, email, phone, logo_url, plan_type, is_active FROM schools WHERE id = $1",
+          "SELECT id, name, username, email, phone, logo_url, plan_type, is_active, created_at FROM schools WHERE id = $1",
           [id],
         );
         userData = schoolResult.rows[0];
         break;
       case "tutor":
-        const tutorResult = await db.query(
-          `SELECT t.id, t.username, t.full_name, t.email, t.phone, t.subjects, t.avatar_url,
-                  s.id as school_id, s.name as school_name
-           FROM tutors t
-           JOIN schools s ON t.school_id = s.id
-           WHERE t.id = $1`,
+         const tutorResult = await db.query(
+           `SELECT t.id, t.username, t.full_name, t.email, t.phone, t.subjects, t.avatar_url,
+                   s.id as school_id, s.name as school_name, s.logo_url as school_logo
+            FROM tutors t
+            JOIN schools s ON t.school_id = s.id
+            WHERE t.id = $1`,
           [id],
         );
         userData = tutorResult.rows[0];
@@ -579,25 +591,25 @@ router.get("/me", authenticate, async (req, res, next) => {
       case "student":
         const isExternal = req.user?.isExternal;
         if (isExternal) {
-          const extResult = await db.query(
-            `SELECT s.id, s.username, s.full_name, s.email, s.phone,
-                    sc.name as category_name, sch.name as school_name
-             FROM external_students s
-             LEFT JOIN student_categories sc ON s.category_id = sc.id
-             JOIN schools sch ON s.school_id = sch.id
-             WHERE s.id = $1`,
+           const extResult = await db.query(
+             `SELECT s.id, s.username, s.full_name, s.email, s.phone,
+                     sc.name as category_name, sch.name as school_name, sch.logo_url as school_logo
+              FROM external_students s
+              LEFT JOIN student_categories sc ON s.category_id = sc.id
+              JOIN schools sch ON s.school_id = sch.id
+              WHERE s.id = $1`,
             [id],
           );
           userData = extResult.rows[0];
           if (userData) userData.isExternal = true;
         } else {
-          const studentResult = await db.query(
-            `SELECT s.id, s.student_id, s.full_name, s.email, s.phone,
-                    sc.name as category_name, sch.name as school_name,
-                    assigned_tutors.tutors as assigned_tutors
-             FROM students s
-             LEFT JOIN student_categories sc ON s.category_id = sc.id
-             JOIN schools sch ON s.school_id = sch.id
+           const studentResult = await db.query(
+             `SELECT s.id, s.student_id, s.full_name, s.email, s.phone,
+                     sc.name as category_name, sch.name as school_name, sch.logo_url as school_logo,
+                     assigned_tutors.tutors as assigned_tutors
+              FROM students s
+              LEFT JOIN student_categories sc ON s.category_id = sc.id
+              JOIN schools sch ON s.school_id = sch.id
              LEFT JOIN LATERAL (
                SELECT COALESCE(json_agg(json_build_object('id', t.id, 'name', t.full_name, 'subjects', t.subjects)), '[]'::json) as tutors
                FROM student_tutors st

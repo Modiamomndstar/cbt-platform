@@ -323,6 +323,15 @@ export const uploadAPI = {
     });
   },
 
+  // Upload an image from a public page (registration)
+  uploadPublicImage: (file: File) => {
+    const formData = new FormData();
+    formData.append("image", file);
+    return api.post("/uploads/public/image", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+
   // Upload students CSV
   uploadStudents: (file: File, categoryId?: string, sendEmail?: boolean) => {
     const formData = new FormData();
