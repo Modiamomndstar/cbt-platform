@@ -150,7 +150,7 @@ export default function ExamResults() {
   };
 
   const calculateStats = (data: any[]) => {
-    const completed = data.filter((r: any) => r.status === 'completed');
+    const completed = data.filter((r: any) => ['completed', 'failed', 'expired'].includes(r.status));
     const totalScore = completed.reduce((sum: number, r: any) => sum + (r.percentage || 0), 0);
     const avgScore = completed.length > 0 ? Math.round(totalScore / completed.length) : 0;
     const passed = completed.filter((r: any) => (r.passed)).length;

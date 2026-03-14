@@ -65,7 +65,7 @@ router.post(
                 COALESCE(MIN(se.percentage), 0) as lowest_score_percentage
          FROM student_exams se
          JOIN exam_schedules es ON se.exam_schedule_id = es.id
-         WHERE es.exam_id = $1 AND se.status = 'completed'`,
+         WHERE es.exam_id = $1 AND se.status IN ('completed', 'failed')`,
         [examId]
       );
 
@@ -86,7 +86,7 @@ router.post(
          JOIN exam_schedules es ON se.exam_schedule_id = es.id
          CROSS JOIN jsonb_array_elements(se.answers::jsonb) a
          JOIN questions q ON (a.value->>'questionId')::uuid = q.id
-         WHERE es.exam_id = $1 AND q.topic IS NOT NULL AND q.topic != '' AND se.status = 'completed'
+         WHERE es.exam_id = $1 AND q.topic IS NOT NULL AND q.topic != '' AND se.status IN ('completed', 'failed')
          GROUP BY q.topic`,
         [examId]
       );
@@ -105,7 +105,7 @@ router.post(
          JOIN exam_schedules es ON se.exam_schedule_id = es.id
          CROSS JOIN jsonb_array_elements(se.answers::jsonb) a
          JOIN questions q ON (a.value->>'questionId')::uuid = q.id
-         WHERE es.exam_id = $1 AND se.status = 'completed'
+         WHERE es.exam_id = $1 AND se.status IN ('completed', 'failed')
          GROUP BY q.id, q.question_text, q.topic
          HAVING COUNT(a.value->>'questionId') > 0
          ORDER BY (SUM(CASE WHEN NOT (a.value->>'isCorrect')::boolean THEN 1 ELSE 0 END)::float / COUNT(a.value->>'questionId')) DESC
@@ -218,7 +218,7 @@ router.post(
         `SELECT COALESCE(AVG(se.percentage), 0) as class_avg
          FROM student_exams se
          JOIN exam_schedules es ON se.exam_schedule_id = es.id
-         WHERE es.exam_id = (SELECT exam_id FROM exam_schedules WHERE id = $1) AND se.status = 'completed'`,
+         WHERE es.exam_id = (SELECT exam_id FROM exam_schedules WHERE id = $1) AND se.status IN ('completed', 'failed')`,
         [examResult.exam_schedule_id]
       );
       const classAveragePercentage = parseFloat(classAvgQ.rows[0].class_avg);
