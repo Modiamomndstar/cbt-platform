@@ -83,6 +83,7 @@ router.post(
         marks,
         questionOrder,
         imageUrl,
+        topic,
       } = req.body;
       const user = req.user!;
 
@@ -104,8 +105,8 @@ router.post(
       }
 
       const result = await client.query(
-        `INSERT INTO questions (exam_id, question_text, question_type, options, correct_answer, marks, sort_order, image_url)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `INSERT INTO questions (exam_id, question_text, question_type, options, correct_answer, marks, sort_order, image_url, topic)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
         [
           examId,
@@ -116,6 +117,7 @@ router.post(
           marks,
           questionOrder,
           imageUrl,
+          topic,
         ],
       );
 
@@ -168,8 +170,8 @@ router.post(
       for (let i = 0; i < questions.length; i++) {
         const q = questions[i];
         const result = await client.query(
-          `INSERT INTO questions (exam_id, question_text, question_type, options, correct_answer, marks, sort_order)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+          `INSERT INTO questions (exam_id, question_text, question_type, options, correct_answer, marks, sort_order, topic)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING *`,
           [
             examId,
@@ -179,6 +181,7 @@ router.post(
             q.correctAnswer,
             q.marks,
             q.questionOrder || i + 1,
+            q.topic,
           ],
         );
         createdQuestions.push(result.rows[0]);
@@ -229,6 +232,7 @@ router.put(
         marks,
         questionOrder,
         imageUrl,
+        topic,
       } = req.body;
       const user = req.user!;
 
@@ -258,8 +262,9 @@ router.put(
            correct_answer = COALESCE($4, correct_answer),
            marks = COALESCE($5, marks),
            sort_order = COALESCE($6, sort_order),
-           image_url = COALESCE($7, image_url)
-       WHERE id = $8
+           image_url = COALESCE($7, image_url),
+           topic = COALESCE($8, topic)
+       WHERE id = $9
        RETURNING *`,
         [
           questionText,
@@ -269,6 +274,7 @@ router.put(
           marks,
           questionOrder,
           imageUrl,
+          topic,
           id,
         ],
       );
