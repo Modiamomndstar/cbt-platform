@@ -7,8 +7,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { scheduleAPI, resultAPI } from '@/services/api';
-import { Clock, AlertTriangle, ChevronLeft, ChevronRight, Flag, ShieldCheck, AlertCircle, Play } from 'lucide-react';
+import { Clock, AlertTriangle, ChevronLeft, ChevronRight, Flag, ShieldCheck, AlertCircle, Play, Save, WifiOff, CloudOff, CloudUpload } from 'lucide-react';
 import { toast } from 'sonner';
+import { secureSet, secureGet, secureRemove } from '@/lib/storage';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 
 import {
   AlertDialog,
@@ -41,6 +43,11 @@ export default function TakeExam() {
   const [accessCode, setAccessCode] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [examStartTime, setExamStartTime] = useState<Date | null>(null);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  
+  // Offline Resilience
+  const isOnline = useNetworkStatus();
+  const [isSyncingOutbox, setIsSyncingOutbox] = useState(false);
 
   // Anti-cheating state
   const [violations, setViolations] = useState<any[]>([]);
@@ -175,6 +182,47 @@ export default function TakeExam() {
     return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Restore State on Start
+  const restoreExamState = (sId: string, serverMaxDuration: number) => {
+    const savedState = secureGet<any>(`examState_${sId}`);
+    if (savedState) {
+      setAnswers(savedState.answers || {});
+      setFlaggedQuestions(savedState.flaggedQuestions || []);
+      setViolations(savedState.violations || []);
+
+      // Calculate elapsed time from the saved start time
+      if (savedState.startTime) {
+         const trueStart = new Date(savedState.startTime);
+         setExamStartTime(trueStart);
+
+         const elapsedSeconds = Math.floor((new Date().getTime() - trueStart.getTime()) / 1000);
+         const newRemaining = Math.max(0, serverMaxDuration - elapsedSeconds);
+         setTimeRemaining(newRemaining);
+      } else {
+         setTimeRemaining(serverMaxDuration);
+         setExamStartTime(new Date());
+      }
+
+      toast.success('Restored previous exam progress from browser cache!');
+      return true;
+    }
+    return false;
+  };
+
+  // Auto-save logic
+  useEffect(() => {
+    if (!isStarted || !scheduleId || !exam) return;
+
+    // Save every time one of these state variables changes
+    secureSet(`examState_${scheduleId}`, {
+      answers,
+      flaggedQuestions,
+      violations,
+      startTime: examStartTime?.toISOString()
+    });
+    setLastSaved(new Date());
+  }, [answers, flaggedQuestions, violations, isStarted, scheduleId, examStartTime]);
+
   const handleStartExam = async () => {
     if (!scheduleId) return;
 
@@ -214,13 +262,20 @@ export default function TakeExam() {
 
         setQuestions(processedQuestions);
 
+        let serverMaxDuration = 60 * 60; // fallback to 1 hour
         if (data.durationMinutes) {
-          setTimeRemaining(data.durationMinutes * 60);
+          serverMaxDuration = data.durationMinutes * 60;
         } else if (data.duration) {
-          setTimeRemaining(data.duration * 60);
+          serverMaxDuration = data.duration * 60;
         }
 
-        setExamStartTime(new Date());
+        const restored = restoreExamState(scheduleId, serverMaxDuration);
+
+        if (!restored) {
+          setTimeRemaining(serverMaxDuration);
+          setExamStartTime(new Date());
+        }
+
         setIsStarted(true);
         setShowRules(false);
         toast.success(exam?.isCompetition ? 'Competition started! Monitor your security status.' : 'Exam started!');
@@ -259,15 +314,37 @@ export default function TakeExam() {
       ? Math.round((new Date().getTime() - examStartTime.getTime()) / 60000)
       : 0;
 
-    try {
-      const response = await resultAPI.submit({
-        scheduleId,
-        answers,
-        flaggedQuestions, // New: Reporting flagged questions to tutor
-        autoSubmitted: isTimeout,
-        timeSpentMinutes,
-        violations: currentViolations || violations // Use the violations state if not passed directly
+    const payload = {
+      scheduleId,
+      answers,
+      flaggedQuestions,
+      autoSubmitted: isTimeout,
+      timeSpentMinutes,
+      violations: currentViolations || violations
+    };
+
+    if (!isOnline) {
+      // Network is offline. Queue submission to Outbox.
+      const outbox = secureGet<any[]>('examOutbox') || [];
+      outbox.push(payload);
+      secureSet('examOutbox', outbox);
+      
+      // Clean active exam state
+      secureRemove(`examState_${scheduleId}`);
+      
+      toast.error('Network disconnected. Exam saved securely offline.', {
+        description: 'Please do not close this browser. We will automatically submit when your connection returns.'
       });
+      setIsSubmitting(false);
+      setResultData({
+         isOfflineQueued: true,
+         message: "Your exam was saved locally because you are offline. Keep this window open—it will automatically submit once internet is restored."
+      });
+      return;
+    }
+
+    try {
+      const response = await resultAPI.submit(payload);
 
       toast.success(isTimeout ? 'Exam auto-submitted' : 'Exam submitted successfully');
 
@@ -281,7 +358,49 @@ export default function TakeExam() {
       const msg = err?.response?.data?.message || 'Failed to submit exam';
       toast.error(msg);
       setIsSubmitting(false);
+    } finally {
+      // Clean up secure storage so they don't resume an already submitted exam
+      secureRemove(`examState_${scheduleId}`);
     }
+  };
+
+  // Attempt Outbox Sync when internet returns
+  useEffect(() => {
+     if (isOnline && !isSyncingOutbox) {
+        const outbox = secureGet<any[]>('examOutbox');
+        if (outbox && outbox.length > 0) {
+           syncOutbox(outbox);
+        }
+     }
+  }, [isOnline]);
+
+  const syncOutbox = async (outbox: any[]) => {
+     setIsSyncingOutbox(true);
+     toast.info('Internet restored. Syncing offline exams...', { icon: <CloudUpload className="h-4 w-4" /> });
+     
+     const remainingOutbox = [...outbox];
+     let syncSuccessCount = 0;
+
+     for (let i = outbox.length - 1; i >= 0; i--) {
+        const payload = outbox[i];
+        try {
+           const response = await resultAPI.submit(payload);
+           remainingOutbox.splice(i, 1); // remove from array if successful
+           secureSet('examOutbox', remainingOutbox); // immediately save new state
+           
+           if (response.data.data && response.data.data.percentage !== undefined) {
+              setResultData(response.data.data); // Update UI with actual score if they were staring at the offline screen
+           }
+           syncSuccessCount++;
+        } catch (err: any) {
+           console.error('Failed to sync offline item', err);
+        }
+     }
+     
+     setIsSyncingOutbox(false);
+     if (syncSuccessCount > 0) {
+        toast.success(`Successfully synced ${syncSuccessCount} offline exam(s).`);
+     }
   };
 
   const currentQuestion = questions[currentQuestionIndex];
@@ -450,8 +569,18 @@ export default function TakeExam() {
       onCopy={(e) => e.preventDefault()}
       onPaste={(e) => e.preventDefault()}
     >
+      {/* Offline Banner */}
+      {!isOnline && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-red-600/90 text-white shadow-xl backdrop-blur-md px-4 py-2 flex items-center justify-center gap-3">
+           <WifiOff className="h-5 w-5 animate-pulse" />
+           <p className="font-bold text-sm tracking-wide">
+             You are currently offline. Don't worry, your answers are safely saved locally. Keep taking your exam.
+           </p>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b pb-4 mb-6 pt-2 px-4 rounded-b-3xl shadow-sm">
+      <div className={`sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b pb-4 mb-6 px-4 rounded-b-3xl shadow-sm transition-all ${!isOnline ? 'pt-12' : 'pt-2'}`}>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -478,6 +607,12 @@ export default function TakeExam() {
                 {formatTime(timeRemaining)}
               </span>
             </div>
+            {lastSaved && (
+              <div className="hidden lg:flex items-center text-[10px] text-slate-400 font-bold bg-slate-50 px-3 py-1.5 rounded-full border">
+                 <Save className="h-3 w-3 mr-1" />
+                 Saved {lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            )}
             <Button
                variant="outline"
                className="rounded-xl border-dashed border-2 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
@@ -727,12 +862,22 @@ export default function TakeExam() {
       </AlertDialog>
 
       {/* Result Modal */}
-      <AlertDialog open={!!resultData} onOpenChange={() => navigate('/student/dashboard')}>
+      <AlertDialog open={!!resultData} onOpenChange={() => { if (!resultData?.isOfflineQueued) navigate('/student/dashboard'); }}>
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-2xl text-center">Exam Result</AlertDialogTitle>
+            <AlertDialogTitle className="text-2xl text-center">
+               {resultData?.isOfflineQueued ? 'Exam Saved Offline' : 'Exam Result'}
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-center space-y-4">
-              {resultData?.isDisqualified ? (
+              {resultData?.isOfflineQueued ? (
+                <div className="flex flex-col items-center justify-center p-6 bg-slate-50 rounded-xl border border-slate-200">
+                  <CloudOff className="h-12 w-12 text-slate-400 mb-4 animate-pulse" />
+                  <p className="text-slate-700 font-bold mb-2">Network Disconnected</p>
+                  <p className="text-sm text-slate-500">
+                    {resultData.message}
+                  </p>
+                </div>
+              ) : resultData?.isDisqualified ? (
                 <div className="flex flex-col items-center justify-center p-6 bg-red-50 rounded-xl border border-red-100">
                   <ShieldCheck className="h-12 w-12 text-red-500 mb-2 opacity-50" />
                   <span className="text-red-500 font-black text-xl mb-1 uppercase tracking-tighter">Disqualified</span>
@@ -751,19 +896,27 @@ export default function TakeExam() {
                   </span>
                 </div>
               )}
-              <p className="text-slate-600 font-medium">
-                {resultData?.isDisqualified
-                  ? "Due to multiple security violations, this attempt has been flagged and your score is 0."
-                  : (resultData?.passed
-                    ? "Congratulations! You have passed the exam."
-                    : "Unfortunately, you did not pass. Keep studying!")}
-              </p>
+              {!resultData?.isOfflineQueued && (
+                <p className="text-slate-600 font-medium">
+                  {resultData?.isDisqualified
+                    ? "Due to multiple security violations, this attempt has been flagged and your score is 0."
+                    : (resultData?.passed
+                      ? "Congratulations! You have passed the exam."
+                      : "Unfortunately, you did not pass. Keep studying!")}
+                </p>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <Button onClick={() => navigate('/student/dashboard')} className="w-full">
-              Return to Dashboard
-            </Button>
+             {resultData?.isOfflineQueued ? (
+               <Button onClick={() => window.location.reload()} variant="outline" className="w-full h-12">
+                 Refresh Page
+               </Button>
+             ) : (
+               <Button onClick={() => navigate('/student/dashboard')} className="w-full">
+                 Return to Dashboard
+               </Button>
+             )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
