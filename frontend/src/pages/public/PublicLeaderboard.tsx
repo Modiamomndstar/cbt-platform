@@ -216,10 +216,6 @@ export default function PublicLeaderboard() {
         </Card>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 mt-12 text-center text-slate-400">
-        <p className="text-sm">Competition Exam Engine Platform &copy; 2026</p>
-        <p className="text-xs mt-1 italic">Verified Official Results</p>
-      </div>
     </div>
   );
 }

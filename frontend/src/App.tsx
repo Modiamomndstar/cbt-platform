@@ -14,6 +14,7 @@ import SchoolRegistrationPage from '@/pages/SchoolRegistrationPage';
 import VerifyEmailPage from '@/pages/VerifyEmailPage';
 import PublicLeaderboard from '@/pages/public/PublicLeaderboard';
 import PricingPage from '@/pages/PricingPage';
+import PublicLayout from '@/components/layout/PublicLayout';
 
 // School Admin Pages
 import SchoolAdminLayout from '@/pages/school-admin/SchoolAdminLayout';
@@ -91,15 +92,17 @@ function AppRoutes() {
 
   return (
     <Routes>
-      {/* Public Routes */}
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/admin/login" element={<AdminLogin />} />
-      <Route path="/register-school" element={<SchoolRegistrationPage />} />
-      <Route path="/verify-email" element={<VerifyEmailPage />} />
-      <Route path="/student/login" element={<StudentLogin />} />
-      <Route path="/leaderboard/:competitionId" element={<PublicLeaderboard />} />
-      <Route path="/pricing" element={<PricingPage />} />
+      {/* Public Routes with Unified Layout */}
+      <Route element={<PublicLayout />}>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/register-school" element={<SchoolRegistrationPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/student/login" element={<StudentLogin />} />
+        <Route path="/leaderboard/:competitionId" element={<PublicLeaderboard />} />
+        <Route path="/pricing" element={<PricingPage />} />
+      </Route>
 
       {/* School Admin Routes */}
       <Route

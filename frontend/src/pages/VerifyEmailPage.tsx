@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { authAPI } from '@/services/api';
-import { CheckCircle, XCircle, Loader2, GraduationCap } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
@@ -35,11 +35,7 @@ export default function VerifyEmailPage() {
   }, [token]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex flex-col items-center justify-center p-4">
-      <div className="mb-8 flex items-center space-x-2 text-gray-900">
-        <GraduationCap className="h-10 w-10 text-indigo-600" />
-        <span className="text-2xl font-bold">CBT Platform</span>
-      </div>
+    <div className="flex-1 flex items-center justify-center p-4 py-24 md:py-32">
 
       <Card className="w-full max-w-md text-center">
         <CardHeader>
