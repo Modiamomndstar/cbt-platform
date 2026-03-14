@@ -84,7 +84,7 @@ class OciService {
   /**
    * Get public URL for the object
    */
-  private getPublicUrl(fileName: string): string {
+  public getPublicUrl(fileName: string): string {
     // Standard public URL pattern for OCI Object Storage
     // https://objectstorage.[region].oraclecloud.com/n/[namespace]/b/[bucket]/o/[filename]
     return `https://objectstorage.${this.region}.oraclecloud.com/n/${this.namespace}/b/${this.bucketName}/o/${fileName}`;

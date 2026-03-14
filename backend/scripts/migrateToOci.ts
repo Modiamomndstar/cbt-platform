@@ -7,6 +7,15 @@ import { logger } from '../src/utils/logger';
 // Load environment variables
 dotenv.config();
 
+async function getFiles(dir: string): Promise<string[]> {
+    const dirents = fs.readdirSync(dir, { withFileTypes: true });
+    const files = await Promise.all(dirents.map((dirent) => {
+        const res = path.resolve(dir, dirent.name);
+        return dirent.isDirectory() ? getFiles(res) : res;
+    }));
+    return Array.prototype.concat(...files);
+}
+
 async function migrate() {
     logger.info("Starting OCI Asset Migration...");
 
@@ -26,29 +35,28 @@ async function migrate() {
         return;
     }
 
-    const files = fs.readdirSync(LOGO_DIR);
-    logger.info(`Found ${files.length} files to migrate.`);
+    const allFiles = await getFiles(LOGO_DIR);
+    logger.info(`Found ${allFiles.length} files to migrate.`);
 
     let successCount = 0;
     let failCount = 0;
 
-    for (const file of files) {
-        const filePath = path.join(LOGO_DIR, file);
-        if (fs.lstatSync(filePath).isDirectory()) continue;
-
+    for (const filePath of allFiles) {
         try {
             const buffer = fs.readFileSync(filePath);
-            const ext = path.extname(file).toLowerCase();
+            const fileName = path.basename(filePath);
+            const ext = path.extname(fileName).toLowerCase();
             let mimetype = 'image/jpeg';
             if (ext === '.png') mimetype = 'image/png';
             if (ext === '.webp') mimetype = 'image/webp';
             if (ext === '.gif') mimetype = 'image/gif';
 
-            logger.info(`Uploading ${file}...`);
-            await ociService.uploadFile(buffer, `logos/${file}`, mimetype);
+            logger.info(`Uploading ${fileName}...`);
+            // We use a flat structure logos/filename in OCI
+            await ociService.uploadFile(buffer, `logos/${fileName}`, mimetype);
             successCount++;
         } catch (error) {
-            logger.error(`Failed to upload ${file}:`, error);
+            logger.error(`Failed to upload ${filePath}:`, error);
             failCount++;
         }
     }
