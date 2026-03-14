@@ -34,7 +34,7 @@ services:
       - db
     volumes:
       - uploads_data:/usr/src/app/uploads
-      - /home/opc/oci_api_key.pem:/usr/src/app/oci_api_key.pem:ro
+      - /home/ubuntu/oci_api_key.pem:/usr/src/app/oci_api_key.pem:ro
     networks:
       - internal
       - web
