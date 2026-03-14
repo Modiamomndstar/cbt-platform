@@ -34,6 +34,7 @@ import examCategoryRoutes from "./routes/examCategories";
 import examTypeRoutes from "./routes/examTypes";
 import competitionRoutes from "./routes/competitions";
 import aiCoachRoutes from "./routes/aiCoach";
+import aiAnalyticsRoutes from "./routes/aiAnalytics";
 import { initCronJobs } from "./services/cronService";
 import { ApiResponseHandler } from "./utils/apiResponse";
 
@@ -190,6 +191,7 @@ app.use("/api/exam-categories", examCategoryRoutes);
 app.use("/api/exam-types", examTypeRoutes);
 app.use("/api/competitions", competitionRoutes);
 app.use("/api/ai", aiCoachRoutes);
+app.use("/api/ai-analytics", aiAnalyticsRoutes);
 
 // Error handling middleware
 app.use(

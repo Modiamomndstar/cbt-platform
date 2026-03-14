@@ -7,11 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { examAPI, resultAPI } from '@/services/api';
-import { Search, TrendingUp, Award, Users, BookOpen, Download, RefreshCw, FileText } from 'lucide-react';
+import { examAPI, resultAPI, aiAnalyticsAPI } from '@/services/api';
+import { Search, TrendingUp, Award, Users, BookOpen, Download, RefreshCw, FileText, Sparkles, Loader2 } from 'lucide-react';
 import { ResultDetailModal } from '@/components/tutor/ResultDetailModal';
 import { toast } from 'sonner';
 import { formatDate, formatTime } from '@/lib/dateUtils';
+import ReactMarkdown from 'react-markdown';
 
 export default function ExamResults() {
   // const { user } = useAuth(); // user unused
@@ -54,6 +55,34 @@ export default function ExamResults() {
   const [selectedResultId, setSelectedResultId] = useState<string | null>(null);
 
   const [detailData, setDetailData] = useState<any>(null);
+
+  // AI Status
+  const [aiCohortAnalysis, setAiCohortAnalysis] = useState<any>(null);
+  const [generatingCohortAI, setGeneratingCohortAI] = useState(false);
+  const [showCohortAI, setShowCohortAI] = useState(false);
+
+  useEffect(() => {
+    setAiCohortAnalysis(null);
+    setShowCohortAI(false);
+  }, [filters.examId]);
+
+  const handleGenerateCohortAI = async () => {
+    if (filters.examId === 'all') return;
+    setGeneratingCohortAI(true);
+    try {
+      const response = await aiAnalyticsAPI.getExamCohortAnalysis(filters.examId);
+      if (response.data.success) {
+        setAiCohortAnalysis(response.data.data);
+        setShowCohortAI(true);
+        toast.success("Cohort AI Analysis generated successfully!");
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Failed to generate AI analysis');
+    } finally {
+      setGeneratingCohortAI(false);
+    }
+  };
 
   useEffect(() => {
     if (selectedResultId) {
@@ -186,6 +215,16 @@ export default function ExamResults() {
           <p className="text-gray-600">View and analyze student performance</p>
         </div>
         <div className="flex gap-2">
+          {filters.examId !== 'all' && (
+            <Button
+              onClick={handleGenerateCohortAI}
+              disabled={generatingCohortAI || loading}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              {generatingCohortAI ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+              AI Insights
+            </Button>
+          )}
           <Button variant="outline" onClick={() => loadResults()} title="Refresh">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
@@ -313,6 +352,25 @@ export default function ExamResults() {
           </div>
         </CardContent>
       </Card>
+
+      {/* AI Cohort Insights (Conditional) */}
+      {showCohortAI && aiCohortAnalysis && (
+        <Card className="border-indigo-200 bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/50 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/5 rounded-full blur-3xl -ml-16 -mb-16"></div>
+          <CardHeader className="pb-2 border-b border-indigo-100/50">
+            <CardTitle className="flex items-center text-indigo-900">
+              <Sparkles className="h-5 w-5 mr-2 text-indigo-600" />
+              AI Cohort Performance Analysis
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6 relative z-10">
+            <div className="prose prose-sm md:prose-base prose-indigo max-w-none text-slate-700">
+               <ReactMarkdown>{aiCohortAnalysis.analysisMarkdown}</ReactMarkdown>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Results Table */}
       <Card>

@@ -184,7 +184,7 @@ export const isFeatureAllowed = async (schoolId: string, featureKey: string): Pr
   };
 
   // Special case for AI — check queries per month (includes purchased packs)
-  if (featureKey === 'ai_question_gen') return plan.aiQueriesPerMonth > 0;
+  if (featureKey === 'ai_question_gen' || featureKey === 'ai_exam_analysis' || featureKey === 'ai_student_analysis') return plan.aiQueriesPerMonth > 0;
 
   const planKey = featureMap[featureKey];
   if (!planKey) return true; // Unknown feature — allow by default
@@ -204,7 +204,7 @@ export const getSchoolUsage = async (schoolId: string): Promise<PlanUsage> => {
     db.query(
       `SELECT COUNT(*) as count FROM activity_logs
        WHERE school_id = $1::uuid
-       AND action IN ('ai_question_generated', 'ai_generated', 'ai_result_explained', 'ai_question_explained')
+       AND action IN ('ai_question_generated', 'ai_generated', 'ai_result_explained', 'ai_question_explained', 'ai_exam_analysis_generated', 'ai_student_analysis_generated')
        AND created_at >= date_trunc('month', NOW())`,
       [schoolId]
     ).catch(() => ({ rows: [{ count: 0 }] }))
@@ -225,7 +225,7 @@ export const getUserAiUsage = async (userId: string): Promise<number> => {
   const result = await db.query(
     `SELECT COUNT(*) as count FROM activity_logs
      WHERE user_id = $1::uuid
-     AND action IN ('ai_question_generated', 'ai_generated', 'ai_result_explained', 'ai_question_explained')
+     AND action IN ('ai_question_generated', 'ai_generated', 'ai_result_explained', 'ai_question_explained', 'ai_exam_analysis_generated', 'ai_student_analysis_generated')
      AND created_at >= date_trunc('month', NOW())`,
     [userId]
   );
@@ -362,7 +362,7 @@ export const getSchoolBillingStatus = async (schoolId: string) => {
   const featureKeys = [
     'student_portal', 'bulk_import', 'email_notifications', 'sms_notifications',
     'advanced_analytics', 'custom_branding', 'api_access', 'result_pdf',
-    'result_export', 'external_students', 'ai_question_gen'
+    'result_export', 'external_students', 'ai_question_gen', 'ai_exam_analysis', 'ai_student_analysis'
   ];
 
   const features: Record<string, boolean> = {};

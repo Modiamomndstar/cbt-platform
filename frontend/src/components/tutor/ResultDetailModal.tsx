@@ -1,4 +1,4 @@
-// import React from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -7,9 +7,11 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-// import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { Printer, Check, XCircle, AlertCircle } from 'lucide-react';
+import { Printer, Check, XCircle, AlertCircle, Sparkles, Loader2 } from 'lucide-react';
+import { aiAnalyticsAPI } from '@/services/api';
+import { toast } from 'sonner';
+import ReactMarkdown from 'react-markdown';
 
 interface QuestionDetail {
   id: string;
@@ -47,10 +49,36 @@ interface ResultDetailModalProps {
 }
 
 export function ResultDetailModal({ isOpen, onClose, result }: ResultDetailModalProps) {
+  const [aiFeedback, setAiFeedback] = useState<any>(null);
+  const [generatingAI, setGeneratingAI] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setAiFeedback(null);
+    }
+  }, [isOpen, result]);
+
   if (!result) return null;
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleGenerateAI = async () => {
+    if (!result) return;
+    setGeneratingAI(true);
+    try {
+      const response = await aiAnalyticsAPI.getStudentFeedback(result.id);
+      if (response.data.success) {
+        setAiFeedback(response.data.data);
+        toast.success("AI Feedback generated successfully!");
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Failed to generate AI feedback');
+    } finally {
+      setGeneratingAI(false);
+    }
   };
 
   return (
@@ -161,6 +189,16 @@ export function ResultDetailModal({ isOpen, onClose, result }: ResultDetailModal
               </p>
             </div>
             <div className="flex gap-2 print:hidden">
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100"
+                onClick={handleGenerateAI}
+                disabled={generatingAI}
+              >
+                {generatingAI ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2 text-indigo-600" />}
+                ✨ AI Personalized Plan
+              </Button>
               <Button variant="outline" size="sm" onClick={handlePrint}>
                 <Printer className="h-4 w-4 mr-2" />
                 Print / PDF
@@ -233,6 +271,18 @@ export function ResultDetailModal({ isOpen, onClose, result }: ResultDetailModal
         </div>
 
         <ScrollArea className="flex-1 p-6 scroll-area-print">
+          {aiFeedback && (
+            <div className="mb-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 rounded-lg print:hidden">
+               <div className="flex items-center gap-2 mb-3">
+                 <Sparkles className="h-5 w-5 text-indigo-600" />
+                 <h3 className="font-bold text-indigo-900">AI Personalized Feedback</h3>
+               </div>
+               <div className="prose prose-sm prose-indigo max-w-none text-slate-700">
+                 <ReactMarkdown>{aiFeedback.analysisMarkdown}</ReactMarkdown>
+               </div>
+            </div>
+          )}
+
           <div className="space-y-6">
             {result.questions.map((q, index) => (
               <div key={q.id} className={`border rounded-lg p-4 no-break mb-6 ${q.isCorrect ? 'bg-green-50/50 border-green-200' : 'bg-red-50/50 border-red-200'}`}>

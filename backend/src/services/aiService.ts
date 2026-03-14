@@ -27,6 +27,32 @@ export interface AIResultExplanationRequest {
   }>;
 }
 
+export interface AICohortAnalysisRequest {
+  examTitle: string;
+  totalStudents: number;
+  averageScorePercentage: number;
+  highestScorePercentage: number;
+  lowestScorePercentage: number;
+  topicPerformance: Array<{
+    topic: string;
+    averageScorePercentage: number;
+  }>;
+  mostMissedQuestions: Array<{
+    questionText: string;
+    topic: string;
+    missRate: number;
+  }>;
+}
+
+export interface AIStudentFeedbackRequest {
+  studentName: string;
+  examTitle: string;
+  scorePercentage: number;
+  classAveragePercentage: number;
+  strongTopics: string[];
+  weakTopics: string[];
+}
+
 class AIService {
   private client: OpenAI | null = null;
   private model: string;
@@ -143,6 +169,53 @@ class AIService {
     });
 
     return completion.choices[0].message.content || "No explanation available.";
+  }
+
+  async analyzeCohortPerformance(req: AICohortAnalysisRequest): Promise<string> {
+    if (!this.isAvailable()) {
+      throw new Error("AI Service not configured");
+    }
+
+    const topicPerfStr = req.topicPerformance.map(t => `- ${t.topic}: ${t.averageScorePercentage.toFixed(1)}% avg`).join('\n');
+    const missedQuestionsStr = req.mostMissedQuestions.map(q => `- Question: "${q.questionText}" (Topic: ${q.topic}, Miss Rate: ${(q.missRate * 100).toFixed(1)}%)`).join('\n');
+
+    const prompt = `Exam: ${req.examTitle}\nTotal Students: ${req.totalStudents}\nAverage Score: ${req.averageScorePercentage.toFixed(1)}%\nHighest Score: ${req.highestScorePercentage.toFixed(1)}%\nLowest Score: ${req.lowestScorePercentage.toFixed(1)}%\n\nPerformance by Topic:\n${topicPerfStr}\n\nMost Missed Questions:\n${missedQuestionsStr}\n\nAnalyze this data and provide a 3-paragraph report formatted in Markdown:\n1. Overall class performance summary.\n2. The top 3 knowledge gaps (topics where the class struggled most).\n3. Three actionable teaching recommendations for the tutor to address these gaps before the next exam.`;
+
+    const completion = await this.client!.chat.completions.create({
+      model: this.model,
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert Educational Analyst. Analyze exam performance data and provide actionable recommendations for teachers.",
+        },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.7,
+    });
+
+    return completion.choices[0].message.content || "No analysis available.";
+  }
+
+  async generateStudentFeedback(req: AIStudentFeedbackRequest): Promise<string> {
+    if (!this.isAvailable()) {
+      throw new Error("AI Service not configured");
+    }
+
+    const prompt = `Student: ${req.studentName}\nExam: ${req.examTitle}\nStudent's Score: ${req.scorePercentage.toFixed(1)}%\nClass Average: ${req.classAveragePercentage.toFixed(1)}%\nStrong Topics: ${req.strongTopics.join(', ')}\nWeak Topics: ${req.weakTopics.join(', ')}\n\nAct as a supportive, encouraging tutor. Write a personalized paragraph of feedback for this student using Markdown. Start by celebrating their strengths, gently outline the areas they need to work on, and give them two specific, practical study tips based on their weakest topics.`;
+
+    const completion = await this.client!.chat.completions.create({
+      model: this.model,
+      messages: [
+        {
+          role: "system",
+          content: "You are a personal academic coach providing supportive and constructive feedback to students based on their exam performance.",
+        },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.7,
+    });
+
+    return completion.choices[0].message.content || "No feedback available.";
   }
 
   private parseJSON(text: string): any {

@@ -546,4 +546,12 @@ export const messagesAPI = {
   markBroadcastAsViewed: (id: string) => api.post(`/messages/broadcasts/${id}/view`),
 };
 
+// AI Analytics API
+export const aiAnalyticsAPI = {
+  getExamCohortAnalysis: (examId: string, forceRefresh?: boolean) =>
+    api.post(`/ai-analytics/exam/${examId}/cohort${forceRefresh ? '?forceRefresh=1' : ''}`),
+  getStudentFeedback: (resultId: string, forceRefresh?: boolean) =>
+    api.post(`/ai-analytics/result/${resultId}/student${forceRefresh ? '?forceRefresh=1' : ''}`),
+};
+
 export default api;
