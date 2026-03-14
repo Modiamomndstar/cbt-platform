@@ -13,6 +13,7 @@ import { transformResult } from '../utils/responseTransformer';
 import { canAddExternalStudent } from '../services/planService';
 import { paygService } from '../services/paygService';
 import { generateUniqueUsername, generateStudentID, findOrCreateCategory } from '../utils/userUtils';
+import { ociService } from '../services/ociService';
 
 const router = Router();
 
@@ -55,11 +56,18 @@ router.post(
       // Generate unique filename to prevent collisions/overwrites
       const ext = path.extname(file.name).toLowerCase() || '.jpg';
       const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}${ext}`;
-      const uploadPath = path.join(LOGO_DIR, uniqueName);
+      
+      let publicUrl = '';
 
-      await file.mv(uploadPath);
-
-      const publicUrl = `/uploads/logos/${uniqueName}`;
+      if (ociService.isEnabled()) {
+        // Upload to OCI
+        publicUrl = await ociService.uploadFile(file.data, `logos/${uniqueName}`, file.mimetype);
+      } else {
+        // Local fallback
+        const uploadPath = path.join(LOGO_DIR, uniqueName);
+        await file.mv(uploadPath);
+        publicUrl = `/uploads/logos/${uniqueName}`;
+      }
 
       ApiResponseHandler.success(res, transformResult({ url: publicUrl }), 'Image uploaded successfully');
     } catch (error) {
@@ -92,11 +100,18 @@ router.post(
 
       const ext = path.extname(file.name).toLowerCase() || '.jpg';
       const uniqueName = `pub-${Date.now()}-${Math.random().toString(36).substring(2, 9)}${ext}`;
-      const uploadPath = path.join(LOGO_DIR, uniqueName);
+      
+      let publicUrl = '';
 
-      await file.mv(uploadPath);
-
-      const publicUrl = `/uploads/logos/${uniqueName}`;
+      if (ociService.isEnabled()) {
+        // Upload to OCI
+        publicUrl = await ociService.uploadFile(file.data, `logos/${uniqueName}`, file.mimetype);
+      } else {
+        // Local fallback
+        const uploadPath = path.join(LOGO_DIR, uniqueName);
+        await file.mv(uploadPath);
+        publicUrl = `/uploads/logos/${uniqueName}`;
+      }
 
       ApiResponseHandler.success(res, transformResult({ url: publicUrl }), 'Public image uploaded successfully');
     } catch (error) {
