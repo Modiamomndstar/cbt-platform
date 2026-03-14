@@ -19,6 +19,7 @@ import { usePlan } from '@/hooks/usePlan';
 import { useMessages } from '@/hooks/useMessages';
 import { FeatureLockedModal, FeatureLockBadge } from '@/components/common/FeatureLock';
 import { BroadcastAlert } from '@/components/BroadcastAlert';
+import { getImageUrl } from '@/lib/imageUtils';
 
 export default function StudentLayout() {
   const navigate = useNavigate();
@@ -68,7 +69,7 @@ export default function StudentLayout() {
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center space-x-3">
             {user?.schoolLogo && !user?.isExternal ? (
-              <img src={user.schoolLogo} alt="School Logo" className="h-10 w-10 object-contain rounded-md" />
+              <img src={getImageUrl(user.schoolLogo) || undefined} alt="School Logo" className="h-10 w-10 object-contain rounded-md" />
             ) : (
               <GraduationCap className="h-10 w-10 text-emerald-600" />
             )}
@@ -142,7 +143,7 @@ export default function StudentLayout() {
             <div className="p-4 border-b border-gray-200 flex justify-between items-center">
                <div className="flex items-center space-x-2">
                 {user?.schoolLogo && !user?.isExternal ? (
-                  <img src={user.schoolLogo} alt="School Logo" className="h-8 w-8 object-contain rounded" />
+                  <img src={getImageUrl(user.schoolLogo) || undefined} alt="School Logo" className="h-8 w-8 object-contain rounded" />
                 ) : (
                   <GraduationCap className="h-8 w-8 text-emerald-600" />
                 )}
@@ -198,7 +199,7 @@ export default function StudentLayout() {
             <div className="flex items-center space-x-4">
               {user?.schoolLogo ? (
                 <div className="bg-white p-1.5 rounded-xl shadow-sm border border-gray-100">
-                  <img src={user.schoolLogo} alt="School Logo" className="h-10 w-10 object-contain" />
+                  <img src={getImageUrl(user.schoolLogo) || undefined} alt="School Logo" className="h-10 w-10 object-contain" />
                 </div>
               ) : (
                 <div className="bg-emerald-50 p-2 rounded-xl">
@@ -244,7 +245,7 @@ export default function StudentLayout() {
                 <Menu className="h-6 w-6 text-gray-600" />
               </button>
               {user?.schoolLogo && !user?.isExternal && (
-                <img src={user.schoolLogo} alt="School Logo" className="h-8 w-8 object-contain rounded" />
+                <img src={getImageUrl(user.schoolLogo) || undefined} alt="School Logo" className="h-8 w-8 object-contain rounded" />
               )}
               <span className="font-bold text-gray-900 truncate max-w-[180px]">
                 {!user?.isExternal ? user?.schoolName : 'Exam Access Area'}

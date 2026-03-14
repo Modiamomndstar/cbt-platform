@@ -23,6 +23,7 @@ import { useState, useEffect } from 'react';
 import { schoolAPI } from '@/services/api';
 import { useMessages } from '@/hooks/useMessages';
 import { BroadcastAlert } from '@/components/BroadcastAlert';
+import { getImageUrl } from '@/lib/imageUtils';
 
 export default function SchoolAdminLayout() {
   const navigate = useNavigate();
@@ -85,7 +86,7 @@ export default function SchoolAdminLayout() {
             className="flex items-center space-x-2"
           >
             {schoolLogo ? (
-              <img src={schoolLogo} alt="School logo" className="h-8 w-8 object-contain" />
+              <img src={getImageUrl(schoolLogo) || undefined} alt="School logo" className="h-8 w-8 object-contain" />
             ) : (
               <GraduationCap className="h-8 w-8 text-indigo-600" />
             )}

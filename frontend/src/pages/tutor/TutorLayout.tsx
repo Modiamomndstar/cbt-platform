@@ -20,6 +20,7 @@ import {
 import { useState } from 'react';
 import { useMessages } from '@/hooks/useMessages';
 import { BroadcastAlert } from '@/components/BroadcastAlert';
+import { getImageUrl } from '@/lib/imageUtils';
 
 export default function TutorLayout() {
   const navigate = useNavigate();
@@ -68,7 +69,11 @@ export default function TutorLayout() {
             onClick={() => navigate('/tutor/dashboard')}
             className="flex items-center space-x-2"
           >
-            <GraduationCap className="h-8 w-8 text-indigo-600" />
+            {user?.schoolLogo ? (
+              <img src={getImageUrl(user.schoolLogo) || undefined} alt="School logo" className="h-8 w-8 object-contain" />
+            ) : (
+              <GraduationCap className="h-8 w-8 text-indigo-600" />
+            )}
             <div className="flex-1 min-w-0">
               <p className="font-bold text-gray-900 truncate">Tutor Portal</p>
               <p className="text-xs text-gray-500 truncate">{tutorName}</p>
@@ -202,10 +207,14 @@ export default function TutorLayout() {
               <Menu className="h-6 w-6" />
             </button>
             <span className="font-bold text-gray-900">Tutor Portal</span>
-            <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
-              <span className="text-emerald-700 font-semibold text-sm">
-                {tutorName.charAt(0)}
-              </span>
+            <div className="w-8 h-8 rounded-full border flex items-center justify-center overflow-hidden">
+              {user?.schoolLogo ? (
+                <img src={getImageUrl(user.schoolLogo) || undefined} alt="School logo" className="h-full w-full object-contain" />
+              ) : (
+                <span className="text-emerald-700 font-semibold text-sm">
+                  {tutorName.charAt(0)}
+                </span>
+              )}
             </div>
           </div>
         </header>
