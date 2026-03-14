@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import { ociService } from '../src/services/ociService';
 import { logger } from '../src/utils/logger';
 
-// Load environment variables
+// Load environment variables - don't fail if .env is missing (e.g. in docker with env_file)
 dotenv.config();
 
 async function getFiles(dir: string): Promise<string[]> {
