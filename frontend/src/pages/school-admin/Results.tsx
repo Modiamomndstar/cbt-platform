@@ -139,8 +139,13 @@ export default function Results() {
           <h1 className="text-2xl font-bold text-gray-900">Exam Results</h1>
           <p className="text-gray-600">Review performance across all exams in your school</p>
         </div>
-        <div className="flex gap-2">
-          {selectedExamId !== 'all' && (
+        <div className="flex gap-2 items-center">
+          {selectedExamId === 'all' ? (
+            <div className="hidden md:flex items-center text-xs font-medium text-amber-700 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+              <Sparkles className="h-3.5 w-3.5 mr-1.5 text-amber-500" />
+              Pick an exam for AI Insights
+            </div>
+          ) : (
             <Button
               onClick={handleGenerateCohortAI}
               disabled={generatingCohortAI || loading}

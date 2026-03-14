@@ -11,7 +11,8 @@ import {
   Trash2,
   FileQuestion,
   Calendar,
-  FolderOpen
+  FolderOpen,
+  Sparkles
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -214,6 +215,15 @@ export default function ExamManagement() {
                     >
                       <Calendar className="h-4 w-4 mr-2" />
                       Schedule
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-indigo-600 border-indigo-100 hover:bg-indigo-50"
+                      onClick={() => navigate(`/tutor/results?examId=${exam.id}`)}
+                    >
+                      <Sparkles className="h-4 w-4 mr-2 text-indigo-500" />
+                      Analyze
                     </Button>
                     <Button
                       variant="ghost"
