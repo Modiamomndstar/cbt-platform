@@ -57,17 +57,30 @@ async function migrate() {
         authenticationDetailsProvider: provider
     });
 
-    const UPLOAD_DIR = fs.existsSync(path.join(process.cwd(), "uploads"))
-        ? path.join(process.cwd(), "uploads")
-        : path.join(process.cwd(), "backend", "uploads");
+    const possibleUploadDirs = [
+        path.join(process.cwd(), "uploads"),
+        path.join(process.cwd(), "backend", "uploads"),
+        "/usr/src/app/uploads"
+    ];
 
-    const LOGO_DIR = path.join(UPLOAD_DIR, 'logos');
+    let LOGO_DIR = null;
+    for (const dir of possibleUploadDirs) {
+        const logoDir = path.join(dir, 'logos');
+        console.log(`Checking for logos in: ${logoDir}...`);
+        if (fs.existsSync(logoDir)) {
+            LOGO_DIR = logoDir;
+            break;
+        }
+    }
 
-    if (!fs.existsSync(LOGO_DIR)) {
-        console.log("No local logos found to migrate.");
+    if (!LOGO_DIR) {
+        console.error("Could not find a 'logos' directory in any expected location.");
+        console.log("Current working directory:", process.cwd());
+        console.log("Directory contents:", fs.readdirSync(process.cwd()));
         return;
     }
 
+    console.log(`Targeting logo directory: ${LOGO_DIR}`);
     const allFiles = getFiles(LOGO_DIR);
     console.log(`Found ${allFiles.length} files to migrate.`);
 
