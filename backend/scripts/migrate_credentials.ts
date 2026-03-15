@@ -1,6 +1,6 @@
-const { Pool } = require('pg');
-const dotenv = require('dotenv');
-const path = require('path');
+import { Pool } from 'pg';
+import dotenv from 'dotenv';
+import path from 'path';
 
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '../.env') });

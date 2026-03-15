@@ -1,8 +1,8 @@
-const fs = require('fs');
-const path = require('path');
-const dotenv = require('dotenv');
-const { ociService } = require('../src/services/ociService');
-const { logger } = require('../src/utils/logger');
+import fs from 'fs';
+import path from 'path';
+import dotenv from 'dotenv';
+import { ociService } from '../src/services/ociService';
+import { logger } from '../src/utils/logger';
 
 // Load environment variables - don't fail if .env is missing (e.g. in docker with env_file)
 dotenv.config();

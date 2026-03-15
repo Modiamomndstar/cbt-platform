@@ -1,5 +1,5 @@
-const { pool: dbPool } = require("../src/config/database");
-const bcrypt = require("bcryptjs");
+import { pool as dbPool } from "../src/config/database";
+import bcrypt from "bcryptjs";
 
 async function seedTestData() {
   const client = await dbPool.connect();

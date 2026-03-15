@@ -1,8 +1,8 @@
-const { db } = require('../src/config/database');
-const { ociService } = require('../src/services/ociService');
-const { logger } = require('../src/utils/logger');
-const dotenv = require('dotenv');
-const path = require('path');
+import { db } from '../src/config/database';
+import { ociService } from '../src/services/ociService';
+import { logger } from '../src/utils/logger';
+import dotenv from 'dotenv';
+import path from 'path';
 
 // Load environment variables - don't fail if .env is missing (e.g. in docker with env_file)
 dotenv.config();
