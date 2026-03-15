@@ -28,6 +28,8 @@ BEGIN
         extra_internal_student_price_usd DECIMAL(10,4) DEFAULT 0,
         extra_external_student_price_usd DECIMAL(10,4) DEFAULT 0,
         is_active          BOOLEAN DEFAULT true,
+        max_ai_queries_per_student INTEGER DEFAULT 5,
+        max_ai_queries_per_tutor INTEGER DEFAULT 50,
         updated_at         TIMESTAMPTZ DEFAULT NOW()
     );
 
@@ -35,30 +37,35 @@ BEGIN
     INSERT INTO plan_definitions (
         plan_type, display_name, price_usd, price_ngn, trial_days,
         max_tutors, max_internal_students, max_external_per_tutor, max_active_exams, ai_queries_per_month,
-        allow_student_portal, allow_external_students, allow_bulk_import, allow_email_notifications,
+        allow_email_notifications,
         allow_sms_notifications, allow_advanced_analytics, allow_custom_branding, allow_api_access,
-        allow_result_pdf, allow_result_export
+        allow_result_pdf, allow_result_export,
+        max_ai_queries_per_student, max_ai_queries_per_tutor
     ) VALUES
     ('freemium', 'Free', 0, 0, 0,
       2, 20, 5, 5, 0,
       false, false, false, false,
       false, false, false, false,
-      false, false),
+      false, false,
+      5, 50),
     ('basic', 'Basic Premium', 4.99, 8000, 14,
       10, 300, 30, NULL, 30,
       true, true, true, true,
       false, false, false, false,
-      true, false),
+      true, false,
+      15, 60),
     ('advanced', 'Advanced Premium', 14.99, 24000, 14,
       50, 2000, 200, NULL, 200,
       true, true, true, true,
       true, true, true, true,
-      true, true),
+      true, true,
+      40, 100),
     ('enterprise', 'Enterprise', 0, 0, 14,
       NULL, NULL, NULL, NULL, NULL,
       true, true, true, true,
       true, true, true, true,
-      true, true)
+      true, true,
+      50, 200)
     ON CONFLICT (plan_type) DO UPDATE SET
         display_name = EXCLUDED.display_name,
         price_usd = EXCLUDED.price_usd,
@@ -79,6 +86,8 @@ BEGIN
         allow_api_access = EXCLUDED.allow_api_access,
         allow_result_pdf = EXCLUDED.allow_result_pdf,
         allow_result_export = EXCLUDED.allow_result_export,
+        max_ai_queries_per_student = EXCLUDED.max_ai_queries_per_student,
+        max_ai_queries_per_tutor = EXCLUDED.max_ai_queries_per_tutor,
         updated_at = NOW();
 
     -- 3. Cleanup: Drop obsolete payment_plans if it exists

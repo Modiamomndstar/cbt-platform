@@ -1,4 +1,4 @@
-﻿--
+--
 -- PostgreSQL database dump
 --
 
@@ -608,6 +608,8 @@ CREATE TABLE public.plan_definitions (
     extra_internal_student_price_usd numeric(10,4) DEFAULT 0,
     extra_external_student_price_usd numeric(10,4) DEFAULT 0,
     is_active boolean DEFAULT true,
+    max_ai_queries_per_student integer DEFAULT 5,
+    max_ai_queries_per_tutor integer DEFAULT 50,
     updated_at timestamp with time zone DEFAULT now()
 );
 
