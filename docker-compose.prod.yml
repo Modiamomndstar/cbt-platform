@@ -14,7 +14,8 @@ services:
 
   # --- Backend API ---
   backend:
-    image: ${BACKEND_IMAGE:-ghcr.io/modiamomndstar/cbt-platform-backend:8d07ffb971afa8d1bd75a8d71877ad368f8b8e4b}
+    build: ./backend
+    image: ${BACKEND_IMAGE:-ghcr.io/modiamomndstar/cbt-platform-backend:latest}
     restart: always
     ports:
       - "5000:5000"
@@ -41,7 +42,8 @@ services:
 
   # --- Frontend ---
   frontend:
-    image: ${FRONTEND_IMAGE:-ghcr.io/modiamomndstar/cbt-platform-frontend:8d07ffb971afa8d1bd75a8d71877ad368f8b8e4b}
+    build: ./frontend
+    image: ${FRONTEND_IMAGE:-ghcr.io/modiamomndstar/cbt-platform-frontend:latest}
     restart: always
     networks:
       - web
