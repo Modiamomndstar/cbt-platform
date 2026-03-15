@@ -408,7 +408,7 @@ router.post(
             q.options ||
             (questionType === "true_false" ? ["True", "False"] : []),
           correctAnswer: q.correctAnswer,
-          marks: q.marks || 5,
+          marks: q.marks,
           questionOrder: index + 1,
         }),
       );

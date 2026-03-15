@@ -470,6 +470,8 @@ export default function ScheduleExam() {
         return <Badge className="bg-amber-500">In Progress</Badge>;
       case 'completed':
         return <Badge className="bg-emerald-500">Completed</Badge>;
+      case 'failed':
+        return <Badge className="bg-red-500">Failed</Badge>;
       case 'expired':
         return <Badge variant="destructive">Expired</Badge>;
       case 'missed':
@@ -755,7 +757,7 @@ export default function ScheduleExam() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        {(schedule.status === 'completed' || schedule.status === 'expired') ? (
+                        {(schedule.status === 'completed' || schedule.status === 'failed' || schedule.status === 'expired') ? (
                           <div className="space-y-1">
                             <p className="font-semibold text-sm">
                               {schedule.score ?? 0}/{schedule.totalMarks ?? 0}
@@ -776,7 +778,7 @@ export default function ScheduleExam() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        {schedule.status === 'completed' || schedule.status === 'expired' ? (
+                        {schedule.status === 'completed' || schedule.status === 'failed' || schedule.status === 'expired' ? (
                           <div className="text-xs space-y-1 text-gray-600">
                              {schedule.startedAt && (
                                <p>Started: {formatDateTime(schedule.startedAt)}</p>

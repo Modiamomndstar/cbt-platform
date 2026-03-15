@@ -5,7 +5,7 @@ export interface AIQuestionRequest {
   subject: string;
   numQuestions: number;
   difficulty: "easy" | "medium" | "hard";
-  questionType: "multiple_choice" | "true_false" | "theory";
+  questionType: "multiple_choice" | "true_false" | "theory" | "fill_blank";
 }
 
 export interface AIQuestionResponse {
@@ -84,12 +84,16 @@ class AIService {
         "questionText": "The question text",
         "options": ["Option A", "Option B", "Option C", "Option D"],
         "correctAnswer": "Option A",
-        "marks": 5
+        "marks": ${req.questionType === 'true_false' ? 2 : req.questionType === 'multiple_choice' ? 3 : 5}
       }
     ]
 
-    For true_false questions, use options: ["True", "False"]
-    For theory questions, options should be an empty array [].`;
+    STRICT RULES:
+    1. For true_false questions: use options: ["True", "False"]. Marks MUST be 2.
+    2. For multiple_choice questions: marks MUST be 3.
+    3. For fill_blank questions: options MUST be an empty array []. marks MUST be 5.
+    4. For theory questions: options MUST be an empty array []. marks MUST be 5.
+    5. The correctAnswer for fill_blank must be the exact text.`;
 
     const completion = await this.client!.chat.completions.create({
       model: this.model,
