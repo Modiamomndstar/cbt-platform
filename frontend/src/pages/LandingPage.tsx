@@ -207,7 +207,7 @@ export default function LandingPage() {
                       <GraduationCap className="h-20 w-20 text-white mb-6 drop-shadow-xl" />
                       <p className="text-white text-3xl font-black tracking-tight mb-2">CBT Go</p>
                       <div className="px-3 py-1 bg-white/20 rounded-full backdrop-blur-sm mb-8">
-                         <p className="text-[10px] text-white font-bold uppercase tracking-widest">Version 1.0.4</p>
+                         <p className="text-[10px] text-white font-bold uppercase tracking-widest">Version 1.0.5</p>
                       </div>
                       
                       <div className="w-full space-y-3 mt-auto mb-10">
@@ -238,12 +238,12 @@ export default function LandingPage() {
                 <Button
                   size="lg"
                   className="bg-gray-900 hover:bg-black text-white h-auto py-5 px-8 rounded-2xl group transition-all"
-                  onClick={() => window.open('/downloads/cbt-platform-v1.apk', '_blank')}
+                  onClick={() => window.open('/downloads/cbt-platform-v1.0.5.apk', '_blank')}
                 >
                   <Download className="mr-4 h-8 w-8 text-emerald-400 group-hover:scale-110 transition-transform" />
                   <div className="text-left">
                     <p className="text-[10px] uppercase font-bold text-gray-400 leading-none mb-1">Download for Android</p>
-                    <p className="text-xl font-black">Get APK v1.0.4</p>
+                    <p className="text-xl font-black">Get APK v1.0.5</p>
                   </div>
                 </Button>
                 
