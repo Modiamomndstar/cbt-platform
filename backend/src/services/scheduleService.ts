@@ -98,9 +98,9 @@ export const ScheduleService = {
 
       for (const schedule of overdueSchedules) {
         await db.transaction(async (client) => {
-          // Mark schedule as expired
+          // Mark schedule as expired and increment attempt count
           await client.query(
-            `UPDATE exam_schedules SET status = 'expired', updated_at = NOW() WHERE id = $1`,
+            `UPDATE exam_schedules SET status = 'expired', attempt_count = attempt_count + 1, updated_at = NOW() WHERE id = $1`,
             [schedule.id]
           );
 

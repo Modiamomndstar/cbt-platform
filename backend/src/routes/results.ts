@@ -147,7 +147,7 @@ router.post(
         status = "completed";
       }
 
-      // Update student_exams record
+      // Update student_exams record - only the current session for this schedule
       const studentExamResult = await client.query(
         `UPDATE student_exams
         SET completed_at = NOW(),
@@ -163,7 +163,7 @@ router.post(
             snapshot_metadata = $10,
             tab_switch_count = $11,
             fullscreen_exits = $12
-        WHERE exam_schedule_id = $13
+        WHERE exam_schedule_id = $13 AND (status = 'in_progress' OR status = 'pending')
         RETURNING *`,
         [
           finalScore,
@@ -188,8 +188,14 @@ router.post(
         ],
       );
 
+      // Increment attempt count on schedule
       await client.query(
-        `UPDATE exam_schedules SET status = $3, auto_submitted = $2, updated_at = NOW() WHERE id = $1`,
+        `UPDATE exam_schedules 
+         SET status = $3, 
+             auto_submitted = $2, 
+             attempt_count = attempt_count + 1,
+             updated_at = NOW() 
+         WHERE id = $1`,
         [scheduleId, autoSubmitted || false, status],
       );
 

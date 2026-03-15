@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Modal, AppState, AppStateStatus } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Modal, AppState, AppStateStatus, Platform } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { scheduleAPI, examAPI, resultAPI } from '../services/api';
 import { getRulesTitle, getExamLabel, formatTime } from '../lib/utils';
@@ -281,6 +281,12 @@ export default function TakeExamScreen({ route, navigation }: any) {
   const [appState, setAppState] = useState(AppState.currentState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [outboxSyncing, setOutboxSyncing] = useState(false);
+  const violationsRef = useRef<any[]>([]);
+
+  // Update ref when violations state changes
+  useEffect(() => {
+    violationsRef.current = violations;
+  }, [violations]);
 
   useEffect(() => {
     loadExam();
@@ -403,30 +409,46 @@ export default function TakeExamScreen({ route, navigation }: any) {
   }, [examStarted, examData]);
 
   const handleAppStateChange = (nextAppState: AppStateStatus) => {
-    if (appState.match(/active/) && nextAppState === 'background') {
+    // Detect background/inactive transitions (Android/iOS)
+    const isLeaving = (appState === 'active') && (nextAppState === 'background' || nextAppState === 'inactive');
+    
+    if (isLeaving) {
       const violation = {
         type: 'app_switch',
         timestamp: new Date().toISOString(),
         message: 'Student left the examination application'
       };
 
-      setViolations(prev => [...prev, violation]);
+      const newViolations = [...violationsRef.current, violation];
+      setViolations(newViolations);
 
-      // Auto-submit if limit reached
       const maxAllowed = examData?.maxViolations || 3;
-      if (violations.length + 1 >= maxAllowed) {
+      const currentCount = newViolations.length;
+
+      if (currentCount >= maxAllowed) {
+        // Final violation: Auto-submit IMMEDIATELY
+        console.log(`[AntiCheating] Final violation ${currentCount}/${maxAllowed}. Auto-submitting...`);
+        
+        // We use a small timeout to ensure the state updates or logs can be processed, 
+        // but we don't wait for user interaction.
+        setTimeout(() => executeSubmission(true), 100);
+
         Alert.alert(
           'Security Violation',
-          'You have reached the maximum number of security violations. Your exam will be auto-submitted.',
-          [{ text: 'OK', onPress: () => submitExam(true) }]
+          'You have reached the maximum number of security violations. Your exam has been auto-submitted.',
+          [{ text: 'OK' }]
         );
       } else {
+        // Warning violation
+        console.log(`[AntiCheating] Violation ${currentCount}/${maxAllowed}`);
         Alert.alert(
           'Security Warning',
-          `Violation ${violations.length + 1}/${maxAllowed}: Do not leave the app during the exam.`
+          `Violation ${currentCount}/${maxAllowed}: Do not leave the app during the exam. ${maxAllowed - currentCount} attempts remaining.`,
+          [{ text: 'I Understand', style: 'default' }]
         );
       }
     }
+    
     setAppState(nextAppState);
   };
 

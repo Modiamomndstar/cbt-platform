@@ -769,17 +769,15 @@ router.put(
 
       // Determine new status: if rescheduling an expired/completed exam, reset to 'scheduled'
       let newStatus = status || null;
+      let shouldIncrementAttempt = false;
+
       if (
-        (currentStatus === "expired" || currentStatus === "completed" || currentStatus === "in_progress") &&
+        (currentStatus === "expired" || currentStatus === "completed" || currentStatus === "failed" || currentStatus === "in_progress") &&
         (scheduledDate || startTime)
       ) {
         newStatus = "scheduled";
-
-        // Delete old student_exams record so student can retake
-        await client.query(
-          `DELETE FROM student_exams WHERE exam_schedule_id = $1`,
-          [id],
-        );
+        shouldIncrementAttempt = true;
+        // History: We no longer delete old student_exams records here.
       }
 
       let generatedPassword: string | null = null;
