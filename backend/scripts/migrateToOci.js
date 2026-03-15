@@ -25,32 +25,37 @@ function getFiles(dir, allFiles) {
 async function migrate() {
     console.log("Starting OCI Asset Migration (JS)...");
 
-    const configurationFilePath = process.env.OCI_CONFIG_PATH || '/usr/src/app/oci_api_key.pem';
-    const isOciEnabled = process.env.OCI_ENABLED === 'true';
+    const user = process.env.OCI_USER_OCID;
+    const tenancy = process.env.OCI_TENANCY_OCID;
+    const fingerprint = process.env.OCI_FINGERPRINT;
+    const region = process.env.OCI_REGION;
+    const privateKeyPath = process.env.OCI_PRIVATE_KEY_PATH || '/usr/src/app/oci_api_key.pem';
+    const namespace = process.env.OCI_NAMESPACE;
+    const bucketName = process.env.OCI_BUCKET_NAME;
 
-    if (!isOciEnabled) {
-        console.error("OCI Service is not enabled.");
+    if (!user || !tenancy || !fingerprint || !region || !privateKeyPath || !namespace || !bucketName) {
+        console.error("OCI Storage credentials or bucket info not complete.");
+        console.log("Required vars: OCI_USER_OCID, OCI_TENANCY_OCID, OCI_FINGERPRINT, OCI_REGION, OCI_PRIVATE_KEY_PATH, OCI_NAMESPACE, OCI_BUCKET_NAME");
         process.exit(1);
     }
 
-    // Initialize OCI provide manually to avoid deep imports
-    const provider = new common.ConfigFileAuthenticationDetailsProvider(
-        undefined, // Default profile
-        undefined // No config file path, use individual vars if needed? 
-        // Actually the current backend uses environment vars.
+    if (!fs.existsSync(privateKeyPath)) {
+        console.error(`OCI Private key not found at ${privateKeyPath}`);
+        process.exit(1);
+    }
+
+    const provider = new common.SimpleAuthenticationDetailsProvider(
+        tenancy,
+        user,
+        fingerprint,
+        fs.readFileSync(privateKeyPath, "utf8"),
+        null,
+        common.Region.fromRegionId(region)
     );
-    // Overwrite some parts if needed. 
-    // Wait, let's simplify and use the same logic as the backend service.
-    
-    // For simplicity in this script, let's just use the existing service if we can or re-implement basic upload.
-    // Actually, re-implementing basic upload is safer.
-    
+
     const client = new objectstorage.ObjectStorageClient({
         authenticationDetailsProvider: provider
     });
-
-    const namespace = process.env.OCI_NAMESPACE;
-    const bucketName = process.env.OCI_BUCKET_NAME;
 
     const UPLOAD_DIR = fs.existsSync(path.join(process.cwd(), "uploads"))
         ? path.join(process.cwd(), "uploads")
