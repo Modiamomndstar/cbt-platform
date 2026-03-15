@@ -11,7 +11,9 @@ import {
 import { useTheme } from '../context/ThemeContext';
 import { resultAPI, aiAPI } from '../services/api';
 import { formatDate, formatTime } from '../lib/utils';
+import { getImageUrl } from '../lib/imageUtils';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image } from 'react-native';
 
 export default function ResultDetailScreen({ route }: any) {
   const { resultId } = route.params;
@@ -276,6 +278,14 @@ export default function ResultDetailScreen({ route }: any) {
             </View>
 
             <Text style={styles.qText}>{q.text}</Text>
+
+            {q.imageUrl && (
+              <Image
+                source={{ uri: getImageUrl(q.imageUrl) || '' }}
+                style={{ width: '100%', height: 180, borderRadius: 12, marginBottom: spacing.md }}
+                resizeMode="contain"
+              />
+            )}
 
             <View style={styles.answerContainer}>
               <View style={styles.answerBox}>

@@ -12,7 +12,9 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { authAPI } from '../services/api';
+import { getImageUrl } from '../lib/imageUtils';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image } from 'react-native';
 
 export default function ProfileScreen({ navigation }: any) {
   const { user, logout } = useAuth();
@@ -216,20 +218,32 @@ export default function ProfileScreen({ navigation }: any) {
 
   const getInitials = () => {
     if (user?.fullName) {
-      return user.fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+      const parts = user.fullName.split(' ').filter(Boolean);
+      return parts.map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
     }
-    return user?.firstName?.[0]?.toUpperCase() || 'S';
+    if (user?.firstName) {
+      return (user.firstName[0] + (user.lastName?.[0] || '')).toUpperCase();
+    }
+    return 'S';
   };
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
-          <Text style={styles.avatarText}>{getInitials()}</Text>
+          {user?.schoolLogo ? (
+            <Image
+              source={{ uri: getImageUrl(user.schoolLogo) || '' }}
+              style={{ width: 80, height: 80, borderRadius: 40 }}
+              resizeMode="contain"
+            />
+          ) : (
+            <Text style={styles.avatarText}>{getInitials()}</Text>
+          )}
         </View>
-        <Text style={styles.name}>{user?.fullName || user?.firstName + ' ' + user?.lastName}</Text>
+        <Text style={styles.name}>{user?.fullName || (user?.firstName + ' ' + (user?.lastName || ''))}</Text>
         <View style={styles.roleTag}>
-          <Text style={styles.roleText}>Internal Student</Text>
+          <Text style={styles.roleText}>{user?.schoolName || 'CBT Platform Student'}</Text>
         </View>
       </View>
 

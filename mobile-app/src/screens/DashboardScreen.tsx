@@ -15,6 +15,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { analyticsAPI, scheduleAPI, messagesAPI } from '../services/api';
 import { formatDate, getExamLabel } from '../lib/utils';
+import { getImageUrl } from '../lib/imageUtils';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import BroadcastModal from '../components/BroadcastModal';
 
@@ -253,7 +254,7 @@ export default function DashboardScreen({ navigation }: any) {
           </View>
           {user?.schoolLogo && (
             <Image
-              source={{ uri: user.schoolLogo }}
+              source={{ uri: getImageUrl(user.schoolLogo) || '' }}
               style={{ width: 60, height: 60, borderRadius: 12, backgroundColor: '#fff' }}
               resizeMode="contain"
             />

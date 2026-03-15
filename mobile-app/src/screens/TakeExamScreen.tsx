@@ -3,7 +3,10 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIn
 import { useTheme } from '../context/ThemeContext';
 import { scheduleAPI, examAPI, resultAPI } from '../services/api';
 import { getRulesTitle, getExamLabel, formatTime } from '../lib/utils';
+import { getImageUrl } from '../lib/imageUtils';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Image } from 'react-native';
 
 export default function TakeExamScreen({ route, navigation }: any) {
   const { scheduleId } = route.params;
@@ -276,10 +279,105 @@ export default function TakeExamScreen({ route, navigation }: any) {
   const [acceptedRules, setAcceptedRules] = useState(false);
   const [violations, setViolations] = useState<any[]>([]);
   const [appState, setAppState] = useState(AppState.currentState);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [outboxSyncing, setOutboxSyncing] = useState(false);
 
   useEffect(() => {
     loadExam();
+    syncOutbox();
   }, []);
+
+  // Auto-save progress
+  useEffect(() => {
+    if (examStarted && questions.length > 0) {
+      saveProgress();
+    }
+  }, [answers, timeLeft, flaggedQuestions, violations, examStarted]);
+
+  const getStorageKey = () => `exam_progress_${scheduleId}`;
+
+  const saveProgress = async () => {
+    try {
+      const state = {
+        answers,
+        timeLeft,
+        flaggedQuestions,
+        violations,
+        lastUpdated: new Date().toISOString()
+      };
+      await AsyncStorage.setItem(getStorageKey(), JSON.stringify(state));
+    } catch (error) {
+      console.error('Failed to save progress:', error);
+    }
+  };
+
+  const loadProgress = async () => {
+    try {
+      const saved = await AsyncStorage.getItem(getStorageKey());
+      if (saved) {
+        const state = JSON.parse(saved);
+        
+        // Show resume prompt
+        Alert.alert(
+          'Resume Exam',
+          'We found an unfinished session for this exam. Would you like to resume?',
+          [
+            { 
+              text: 'Start New', 
+              style: 'destructive',
+              onPress: () => AsyncStorage.removeItem(getStorageKey())
+            },
+            { 
+              text: 'Resume', 
+              onPress: () => {
+                setAnswers(state.answers || {});
+                setTimeLeft(state.timeLeft || 0);
+                setFlaggedQuestions(state.flaggedQuestions || []);
+                setViolations(state.violations || []);
+                setExamStarted(true);
+                setShowRules(false);
+              }
+            }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Failed to load progress:', error);
+    }
+  };
+
+  const syncOutbox = async () => {
+    if (outboxSyncing) return;
+    try {
+      setOutboxSyncing(true);
+      const outbox = await AsyncStorage.getItem('exam_outbox');
+      if (outbox) {
+        const items = JSON.parse(outbox);
+        if (items.length > 0) {
+          console.log(`Syncing ${items.length} items from outbox...`);
+          const failedItems = [];
+          
+          for (const item of items) {
+            try {
+              await resultAPI.submitExam(item);
+            } catch (err) {
+              failedItems.push(item);
+            }
+          }
+          
+          if (failedItems.length === 0) {
+            await AsyncStorage.removeItem('exam_outbox');
+          } else {
+            await AsyncStorage.setItem('exam_outbox', JSON.stringify(failedItems));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Outbox sync failed:', error);
+    } finally {
+      setOutboxSyncing(false);
+    }
+  };
 
   useEffect(() => {
     if (examStarted && timeLeft > 0) {
@@ -354,6 +452,8 @@ export default function TakeExamScreen({ route, navigation }: any) {
       Alert.alert('Error', 'Failed to load exam');
     } finally {
       setLoading(false);
+      // Check for resumable session after loading exam
+      loadProgress();
     }
   };
 
@@ -392,18 +492,24 @@ export default function TakeExamScreen({ route, navigation }: any) {
   };
 
   const executeSubmission = async (isAuto: boolean) => {
+    const timeSpent = examData.durationMinutes * 60 - timeLeft;
+    const payload = {
+      scheduleId,
+      answers,
+      timeSpentMinutes: Math.ceil(timeSpent / 60),
+      violations,
+      flaggedQuestions,
+      autoSubmitted: isAuto
+    };
+
     try {
       setLoading(true);
-      const timeSpent = examData.durationMinutes * 60 - timeLeft;
+      setIsSubmitting(true);
+      
+      await resultAPI.submitExam(payload);
 
-      await resultAPI.submitExam({
-        scheduleId,
-        answers,
-        timeSpentMinutes: Math.ceil(timeSpent / 60),
-        violations,
-        flaggedQuestions,
-        autoSubmitted: isAuto
-      });
+      // Clear saved progress on success
+      await AsyncStorage.removeItem(getStorageKey());
 
       Alert.alert(
         isAuto ? 'Exam Auto-Submitted' : 'Exam Submitted',
@@ -412,11 +518,32 @@ export default function TakeExamScreen({ route, navigation }: any) {
           { text: 'View Results', onPress: () => navigation.navigate('Results') },
         ]
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to submit exam:', error);
-      Alert.alert('Error', 'Failed to submit exam');
+      
+      // Handle Network Error / Offline
+      if (!error.response || error.message === 'Network Error' || error.code === 'ECONNABORTED') {
+        try {
+          const outbox = await AsyncStorage.getItem('exam_outbox');
+          const items = outbox ? JSON.parse(outbox) : [];
+          items.push(payload);
+          await AsyncStorage.setItem('exam_outbox', JSON.stringify(items));
+          await AsyncStorage.removeItem(getStorageKey());
+
+          Alert.alert(
+            'Offline Submission',
+            'You are currently offline. Your exam has been saved locally and will be synced automatically when your connection is restored.',
+            [{ text: 'View History', onPress: () => navigation.navigate('Results') }]
+          );
+        } catch (storageErr) {
+          Alert.alert('Submission Error', 'Failed to save exam locally. Please try submitting again when you have a connection.');
+        }
+      } else {
+        Alert.alert('Error', error.response?.data?.message || 'Failed to submit exam');
+      }
     } finally {
       setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -540,6 +667,14 @@ export default function TakeExamScreen({ route, navigation }: any) {
         </TouchableOpacity>
 
         <Text style={styles.questionText}>{question?.questionText}</Text>
+
+        {question?.image_url && (
+          <Image
+            source={{ uri: getImageUrl(question.image_url) || '' }}
+            style={{ width: '100%', height: 200, borderRadius: 12, marginBottom: spacing.lg }}
+            resizeMode="contain"
+          />
+        )}
 
         {question?.options?.map((option: string, index: number) => (
           <TouchableOpacity
