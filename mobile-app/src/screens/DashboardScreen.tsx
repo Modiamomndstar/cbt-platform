@@ -248,17 +248,17 @@ export default function DashboardScreen({ navigation }: any) {
     >
       <View style={styles.header}>
         {/* Branded School Name at Top */}
-        <View style={{ marginBottom: spacing.lg, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' }}>
+        <View style={{ marginBottom: spacing.lg, paddingBottom: 16, borderBottomWidth: 2, borderBottomColor: 'rgba(255,255,255,0.2)' }}>
           <Text 
-            style={{ color: '#fff', fontSize: 28, fontWeight: '900', letterSpacing: 1 }} 
+            style={{ color: '#fff', fontSize: 32, fontWeight: '900', letterSpacing: 1.5, textTransform: 'uppercase' }} 
             numberOfLines={1}
             ellipsizeMode="tail"
           >
-            {(user?.schoolName || 'CBT Platform').toUpperCase()}
+            {(user?.schoolName || 'CBT Platform')}
           </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-            <MaterialCommunityIcons name="shield-check" size={12} color="rgba(255,255,255,0.6)" />
-            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: 'bold', marginLeft: 4, letterSpacing: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+            <MaterialCommunityIcons name="shield-check-decagram" size={14} color="#10b981" />
+            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '800', marginLeft: 6, letterSpacing: 1.2 }}>
               OFFICIAL STUDENT PORTAL
             </Text>
           </View>

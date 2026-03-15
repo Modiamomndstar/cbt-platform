@@ -14,9 +14,7 @@ const api = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
     // 💡 Security/Firewall Tip:
-    'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36',
-    'Origin': 'https://mycbtplatform.cc',
-    'X-Requested-With': 'com.mycbtplatform.app',
+    'User-Agent': 'CBT-Mobile-v1',
   },
   timeout: 30000,
 });
