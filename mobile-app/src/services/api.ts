@@ -14,7 +14,9 @@ const api = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
     // 💡 Security/Firewall Tip:
-    'User-Agent': 'CBT-Mobile-App',
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36',
+    'Origin': 'https://mycbtplatform.cc',
+    'X-Requested-With': 'com.mycbtplatform.app',
   },
   timeout: 30000,
 });
@@ -41,6 +43,7 @@ api.interceptors.response.use(
       // Token expired or invalid
       await AsyncStorage.removeItem('token');
     }
+    console.error(`API Error [${error.config?.url}]:`, error.response?.status, error.response?.data || error.message);
     return Promise.reject(error);
   }
 );

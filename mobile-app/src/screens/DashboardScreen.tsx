@@ -248,14 +248,20 @@ export default function DashboardScreen({ navigation }: any) {
     >
       <View style={styles.header}>
         {/* Branded School Name at Top */}
-        <View style={{ marginBottom: spacing.md }}>
+        <View style={{ marginBottom: spacing.lg, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.15)' }}>
           <Text 
-            style={{ color: '#fff', fontSize: 24, fontWeight: 'bold', letterSpacing: 0.5 }} 
+            style={{ color: '#fff', fontSize: 28, fontWeight: '900', letterSpacing: 1 }} 
             numberOfLines={1}
+            ellipsizeMode="tail"
           >
-            {user?.schoolName || 'CBT Platform'}
+            {(user?.schoolName || 'CBT Platform').toUpperCase()}
           </Text>
-          <View style={{ height: 3, backgroundColor: 'rgba(255,255,255,0.3)', width: 40, marginTop: 4, borderRadius: 2 }} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+            <MaterialCommunityIcons name="shield-check" size={12} color="rgba(255,255,255,0.6)" />
+            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: 'bold', marginLeft: 4, letterSpacing: 1 }}>
+              OFFICIAL STUDENT PORTAL
+            </Text>
+          </View>
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
