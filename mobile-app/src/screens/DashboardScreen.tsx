@@ -257,7 +257,7 @@ export default function DashboardScreen({ navigation }: any) {
             {(user?.schoolName || 'CBT Platform')}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
-            <MaterialCommunityIcons name="shield-check-decagram" size={14} color="#10b981" />
+            <MaterialCommunityIcons name="check-decagram" size={14} color="#10b981" />
             <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '800', marginLeft: 6, letterSpacing: 1.2 }}>
               OFFICIAL STUDENT PORTAL
             </Text>

@@ -270,9 +270,13 @@ router.get(
         'SELECT email, phone, school_id FROM students WHERE id = $1 UNION SELECT email, phone, school_id FROM external_students WHERE id = $1',
         [user.id]
       );
-      const email = studentInfo.rows[0]?.email;
-      const phone = studentInfo.rows[0]?.phone;
-      const schoolId = studentInfo.rows[0]?.school_id;
+      const student = studentInfo.rows[0];
+      if (!student) {
+        return ApiResponseHandler.notFound(res, "Student record not found");
+      }
+      const email = student.email || null;
+      const phone = student.phone || null;
+      const schoolId = student.school_id;
 
       // Fetch school branding info
       const schoolResult = await client.query(
@@ -326,9 +330,9 @@ router.get(
         `SELECT es.*, e.title as exam_title, e.duration
        FROM exam_schedules es
        JOIN exams e ON es.exam_id = e.id
-       WHERE (es.student_id = $1 OR es.external_student_id = $1)
+       WHERE ((es.student_id = $1 OR es.external_student_id = $1)
           OR (es.email = $2 AND $2 IS NOT NULL AND $2 != '')
-          OR (es.phone = $3 AND $3 IS NOT NULL AND $3 != '')
+          OR (es.phone = $3 AND $3 IS NOT NULL AND $3 != ''))
          AND es.status = 'scheduled'
          AND es.scheduled_date >= CURRENT_DATE
        ORDER BY es.scheduled_date, es.start_time
