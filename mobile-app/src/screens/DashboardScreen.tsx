@@ -247,7 +247,18 @@ export default function DashboardScreen({ navigation }: any) {
       }
     >
       <View style={styles.header}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
+        {/* Branded School Name at Top */}
+        <View style={{ marginBottom: spacing.md }}>
+          <Text 
+            style={{ color: '#fff', fontSize: 24, fontWeight: 'bold', letterSpacing: 0.5 }} 
+            numberOfLines={1}
+          >
+            {user?.schoolName || 'CBT Platform'}
+          </Text>
+          <View style={{ height: 3, backgroundColor: 'rgba(255,255,255,0.3)', width: 40, marginTop: 4, borderRadius: 2 }} />
+        </View>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ flex: 1 }}>
             <Text style={styles.welcomeText}>Welcome back,</Text>
             <Text style={styles.nameText}>{user?.fullName || 'Student'}</Text>
@@ -255,20 +266,10 @@ export default function DashboardScreen({ navigation }: any) {
           {user?.schoolLogo && (
             <Image
               source={{ uri: getImageUrl(user.schoolLogo) || '' }}
-              style={{ width: 60, height: 60, borderRadius: 12, backgroundColor: '#fff' }}
+              style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: '#fff' }}
               resizeMode="contain"
             />
           )}
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-          <MaterialCommunityIcons name="office-building" size={16} color="rgba(255,255,255,0.7)" />
-          <Text
-            style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, marginLeft: 4, fontWeight: '600', flex: 1 }}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {user?.schoolName || 'CBT Platform'}
-          </Text>
         </View>
       </View>
 
