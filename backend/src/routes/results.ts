@@ -622,19 +622,15 @@ router.get(
        JOIN tutors t ON e.tutor_id = t.id
        LEFT JOIN exam_types et ON e.exam_type_id = et.id
        WHERE (se.student_id = $1 OR se.external_student_id = $1)
-          OR (se.email = $4 AND $4 IS NOT NULL AND $4 != '')
-          OR (se.phone = $5 AND $5 IS NOT NULL AND $5 != '')
        ORDER BY se.completed_at DESC
        LIMIT $2 OFFSET $3`,
-        [user.id, pagination.limit, pagination.offset, email, phone],
+        [user.id, pagination.limit, pagination.offset],
       );
 
       const countResult = await client.query(
         `SELECT COUNT(*) FROM student_exams
-         WHERE (student_id = $1 OR external_student_id = $1)
-            OR (email = $2 AND $2 IS NOT NULL AND $2 != '')
-            OR (phone = $3 AND $3 IS NOT NULL AND $3 != '')`,
-        [user.id, email, phone],
+         WHERE (student_id = $1 OR external_student_id = $1)`,
+        [user.id],
       );
 
       const totalCount = parseInt(countResult.rows[0].count);

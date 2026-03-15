@@ -292,10 +292,8 @@ router.get(
         COUNT(CASE WHEN status = 'completed' THEN 1 END) as passed_count,
         COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_count
        FROM student_exams
-       WHERE (student_id = $1 OR external_student_id = $1)
-          OR (email = $2 AND $2 IS NOT NULL AND $2 != '')
-          OR (phone = $3 AND $3 IS NOT NULL AND $3 != '')`,
-        [user.id, email, phone],
+       WHERE (student_id = $1 OR external_student_id = $1)`,
+        [user.id],
       );
 
       // Average score
@@ -306,10 +304,8 @@ router.get(
         MAX(percentage) as highest_percentage,
         MAX(score) as highest_score
        FROM student_exams
-       WHERE (student_id = $1 OR external_student_id = $1)
-          OR (email = $2 AND $2 IS NOT NULL AND $2 != '')
-          OR (phone = $3 AND $3 IS NOT NULL AND $3 != '')`,
-        [user.id, email, phone],
+       WHERE (student_id = $1 OR external_student_id = $1)`,
+        [user.id],
       );
 
       // Recent exams
@@ -317,12 +313,8 @@ router.get(
         `SELECT se.*, e.title as exam_title, e.description
        FROM student_exams se
        JOIN exams e ON se.exam_id = e.id
-       WHERE (se.student_id = $1 OR se.external_student_id = $1)
-          OR (se.email = $2 AND $2 IS NOT NULL AND $2 != '')
-          OR (se.phone = $3 AND $3 IS NOT NULL AND $3 != '')
-       ORDER BY se.completed_at DESC
-       LIMIT 5`,
-        [user.id, email, phone],
+       WHERE (se.student_id = $1 OR se.external_student_id = $1)`,
+        [user.id],
       );
 
       // Upcoming scheduled exams
@@ -330,14 +322,12 @@ router.get(
         `SELECT es.*, e.title as exam_title, e.duration
        FROM exam_schedules es
        JOIN exams e ON es.exam_id = e.id
-       WHERE ((es.student_id = $1 OR es.external_student_id = $1)
-          OR (es.email = $2 AND $2 IS NOT NULL AND $2 != '')
-          OR (es.phone = $3 AND $3 IS NOT NULL AND $3 != ''))
+       WHERE (es.student_id = $1 OR es.external_student_id = $1)
          AND es.status = 'scheduled'
          AND es.scheduled_date >= CURRENT_DATE
        ORDER BY es.scheduled_date, es.start_time
        LIMIT 5`,
-        [user.id, email, phone],
+        [user.id],
       );
 
       // Performance by subject/category
@@ -350,10 +340,8 @@ router.get(
        JOIN exams e ON se.exam_id = e.id
        JOIN exam_categories ec ON e.category_id = ec.id
        WHERE (se.student_id = $1 OR se.external_student_id = $1)
-          OR (se.email = $2 AND $2 IS NOT NULL AND $2 != '')
-          OR (se.phone = $3 AND $3 IS NOT NULL AND $3 != '')
        GROUP BY ec.id, ec.name`,
-        [user.id, email, phone],
+        [user.id],
       );
 
       // Monthly progress
@@ -373,21 +361,17 @@ router.get(
       // Awards Count (Percentage >= 70)
       const awardsCount = await client.query(
         `SELECT COUNT(*) FROM student_exams
-         WHERE ((student_id = $1 OR external_student_id = $1)
-            OR (email = $2 AND $2 IS NOT NULL AND $2 != '')
-            OR (phone = $3 AND $3 IS NOT NULL AND $3 != ''))
+         WHERE (student_id = $1 OR external_student_id = $1)
            AND percentage >= 70 AND status = 'completed'`,
-        [user.id, email, phone]
+        [user.id]
       );
 
       // Percentile Calculation (relative to all students in school)
       let percentile = 50; // Default
       const avgQuery = await client.query(
         `SELECT AVG(percentage) as avg_p FROM student_exams
-         WHERE (student_id = $1 OR external_student_id = $1)
-            OR (email = $2 AND $2 IS NOT NULL AND $2 != '')
-            OR (phone = $3 AND $3 IS NOT NULL AND $3 != '')`,
-        [user.id, email, phone]
+         WHERE (student_id = $1 OR external_student_id = $1)`,
+        [user.id]
       );
 
       if (avgQuery.rows[0].avg_p !== null) {
