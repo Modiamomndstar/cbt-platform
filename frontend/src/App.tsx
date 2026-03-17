@@ -73,6 +73,8 @@ import MarketplaceManagement from '@/pages/super-admin/MarketplaceManagement';
 import FinancialAnalytics from '@/pages/super-admin/FinancialAnalytics';
 import CompetitionManagement from '@/pages/super-admin/CompetitionManagement';
 import SuperAdminProfile from '@/pages/super-admin/Profile';
+import CommissionsManagement from '@/pages/super-admin/CommissionsManagement';
+import SalesDashboard from '@/pages/super-admin/SalesDashboard';
 
 function AppRoutes() {
   const { isLoading } = useAuth();
@@ -198,6 +200,8 @@ function AppRoutes() {
         <Route path="analytics" element={<PlatformAnalytics />} />
         <Route path="staff" element={<StaffManagement />} />
         <Route path="monetization" element={<MonetizationPage />} />
+        <Route path="commissions" element={<CommissionsManagement />} />
+        <Route path="sales-dashboard" element={<SalesDashboard />} />
         <Route path="school-overrides" element={<SchoolOverridesPage />} />
         <Route path="marketplace" element={<MarketplaceManagement />} />
         <Route path="finance" element={<FinancialAnalytics />} />

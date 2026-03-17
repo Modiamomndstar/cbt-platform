@@ -512,6 +512,21 @@ export const superAdminAPI = {
     api.put(`/super-admin/payments/${id}/verify`, data),
 };
 
+// ── Commission API ──────────────────────────────────────────
+export const commissionsAPI = {
+  // Settings (Finance/Admin)
+  getSettings: () => api.get("/commissions/settings"),
+  updateSettings: (data: Record<string, any>) => api.post("/commissions/settings", data),
+
+  // Earnings (Sales Admin)
+  getMyEarnings: () => api.get("/commissions/my-earnings"),
+
+  // Management (Admin/Finance/Coordinating)
+  getAllCommissions: (params?: { status?: string, staff_id?: string, currency?: string }) => 
+    api.get("/commissions/admin/all", { params }),
+  processPayout: (id: string) => api.post(`/commissions/admin/payout/${id}`),
+};
+
 // Competition API
 export const competitionAPI = {
   getAll: () => api.get("/competitions"),

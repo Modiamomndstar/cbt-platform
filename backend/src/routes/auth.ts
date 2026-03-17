@@ -563,12 +563,20 @@ router.get("/me", authenticate, async (req, res, next) => {
 
     switch (role) {
       case "super_admin":
-        userData = {
-          id: "00000000-0000-0000-0000-000000000000",
-          name: "Super Administrator",
-          username: process.env.SUPER_ADMIN_USERNAME || process.env.SUPER_ADMIN_EMAIL || "admin",
-          email: process.env.SUPER_ADMIN_EMAIL,
-        };
+        if (id !== "00000000-0000-0000-0000-000000000000") {
+          const staffRes = await db.query(
+            "SELECT id, name, username, email, role as staff_role FROM staff_accounts WHERE id = $1",
+            [id]
+          );
+          userData = staffRes.rows[0];
+        } else {
+          userData = {
+            id: "00000000-0000-0000-0000-000000000000",
+            name: "Super Administrator",
+            username: process.env.SUPER_ADMIN_USERNAME || process.env.SUPER_ADMIN_EMAIL || "admin",
+            email: process.env.SUPER_ADMIN_EMAIL,
+          };
+        }
         break;
       case "school":
         const schoolResult = await db.query(
@@ -625,10 +633,18 @@ router.get("/me", authenticate, async (req, res, next) => {
         break;
     }
 
-      ApiResponseHandler.success(res, transformResult({
-        user: { ...userData, role },
-        role,
-      }), "Profile retrieved");
+    const resultPayload = transformResult({
+      user: { ...userData, role },
+      role,
+    }) as any;
+
+    if (req.user?.staffRole) {
+      resultPayload.data.user.staffRole = req.user.staffRole;
+    } else if (userData?.staff_role) {
+      resultPayload.data.user.staffRole = userData.staff_role;
+    }
+
+    ApiResponseHandler.success(res, resultPayload, "Profile retrieved");
   } catch (error) {
     next(error);
   }

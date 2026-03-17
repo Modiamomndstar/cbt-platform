@@ -10,8 +10,9 @@ import { transformResult } from '../utils/responseTransformer';
 import { sendWelcomeEmail, sendVerificationEmail } from '../services/email';
 import { validate } from '../middleware/validation';
 import { getPaginationOptions, formatPaginationResponse } from '../utils/pagination';
-import { logActivity, logUserActivity } from '../utils/auditLogger';
+import { logActivity, logUserActivity, logStaffActivity } from '../utils/auditLogger';
 import { logger } from '../utils/logger';
+import { optionalAuth } from '../middleware/auth';
 
 const router = Router();
 
@@ -28,10 +29,18 @@ router.post('/register', [
   body('country').optional().trim(),
   body('logo').optional().trim(),
   body('referralCode').optional().trim(),
+  body('salesCode').optional().trim(),
+  optionalAuth,
   validate
-], async (req, res, next) => {
+], async (req: any, res: any, next: any) => {
   try {
-    const { name, username, password, email, phone, address, description, country, logo, referralCode } = req.body;
+    const { name, username, password, email, phone, address, description, country, logo, referralCode, salesCode } = req.body;
+    const actor = req.user; // Present if registered by a Sales Admin/Staff
+
+    // Exclusivity Check: Cannot use both school referral and sales code
+    if (referralCode && salesCode) {
+      return ApiResponseHandler.badRequest(res, 'You can use either a school referral code OR a sales link/code, but not both.');
+    }
 
     // Check if username exists
     const usernameCheck = await db.query('SELECT id FROM schools WHERE username = $1', [username]);
@@ -52,13 +61,39 @@ router.post('/register', [
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const newSchoolReferralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-    // Handle referral (find referrer)
+    // Handle referral (find referrer) - Supports unified referralCode from frontend
     let referredById = null;
-    if (referralCode) {
-      const referrer = await db.query('SELECT id FROM schools WHERE referral_code = $1', [referralCode.toUpperCase()]);
-      if (referrer.rows.length > 0) {
-        referredById = referrer.rows[0].id;
+    let salesAdminId = null;
+
+    const effectiveCode = (referralCode || salesCode)?.toUpperCase();
+
+    if (effectiveCode) {
+      // 1. Check if it's a Sales Admin first
+      const salesAdmin = await db.query(
+        "SELECT id FROM staff_accounts WHERE referral_code = $1 AND role = 'sales_admin'",
+        [effectiveCode]
+      );
+      
+      if (salesAdmin.rows.length > 0) {
+        salesAdminId = salesAdmin.rows[0].id;
+      } else {
+        // 2. Check if it's a School referrer
+        const referrer = await db.query(
+          "SELECT id FROM schools WHERE referral_code = $1",
+          [effectiveCode]
+        );
+        if (referrer.rows.length > 0) {
+          referredById = referrer.rows[0].id;
+        }
       }
+    }
+
+    // Special Case: Direct registration by Sales Admin/Staff
+    if (actor && actor.role === 'super_admin') {
+       // If a Sales Admin is registering, link to them automatically if not already linked by code
+       if (!salesAdminId && actor.staffRole === 'sales_admin') {
+         salesAdminId = actor.id === '00000000-0000-0000-0000-000000000000' ? null : actor.id;
+       }
     }
 
     // Execute registration in a transaction to ensure atomicity
@@ -68,14 +103,14 @@ router.post('/register', [
         `INSERT INTO schools (
           name, username, password_hash, email, phone, address,
           description, logo_url, country, plan_type, is_active,
-          is_email_verified, email_verification_token, referral_code, referred_by_id
+          is_email_verified, email_verification_token, referral_code, referred_by_id, sales_admin_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'freemium', false, false, $10, $11, $12)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'freemium', false, false, $10, $11, $12, $13)
         RETURNING id, name, username, email, phone, plan_type, created_at`,
         [
           name, username, passwordHash, email, phone, address,
           description, logo, country || 'Nigeria', verificationToken,
-          newSchoolReferralCode, referredById
+          newSchoolReferralCode, referredById, salesAdminId
         ]
       );
 
@@ -121,8 +156,18 @@ router.post('/register', [
       targetId: school.id,
       targetName: name,
       request: req,
-      details: { email, plan_type: school.plan_type, referred_by: referredById }
+      details: { email, plan_type: school.plan_type, referred_by_school: referredById, referred_by_sales: salesAdminId }
     });
+
+    // If direct registration by admin, log staff activity too
+    if (actor && actor.role === 'super_admin') {
+      await logStaffActivity(req, 'school_direct_registration', {
+        targetType: 'school',
+        targetId: school.id,
+        targetName: name,
+        details: { salesAdminId }
+      });
+    }
 
     ApiResponseHandler.created(res, {
       ...school,

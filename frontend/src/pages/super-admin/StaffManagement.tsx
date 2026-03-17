@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { Plus, UserPlus, FileSignature, CheckCircle, XCircle } from 'lucide-react';
 import { superAdminAPI } from '@/services/api';
 import { formatDate, formatDateTime } from '@/lib/dateUtils';
+import { useAuth } from '@/hooks/useAuth';
 
 interface StaffAccount {
   id: string;
@@ -16,6 +17,8 @@ interface StaffAccount {
   email: string;
   username: string;
   role: string;
+  country?: string;
+  referralCode?: string;
   isActive: boolean;
   createdAt: string;
   lastLoginAt: string | null;
@@ -33,14 +36,28 @@ interface AuditLog {
 
 const ROLE_LABELS: Record<string, string> = {
   super_admin: 'Super Admin',
+  coordinating_admin: 'Coordinating Admin',
+  finance: 'Finance / Billing',
+  sales_admin: 'Sales / Marketer',
   customer_success: 'Customer Success',
   support_agent: 'Support Agent',
-  finance: 'Finance / Billing',
   sales_manager: 'Sales Manager',
   content_reviewer: 'Content Reviewer'
 };
 
+const HIERARCHY: Record<string, number> = {
+  super_admin: 100,
+  coordinating_admin: 50,
+  finance: 40,
+  sales_admin: 10,
+  customer_success: 10,
+  support_agent: 10,
+  sales_manager: 10,
+  content_reviewer: 10
+};
+
 export default function StaffManagement() {
+  const { user } = useAuth();
   const [staff, setStaff] = useState<StaffAccount[]>([]);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,7 +70,9 @@ export default function StaffManagement() {
     email: '',
     username: '',
     password: '',
-    role: 'customer_success'
+    role: 'customer_success',
+    country: 'Nigeria',
+    referralCode: ''
   });
 
   useEffect(() => {
@@ -83,7 +102,7 @@ export default function StaffManagement() {
       toast.success('Staff account created successfully');
       setStaff([res.data.data, ...staff]);
       setIsCreating(false);
-      setFormData({ name: '', email: '', username: '', password: '', role: 'customer_success' });
+      setFormData({ name: '', email: '', username: '', password: '', role: 'customer_success', country: 'Nigeria', referralCode: '' });
       fetchData(); // Refresh to get new logs
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to create staff account');
@@ -163,11 +182,21 @@ export default function StaffManagement() {
                   <SelectContent>
                     <SelectItem value="customer_success">Customer Success (Onboarding, Emails, Viewing)</SelectItem>
                     <SelectItem value="support_agent">Support Agent (Passwords, Accounts, Diagnostics)</SelectItem>
-                    <SelectItem value="finance">Finance / Billing (Invoices, Subscriptions, Read-only)</SelectItem>
+                    <SelectItem value="finance">Finance / Billing (Invoices, Subscriptions, Commissions)</SelectItem>
+                    <SelectItem value="coordinating_admin">Coordinating Admin (Staff Management, Hub Controller)</SelectItem>
+                    <SelectItem value="sales_admin">Sales / Marketer (School Acquisition, Earns Points)</SelectItem>
                     <SelectItem value="sales_manager">Sales Manager (Pipeline, Manual Trials, Upgrades)</SelectItem>
                     <SelectItem value="content_reviewer">Content Reviewer (Question Banks, Flagging)</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Country (for Sales/Reporting)</Label>
+                <Input value={formData.country} onChange={e => setFormData({...formData, country: e.target.value})} placeholder="e.g. Nigeria" />
+              </div>
+              <div className="space-y-2">
+                <Label>Unique Sales/Referral Code</Label>
+                <Input value={formData.referralCode} onChange={e => setFormData({...formData, referralCode: e.target.value})} placeholder="Leave blank to use username" />
               </div>
               <div className="md:col-span-2 flex justify-end">
                 <Button type="submit">Create Account</Button>
@@ -228,13 +257,17 @@ export default function StaffManagement() {
                       {s.lastLoginAt ? formatDate(s.lastLoginAt) : 'Never'}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Button
-                        variant={s.isActive ? "destructive" : "outline"}
-                        size="sm"
-                        onClick={() => toggleStaffStatus(s.id, s.isActive)}
-                      >
-                        {s.isActive ? 'Deactivate' : 'Reactivate'}
-                      </Button>
+                      {(user?.id === "00000000-0000-0000-0000-000000000000" || (HIERARCHY[user?.staffRole || ''] > HIERARCHY[s.role])) ? (
+                        <Button
+                          variant={s.isActive ? "destructive" : "outline"}
+                          size="sm"
+                          onClick={() => toggleStaffStatus(s.id, s.isActive)}
+                        >
+                          {s.isActive ? 'Deactivate' : 'Reactivate'}
+                        </Button>
+                      ) : (
+                        <Badge variant="outline" className="text-gray-400 border-gray-200">Protected</Badge>
+                      )}
                     </td>
                   </tr>
                 ))}

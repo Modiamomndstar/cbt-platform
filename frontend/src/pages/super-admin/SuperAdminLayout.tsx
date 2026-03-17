@@ -33,19 +33,32 @@ export default function SuperAdminLayout() {
     navigate('/login');
   };
 
-  const navigation = [
+  const allNavigation = [
     { name: 'Dashboard', href: '/super-admin/dashboard', icon: LayoutDashboard },
     { name: 'Profile', href: '/super-admin/profile', icon: User },
     { name: 'Messages', href: '/super-admin/messages', icon: MessageSquare, badge: unreadCount },
-    { name: 'Schools', href: '/super-admin/schools', icon: School },
-    { name: 'School Overrides', href: '/super-admin/school-overrides', icon: Gift },
-    { name: 'Staff Management', href: '/super-admin/staff', icon: Users },
-    { name: 'Monetization', href: '/super-admin/monetization', icon: DollarSign },
-    { name: 'Marketplace', href: '/super-admin/marketplace', icon: ShoppingBag },
-    { name: 'Financial Audit', href: '/super-admin/finance', icon: History },
-    { name: 'Competition Hub', href: '/super-admin/competitions', icon: Trophy },
-    { name: 'Analytics', href: '/super-admin/analytics', icon: BarChart3 },
+    { name: 'Schools', href: '/super-admin/schools', icon: School, roles: ['super_admin', 'coordinating_admin', 'finance', 'sales_admin'] },
+    { name: 'School Overrides', href: '/super-admin/school-overrides', icon: Gift, roles: ['super_admin', 'coordinating_admin'] },
+    { name: 'Staff Management', href: '/super-admin/staff', icon: Users, roles: ['super_admin', 'coordinating_admin'] },
+    { name: 'Monetization', href: '/super-admin/monetization', icon: DollarSign, roles: ['super_admin', 'finance'] },
+    { name: 'Commissions', href: '/super-admin/commissions', icon: DollarSign, roles: ['super_admin', 'finance', 'coordinating_admin'] },
+    { name: 'Marketplace', href: '/super-admin/marketplace', icon: ShoppingBag, roles: ['super_admin'] },
+    { name: 'Financial Audit', href: '/super-admin/finance', icon: History, roles: ['super_admin', 'finance'] },
+    { name: 'Competition Hub', href: '/super-admin/competitions', icon: Trophy, roles: ['super_admin', 'coordinating_admin'] },
+    { name: 'Analytics', href: '/super-admin/analytics', icon: BarChart3, roles: ['super_admin', 'finance', 'coordinating_admin'] },
   ];
+
+  // Filter navigation based on staff role
+  const navigation = allNavigation.filter(item => {
+    // If no roles specified, it's public for all admins
+    if (!item.roles) return true;
+    
+    // Primary super admin (nil UUID) has no staffRole but full access
+    if (user?.id === "00000000-0000-0000-0000-000000000000") return true;
+
+    // Check staff role
+    return user?.staffRole && item.roles.includes(user.staffRole);
+  });
 
   return (
     <div className="min-h-screen bg-gray-50 flex">

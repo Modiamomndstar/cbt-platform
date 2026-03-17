@@ -218,6 +218,53 @@ export const requireFinanceAccess = (
   next();
 };
 
+// requireCoordinatingAdmin middleware
+// Accessible by primary Super Admin OR staff with 'coordinating_admin' role
+export const requireCoordinatingAdmin = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
+  if (!req.user || req.user.role !== "super_admin") {
+    ApiResponseHandler.forbidden(res, "Access denied. Admin required.");
+    return;
+  }
+
+  const isPrimaryAdmin = req.user.id === "00000000-0000-0000-0000-000000000000";
+  const isCoordinatingStaff = req.user.staffRole === "coordinating_admin";
+
+  if (!isPrimaryAdmin && !isCoordinatingStaff) {
+    ApiResponseHandler.forbidden(res, "Access denied. Coordinating level clearance required.");
+    return;
+  }
+
+  next();
+};
+
+// requireSalesAdmin middleware
+// Accessible by primary Super Admin OR Coordinating Admin OR staff with 'sales_admin' role
+export const requireSalesAdmin = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
+  if (!req.user || req.user.role !== "super_admin") {
+    ApiResponseHandler.forbidden(res, "Access denied. Admin required.");
+    return;
+  }
+
+  const isPrimaryAdmin = req.user.id === "00000000-0000-0000-0000-000000000000";
+  const isCoordinatingStaff = req.user.staffRole === "coordinating_admin";
+  const isSalesStaff = req.user.staffRole === "sales_admin";
+
+  if (!isPrimaryAdmin && !isCoordinatingStaff && !isSalesStaff) {
+    ApiResponseHandler.forbidden(res, "Access denied. Sales management clearance required.");
+    return;
+  }
+
+  next();
+};
+
 // requireCompetitionAccess middleware
 // Accessible by primary Super Admin OR staff with 'competition_admin' role
 export const requireCompetitionAccess = (

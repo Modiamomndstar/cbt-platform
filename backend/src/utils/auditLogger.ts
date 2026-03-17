@@ -111,3 +111,44 @@ export async function logUserActivity(req: any, action: string, options: Partial
     ...options
   });
 }
+
+/**
+ * Logs an activity to the staff_audit_log table specifically for administrative actions.
+ */
+export async function logStaffActivity(req: any, action: string, options: { 
+  targetType?: string, 
+  targetId?: string, 
+  targetName?: string,
+  details?: any
+} = {}) {
+  try {
+    const user = req.user;
+    if (!user) return;
+
+    const query = `
+      INSERT INTO staff_audit_log (
+        actor_type, actor_id, actor_name, action,
+        target_type, target_id, target_name, details, ip_address
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `;
+
+    const values = [
+      user.role === 'super_admin' ? 'super_admin' : 'staff',
+      user.id,
+      user.name || user.username || 'unknown',
+      action,
+      options.targetType || null,
+      options.targetId || null,
+      options.targetName || null,
+      options.details ? JSON.stringify(options.details) : null,
+      req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress
+    ];
+
+    await db.query(query, values);
+    
+    // Also log to console/winston
+    logger.info(`Staff Audit: [${user.staffRole || user.role}] ${action} on ${options.targetType}:${options.targetId}`);
+  } catch (error) {
+    logger.error('Failed to write staff audit log:', error);
+  }
+}

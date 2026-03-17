@@ -120,6 +120,7 @@ export interface LearningMaterial {
 export interface UserSession {
   id: string;
   role: UserRole;
+  staffRole?: string; // For administrative staff
   username: string;
   email?: string;
   name: string;

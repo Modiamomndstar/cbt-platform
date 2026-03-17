@@ -7,6 +7,7 @@ import Stripe from "stripe";
 import axios from "axios";
 import crypto from "crypto";
 import { getPaginationOptions, formatPaginationResponse } from "../utils/pagination";
+import { CommissionService } from "../services/commissionService";
 
 
 const router = Router();
@@ -308,6 +309,11 @@ router.post("/stripe/webhook", async (req: Request, res: Response) => {
             ],
           );
 
+          const paymentRecord = await db.query("SELECT id FROM payments WHERE provider_payment_id = $1", [paymentIntent.id]);
+          if (paymentRecord.rows.length > 0) {
+             await CommissionService.processCommission(paymentRecord.rows[0].id);
+          }
+
           // Update school subscription (upsert)
           await db.query(
             `INSERT INTO school_subscriptions (school_id, plan_type, status, billing_cycle, current_period_start, current_period_end)
@@ -522,6 +528,11 @@ router.post(
             ],
           );
 
+          const payRecord = await db.query("SELECT id FROM payments WHERE provider_payment_id = $1", [reference]);
+          if (payRecord.rows.length > 0) {
+             await CommissionService.processCommission(payRecord.rows[0].id);
+          }
+
           // Update school subscription (upsert)
           await db.query(
             `INSERT INTO school_subscriptions (school_id, plan_type, status, billing_cycle, current_period_start, current_period_end)
@@ -725,6 +736,11 @@ router.post("/paystack/webhook", async (req: Request, res: Response) => {
              VALUES ($1, $2, $3, 'paystack', $4, 'completed', $5, $6, NOW())`,
             [schoolId, amount / 100, currency, reference, planType, durationMonths]
           );
+
+          const paymentRecord = await db.query("SELECT id FROM payments WHERE provider_payment_id = $1", [reference]);
+          if (paymentRecord.rows.length > 0) {
+             await CommissionService.processCommission(paymentRecord.rows[0].id);
+          }
 
           await db.query(
             `INSERT INTO school_subscriptions (school_id, plan_type, status, billing_cycle, current_period_start, current_period_end)

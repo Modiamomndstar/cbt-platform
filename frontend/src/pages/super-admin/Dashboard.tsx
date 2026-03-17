@@ -10,8 +10,12 @@ import {
 } from 'lucide-react';
 import { superAdminAPI } from '@/services/api';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 export default function SuperAdminDashboard() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalSchools: 0,
     totalTutors: 0,
@@ -21,8 +25,13 @@ export default function SuperAdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Redirect sales admin to their specific dashboard
+    if (user?.staffRole === 'sales_admin') {
+      navigate('/super-admin/sales-dashboard');
+      return;
+    }
     loadStats();
-  }, []);
+  }, [user, navigate]);
 
   const loadStats = async () => {
     try {
