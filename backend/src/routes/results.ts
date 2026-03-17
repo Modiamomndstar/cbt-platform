@@ -427,6 +427,7 @@ router.get(
           if (ans === null || ans === undefined || String(ans).trim() === "") return ans;
 
           if (type === 'multiple_choice' && Array.isArray(opts)) {
+            // Check if ans is an index (0, 1, 2...) or already text
             if (/^\d+$/.test(String(ans))) {
               const idx = parseInt(String(ans));
               if (idx >= 0 && idx < opts.length) {
@@ -438,14 +439,15 @@ router.get(
              if (String(ans) === '0' || String(ans).toLowerCase() === 'true') return 'True';
              if (String(ans) === '1' || String(ans).toLowerCase() === 'false') return 'False';
           } else if (type === 'fill_blank' || type === 'theory') {
-             // For theory/fill_blank, if correct_answer is '0' and it's a theory question, it's likely uninitialized
-             if (type === 'theory' && String(correctAnswer) === '0') return 'N/A (Graded by Tutor)';
+             if (type === 'theory' && String(ans) === '0') return 'N/A (Graded by Tutor)';
           }
           return ans;
         };
 
-        studentAnswer = mapAnswerText(studentAnswer, qType, options);
-        correctAnswer = mapAnswerText(correctAnswer, qType, options);
+        // CRITICAL: studentAnswer must be mapped against snapshot options (what the student saw)
+        // whereas correctAnswer can be mapped against liveOptions if it's an index, or used as-is if it's text.
+        studentAnswer = mapAnswerText(studentAnswer, qType, q.options);
+        correctAnswer = mapAnswerText(correctAnswer, qType, currentQ.options || q.options);
 
         return {
           id: q.id,

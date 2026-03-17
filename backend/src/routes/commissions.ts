@@ -104,7 +104,7 @@ router.get("/admin/all", requireCoordinatingAdmin, async (req, res) => {
   try {
     const { status, staff_id, currency } = req.query;
     let queryStr = `
-      SELECT sc.*, s.name as school_name, sa.full_name as staff_name, sa.username as staff_username
+      SELECT sc.*, s.name as school_name, sa.name as staff_name, sa.username as staff_username
       FROM sales_commissions sc
       JOIN schools s ON sc.school_id = s.id
       JOIN staff_accounts sa ON sc.staff_id = sa.id

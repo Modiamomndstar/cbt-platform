@@ -45,7 +45,7 @@ export default function SuperAdminLayout() {
     { name: 'Marketplace', href: '/super-admin/marketplace', icon: ShoppingBag, roles: ['super_admin'] },
     { name: 'Financial Audit', href: '/super-admin/finance', icon: History, roles: ['super_admin', 'finance'] },
     { name: 'Competition Hub', href: '/super-admin/competitions', icon: Trophy, roles: ['super_admin', 'coordinating_admin'] },
-    { name: 'Analytics', href: '/super-admin/analytics', icon: BarChart3, roles: ['super_admin', 'finance', 'coordinating_admin'] },
+    { name: 'Platform Intelligence', href: '/super-admin/analytics', icon: BarChart3, roles: ['super_admin', 'finance', 'coordinating_admin'] },
   ];
 
   // Filter navigation based on staff role

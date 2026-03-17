@@ -1,9 +1,10 @@
 import { Router, Request, Response } from "express";
 import { pool } from "../config/database";
-import { authenticate, requireRole } from "../middleware/auth";
+import { authenticate, requireRole, requireCoordinatingAdmin } from "../middleware/auth";
 import { requireFeature } from "../middleware/planGuard";
 import { ApiResponseHandler } from "../utils/apiResponse";
 import { transformResult } from "../utils/responseTransformer";
+import crypto from "crypto";
 
 const router = Router();
 
@@ -1036,6 +1037,100 @@ router.get(
       ApiResponseHandler.serverError(res, "Failed to fetch performance data");
     } finally {
       client.release();
+    }
+  }
+);
+
+
+// ── Platform Intelligence & Traffic ───────────────────────
+
+/**
+ * POST /api/analytics/traffic - Record a page hit
+ * Anonymously tracks visitors on landing/pricing pages
+ */
+router.post("/traffic", async (req: Request, res: Response) => {
+  try {
+    const { path, referrer, userAgent, deviceType } = req.body;
+    
+    // Anonymize IP
+    const ip = req.ip || req.headers['x-forwarded-for'] || '0.0.0.0';
+    const ipHash = crypto.createHash('sha256').update(ip.toString()).digest('hex');
+
+    await pool.query(
+      `INSERT INTO visitor_traffic (path, referrer, user_agent, device_type, ip_hash)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [path || '/', referrer || null, userAgent || null, deviceType || 'desktop', ipHash]
+    );
+
+    ApiResponseHandler.success(res, null, "Traffic recorded");
+  } catch (error) {
+    console.error("Traffic recording error:", error);
+    // Silent fail for traffic recording to not disrupt user experience
+    ApiResponseHandler.success(res, null, "Traffic recorded (with bypass)");
+  }
+});
+
+/**
+ * GET /api/analytics/intelligence - Platform engagement summary
+ * Accessible by Super Admin and Coordinating Admin
+ */
+router.get(
+  "/intelligence",
+  authenticate,
+  requireCoordinatingAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const { timeframe = 'monthly' } = req.query; // daily, weekly, monthly, yearly
+      
+      let dateInterval = "INTERVAL '1 month'";
+      let groupFormat = "YYYY-MM-DD";
+      
+      if (timeframe === 'daily') dateInterval = "INTERVAL '24 hours'";
+      else if (timeframe === 'weekly') dateInterval = "INTERVAL '7 days'";
+      else if (timeframe === 'yearly') dateInterval = "INTERVAL '1 year'";
+
+      // 1. Visitors Trend
+      const visitorTrend = await pool.query(
+        `SELECT DATE_TRUNC('day', created_at) as date, COUNT(*) as total_hits, COUNT(DISTINCT ip_hash) as unique_visitors
+         FROM visitor_traffic
+         WHERE created_at >= NOW() - ${dateInterval}
+         GROUP BY 1 ORDER BY 1 ASC`
+      );
+
+      // 2. Registration Trend (Segmented)
+      const registrations = await pool.query(
+        `SELECT 'Schools' as segment, COUNT(*) FROM schools WHERE created_at >= NOW() - ${dateInterval}
+         UNION ALL
+         SELECT 'Tutors' as segment, COUNT(*) FROM tutors WHERE created_at >= NOW() - ${dateInterval}
+         UNION ALL
+         SELECT 'Students' as segment, COUNT(*) FROM students WHERE created_at >= NOW() - ${dateInterval}`
+      );
+
+      // 3. Login Activity (from activity_logs)
+      const loginActivity = await pool.query(
+        `SELECT DATE_TRUNC('day', created_at) as date, COUNT(*) as logins
+         FROM activity_logs
+         WHERE action = 'LOGIN' AND created_at >= NOW() - ${dateInterval}
+         GROUP BY 1 ORDER BY 1 ASC`
+      );
+
+      // 4. Totals for KPI Cards
+      const kpis = await pool.query(`
+        SELECT 
+          (SELECT COUNT(*) FROM schools) as total_schools,
+          (SELECT COUNT(*) FROM students) as total_students,
+          (SELECT COUNT(*) FROM activity_logs WHERE action = 'LOGIN' AND created_at >= NOW() - INTERVAL '24 hours') as logins_today
+      `);
+
+      ApiResponseHandler.success(res, transformResult({
+        visitorTrend: visitorTrend.rows,
+        registrations: registrations.rows,
+        loginActivity: loginActivity.rows,
+        kpis: kpis.rows[0]
+      }), "Platform intelligence retrieved");
+    } catch (error) {
+      console.error("Intelligence analytics error:", error);
+      ApiResponseHandler.serverError(res, "Failed to fetch platform intelligence");
     }
   }
 );

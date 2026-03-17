@@ -1496,17 +1496,33 @@ async function assignQuestions(
 }
 
 function processOptions(questions: any[], shuffleOpts: boolean) {
-  if (!shuffleOpts) return questions;
-
   return questions.map((q: any) => {
-    if (q.question_type === "multiple_choice" && Array.isArray(q.options)) {
-      const opts = [...q.options];
-      for (let i = opts.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [opts[i], opts[j]] = [opts[j], opts[i]];
+    // 1. For multiple choice and true/false, always try to resolve correct_answer to TEXT if it's currently an index.
+    // This makes the snapshot "self-contained" and immune to shuffling or future DB changes.
+    if ((q.question_type === "multiple_choice" || q.question_type === "true_false") && Array.isArray(q.options)) {
+      const currentCorrect = String(q.correct_answer || "").trim();
+      
+      // If it's an index, resolve it to the actual text string or label
+      if (/^\d+$/.test(currentCorrect)) {
+        const idx = parseInt(currentCorrect);
+        if (idx >= 0 && idx < q.options.length) {
+          const opt = q.options[idx];
+          // Update the q object in the snapshot with the TEXT of the correct answer
+          q.correct_answer = typeof opt === "string" ? opt : (opt.text || opt.label || currentCorrect);
+        }
       }
-      return { ...q, options: opts };
+
+      // 2. Perform shuffle ONLY for multiple choice if requested
+      if (q.question_type === "multiple_choice" && shuffleOpts) {
+        const opts = [...q.options];
+        for (let i = opts.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [opts[i], opts[j]] = [opts[j], opts[i]];
+        }
+        return { ...q, options: opts };
+      }
     }
+    
     return q;
   });
 }

@@ -61,34 +61,40 @@ function validateMultipleChoice(
   correctAnswer: any,
   options?: any[]
 ): AnswerValidationResult {
-  // Normalize both answers
-  const student = String(studentAnswer).toLowerCase().trim();
-  const correct = String(correctAnswer).toLowerCase().trim();
-
-  // Check if it's an index-based answer (0, 1, 2, etc.)
-  if (/^\d+$/.test(correct)) {
-    const correctIndex = parseInt(correct);
-    const studentIndex = parseInt(student);
-
-    if (!options || !Array.isArray(options)) {
-      return {
-        isCorrect: false,
-        reason: 'Options not provided for index validation'
-      };
-    }
-
-    if (studentIndex < 0 || studentIndex >= options.length) {
-      return {
-        isCorrect: false,
-        reason: `Invalid option index: ${studentIndex}`
-      };
-    }
-
-    return { isCorrect: studentIndex === correctIndex };
+  if (!options || !Array.isArray(options) || options.length === 0) {
+    // If no options, fall back to simple text comparison
+    const student = String(studentAnswer || "").toLowerCase().trim();
+    const correct = String(correctAnswer || "").toLowerCase().trim();
+    return { isCorrect: student === correct && student !== "" };
   }
 
-  // Text-based comparison
-  return { isCorrect: student === correct };
+  const normalize = (val: any) => String(val || "").toLowerCase().trim();
+
+  // 1. Resolve student answer to text if it's an index
+  let studentText = normalize(studentAnswer);
+  if (/^\d+$/.test(studentText)) {
+    const idx = parseInt(studentText);
+    if (idx >= 0 && idx < options.length) {
+      const opt = options[idx];
+      studentText = normalize(typeof opt === 'string' ? opt : (opt.text || opt.label || studentText));
+    }
+  }
+
+  // 2. Resolve correct answer to text if it's an index
+  let correctText = normalize(correctAnswer);
+  if (/^\d+$/.test(correctText)) {
+    const idx = parseInt(correctText);
+    if (idx >= 0 && idx < options.length) {
+      const opt = options[idx];
+      correctText = normalize(typeof opt === 'string' ? opt : (opt.text || opt.label || correctText));
+    }
+  }
+
+  // 3. Final comparison
+  return { 
+    isCorrect: studentText === correctText && studentText !== "",
+    reason: studentText === correctText ? undefined : `Selected "${studentText}", expected "${correctText}"`
+  };
 }
 
 function validateTrueFalse(

@@ -310,6 +310,13 @@ export const analyticsAPI = {
     api.get(`/analytics/issued-reports/${studentId}`),
   getIssuedReport: (reportId: string) =>
     api.get(`/analytics/issued-report/${reportId}`),
+
+  // Platform intelligence & Traffic
+  getIntelligence: (timeframe: 'daily' | 'weekly' | 'monthly' | 'yearly' = 'monthly') => 
+    api.get(`/analytics/intelligence?timeframe=${timeframe}`),
+  
+  trackTraffic: (data: { path: string, referrer?: string, userAgent: string, deviceType: string }) =>
+    api.post("/analytics/traffic", data),
 };
 
 // Upload API
@@ -482,17 +489,13 @@ export const superAdminAPI = {
   updateStaff: (id: string, data: Record<string, any>) => api.patch(`/staff/${id}`, data),
   getAuditLog: () => api.get("/staff/audit-log"),
 
-  // Export
+  // Data Export
   exportData: (type: 'tutors' | 'students' | 'external_students', schoolId?: string) => {
     const url = `${API_BASE_URL}/super-admin/export/${type}${schoolId ? `?school_id=${schoolId}` : ''}`;
-    // We use a temporary link to handle the download with the token if possible,
-    // but standard browser downloads work better with direct URLs for CSVs
-    // provided the server allows it or we attach the token to the URL (less secure)
-    // or we fetch as blob. Blob is safest.
     return api.get(url, { responseType: 'blob' }).then(res => {
-      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const downloadUrl = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
-      link.href = url;
+      link.href = downloadUrl;
       link.setAttribute('download', `export_${type}_${new Date().toISOString().split('T')[0]}.csv`);
       document.body.appendChild(link);
       link.click();
@@ -506,11 +509,12 @@ export const superAdminAPI = {
   updateSettingSecure: (data: { key: string, value: string, password: string }) =>
     api.put("/super-admin/settings/secure", data),
 
-  // Payments & Verification (Phase 18)
+  // Payments & Verification
   getPendingPayments: () => api.get("/super-admin/payments/pending"),
   verifyPayment: (id: string, data: { status: 'completed' | 'failed', adminNotes?: string }) =>
     api.put(`/super-admin/payments/${id}/verify`, data),
 };
+
 
 // ── Commission API ──────────────────────────────────────────
 export const commissionsAPI = {

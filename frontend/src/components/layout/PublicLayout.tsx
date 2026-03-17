@@ -3,6 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { GraduationCap, Menu, X, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import TrafficTracker from '@/components/analytics/TrafficTracker';
 
 export default function PublicLayout() {
   const navigate = useNavigate();
@@ -26,6 +27,7 @@ export default function PublicLayout() {
 
   return (
     <div className="min-h-screen bg-white">
+      <TrafficTracker />
       {/* Header */}
       <header
         className={cn(
