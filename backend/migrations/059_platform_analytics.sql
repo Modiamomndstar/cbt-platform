@@ -22,7 +22,6 @@ CREATE INDEX IF NOT EXISTS idx_activity_logs_action_date ON activity_logs(action
 CREATE INDEX IF NOT EXISTS idx_activity_logs_user_type_date ON activity_logs(user_id, created_at DESC);
 
 -- Optimize user creation tracking
-CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_schools_created_at ON schools(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_tutors_created_at ON tutors(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_students_created_at ON students(created_at DESC);
