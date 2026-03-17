@@ -202,6 +202,8 @@ export default function ExamResults() {
         return <Badge variant="destructive">Expired</Badge>;
       case 'missed':
         return <Badge variant="destructive">Missed</Badge>;
+      case 'disqualified':
+        return <Badge className="bg-gray-700 text-white">Disqualified</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -470,7 +472,14 @@ export default function ExamResults() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        {getStatusBadge(result.status)}
+                        <div className="flex flex-col items-start gap-1">
+                          {getStatusBadge(result.status)}
+                          {result.status === 'disqualified' && (
+                            <span className="text-[10px] text-red-600 font-semibold leading-tight">
+                              Max violations reached
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
                         {result.submittedAt ? (

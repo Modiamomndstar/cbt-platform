@@ -772,7 +772,7 @@ router.put(
       let shouldIncrementAttempt = false;
 
       if (
-        (currentStatus === "expired" || currentStatus === "completed" || currentStatus === "failed" || currentStatus === "in_progress") &&
+        (currentStatus === "expired" || currentStatus === "completed" || currentStatus === "failed" || currentStatus === "disqualified" || currentStatus === "in_progress") &&
         (scheduledDate || startTime)
       ) {
         newStatus = "scheduled";

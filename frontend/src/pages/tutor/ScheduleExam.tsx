@@ -476,6 +476,8 @@ export default function ScheduleExam() {
         return <Badge variant="destructive">Expired</Badge>;
       case 'missed':
         return <Badge variant="destructive">Missed</Badge>;
+      case 'disqualified':
+        return <Badge className="bg-gray-700 text-white">Disqualified</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -789,9 +791,26 @@ export default function ScheduleExam() {
                             {schedule.timeSpentMinutes != null && schedule.timeSpentMinutes > 0 && (
                               <p>Time: {schedule.timeSpentMinutes} min</p>
                             )}
-                            {schedule.autoSubmitted && (
+                            {schedule.autoSubmitted && !schedule.status.includes('disqualified') && (
                               <Badge variant="outline" className="text-xs">Auto-submitted</Badge>
                             )}
+                            {schedule.status === 'disqualified' && (
+                              <p className="text-red-600 font-semibold text-[10px] mt-1">
+                                ⚠️ Max violations reached
+                              </p>
+                            )}
+                          </div>
+                        ) : schedule.status === 'disqualified' ? (
+                          <div className="text-xs space-y-1 text-gray-600">
+                             {schedule.startedAt && (
+                               <p>Started: {formatDateTime(schedule.startedAt)}</p>
+                             )}
+                             {schedule.completedAt && (
+                               <p>Stopped: {formatDateTime(schedule.completedAt)}</p>
+                             )}
+                            <p className="text-red-600 font-semibold text-[10px] mt-1">
+                              ⚠️ Max violations reached
+                            </p>
                           </div>
                         ) : schedule.status === 'in_progress' ? (
                           <div className="text-xs space-y-1 text-gray-600">
@@ -822,7 +841,7 @@ export default function ScheduleExam() {
                                 </Button>
                               </>
                             )}
-                            {(schedule.status === 'scheduled' || schedule.status === 'expired' || schedule.status === 'in_progress' || schedule.status === 'failed' || schedule.status === 'completed') && (
+                            {(schedule.status === 'scheduled' || schedule.status === 'expired' || schedule.status === 'in_progress' || schedule.status === 'failed' || schedule.status === 'completed' || schedule.status === 'disqualified') && (
                               <Button variant="ghost" size="sm" onClick={() => handleReschedule(schedule)} title="Reschedule">
                                 <RefreshCw className="h-4 w-4" />
                               </Button>
