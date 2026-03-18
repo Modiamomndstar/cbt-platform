@@ -13,7 +13,7 @@ export class CommissionService {
     try {
       // 1. Get payment details and check if it's eligible
       const paymentResult = await db.query(
-        `SELECT p.id, p.school_id, p.amount, p.currency, p.plan_type, 
+        `SELECT p.id, p.school_id, p.amount, p.currency, p.plan_type, p.plan_duration_months,
                 s.sales_admin_id, s.created_at as school_created_at
          FROM payments p
          JOIN schools s ON p.school_id = s.id
@@ -24,7 +24,7 @@ export class CommissionService {
       if (paymentResult.rows.length === 0) return;
 
       const payment = paymentResult.rows[0];
-      const { school_id, sales_admin_id, currency, plan_type, school_created_at } = payment;
+      const { school_id, sales_admin_id, currency, plan_type, plan_duration_months, school_created_at } = payment;
 
       // 2. Check if this is the school's FIRST real payment (excluding current payment)
       const previousPayments = await db.query(
@@ -44,14 +44,17 @@ export class CommissionService {
       );
       if (commissionExists.rows.length > 0) return;
 
-      // 4. Get commission settings for this plan and currency
+      // 4. Determine billing cycle based on plan_duration_months
+      const billingCycle = plan_duration_months >= 12 ? 'yearly' : 'monthly';
+
+      // 5. Get commission settings for this plan, currency, AND billing cycle
       const settingsResult = await db.query(
-        "SELECT * FROM commission_settings WHERE plan_type = $1 AND currency = $2",
-        [plan_type, currency]
+        "SELECT * FROM commission_settings WHERE plan_type = $1 AND currency = $2 AND billing_cycle = $3",
+        [plan_type, currency, billingCycle]
       );
 
       if (settingsResult.rows.length === 0) {
-        logger.warn(`Commission skip: No settings found for plan ${plan_type} in ${currency}`);
+        logger.warn(`Commission skip: No settings found for plan ${plan_type} in ${currency} (${billingCycle})`);
         return;
       }
 

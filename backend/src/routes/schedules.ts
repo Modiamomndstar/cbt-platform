@@ -950,34 +950,41 @@ router.get(
 
       ApiResponseHandler.success(
         res,
-        result.rows.map((row) => ({
-          id: row.id,
-          examId: row.exam_id,
-          examTitle: row.exam_title,
-          description: row.description,
-          durationMinutes: row.duration,
-          totalQuestions: row.total_questions,
-          questionCount: row.total_questions, // Added for mobile backwards compatibility
-          totalMarks: row.total_marks,
-          examCategory: row.category_name,
-          categoryName: row.category_name, // Map for mobile ExamsScreen.tsx
-          tutorName:
-            row.tutor_full_name ||
-            `${row.tutor_first_name || ""} ${row.tutor_last_name || ""}`.trim(),
-          scheduledDate: row.scheduled_date,
-          startTime: row.start_time,
-          endTime: row.end_time,
-          startTimeIso: `${row.scheduled_date.toISOString().split('T')[0]}T${row.start_time}`,
-          endTimeIso: row.end_time ? `${row.scheduled_date.toISOString().split('T')[0]}T${row.end_time}` : null,
-          schoolTimezone: row.school_timezone || 'Africa/Lagos',
-          status: row.status,
-          accessCode: row.login_username,
-          isSecureMode: !!row.is_secure_mode,
-          maxViolations: row.max_violations ?? 3,
-          competitionId: row.db_competition_id,
-          isCompetition: !!row.db_competition_id, // Map for mobile ExamsScreen.tsx
-          competitionRules: row.competition_rules
-        })),
+        result.rows.map((row) => {
+          const isExpired = row.status === 'expired';
+          const isCompleted = row.status === 'completed' || row.status === 'failed' || row.status === 'disqualified' || row.status === 'pending_grading';
+
+          return {
+            id: row.id,
+            examId: row.exam_id,
+            examTitle: row.exam_title,
+            description: row.description,
+            durationMinutes: row.duration,
+            totalQuestions: row.total_questions,
+            questionCount: row.total_questions, // Added for mobile backwards compatibility
+            totalMarks: row.total_marks,
+            examCategory: row.category_name,
+            categoryName: row.category_name, // Map for mobile ExamsScreen.tsx
+            tutorName:
+              row.tutor_full_name ||
+              `${row.tutor_first_name || ""} ${row.tutor_last_name || ""}`.trim(),
+            scheduledDate: row.scheduled_date,
+            startTime: row.start_time,
+            endTime: row.end_time,
+            startTimeIso: `${row.scheduled_date.toISOString().split('T')[0]}T${row.start_time}`,
+            endTimeIso: row.end_time ? `${row.scheduled_date.toISOString().split('T')[0]}T${row.end_time}` : null,
+            schoolTimezone: row.school_timezone || 'Africa/Lagos',
+            status: row.status,
+            isExpired,
+            isCompleted,
+            accessCode: row.login_username,
+            isSecureMode: !!row.is_secure_mode,
+            maxViolations: row.max_violations ?? 3,
+            competitionId: row.db_competition_id,
+            isCompetition: !!row.db_competition_id, // Map for mobile ExamsScreen.tsx
+            competitionRules: row.competition_rules
+          };
+        }),
         "Student schedules retrieved",
       );
     } catch (error) {

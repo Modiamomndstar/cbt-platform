@@ -29,6 +29,7 @@ router.post("/settings",
   [
     body('plan_type').notEmpty().withMessage('Plan type is required'),
     body('currency').isIn(['NGN', 'USD']).withMessage('Currency must be NGN or USD'),
+    body('billing_cycle').isIn(['monthly', 'yearly', 'annual', 'free']).withMessage('Invalid billing cycle'),
     body('points_within_30_days').isNumeric(),
     body('points_after_30_days').isNumeric(),
     body('monetary_value_per_point').isNumeric(),
@@ -36,18 +37,43 @@ router.post("/settings",
   ],
   async (req: Request, res: Response) => {
     try {
-      const { plan_type, currency, points_within_30_days, points_after_30_days, monetary_value_per_point } = req.body;
+      const { 
+        plan_type, 
+        currency, 
+        billing_cycle = 'monthly',
+        points_within_30_days, 
+        points_after_30_days, 
+        monetary_value_per_point,
+        max_commissions_per_school
+      } = req.body;
       
       const result = await db.query(
-        `INSERT INTO commission_settings (plan_type, currency, points_within_30_days, points_after_30_days, monetary_value_per_point)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (plan_type, currency) DO UPDATE
+        `INSERT INTO commission_settings (
+          plan_type, 
+          currency, 
+          billing_cycle,
+          points_within_30_days, 
+          points_after_30_days, 
+          monetary_value_per_point,
+          max_commissions_per_school
+        )
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (plan_type, currency, billing_cycle) DO UPDATE
          SET points_within_30_days = EXCLUDED.points_within_30_days,
              points_after_30_days = EXCLUDED.points_after_30_days,
              monetary_value_per_point = EXCLUDED.monetary_value_per_point,
+             max_commissions_per_school = EXCLUDED.max_commissions_per_school,
              updated_at = NOW()
          RETURNING *`,
-        [plan_type, currency, points_within_30_days, points_after_30_days, monetary_value_per_point]
+        [
+          plan_type, 
+          currency, 
+          billing_cycle,
+          points_within_30_days, 
+          points_after_30_days, 
+          monetary_value_per_point,
+          max_commissions_per_school || 1
+        ]
       );
 
       await logStaffActivity(req, 'update_commission_settings', {
@@ -56,6 +82,7 @@ router.post("/settings",
 
       ApiResponseHandler.success(res, result.rows[0], "Commission settings updated");
     } catch (error) {
+      console.error("Update settings error:", error);
       ApiResponseHandler.serverError(res, "Failed to update settings");
     }
   }

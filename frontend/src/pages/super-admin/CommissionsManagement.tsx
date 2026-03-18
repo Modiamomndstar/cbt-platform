@@ -11,8 +11,7 @@ import {
   Settings, 
   CheckCircle, 
   Wallet,
-  Coins,
-  ArrowRight
+  Coins
 } from 'lucide-react';
 import { commissionsAPI } from '@/services/api';
 import { formatDate } from '@/lib/dateUtils';
@@ -34,6 +33,7 @@ interface CommissionSetting {
   id?: string;
   plan_type: string;
   currency: string;
+  billing_cycle: 'monthly' | 'yearly';
   points_within_30_days: number;
   points_after_30_days: number;
   monetary_value_per_point: number;
@@ -44,8 +44,10 @@ export default function CommissionsManagement() {
   const { user } = useAuth();
   const [commissions, setCommissions] = useState<Commission[]>([]);
   const [settings, setSettings] = useState<CommissionSetting[]>([]);
+  const [pendingSettings, setPendingSettings] = useState<CommissionSetting[]>([]);
   const [activeTab, setActiveTab] = useState<'payouts' | 'settings'>('payouts');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Permission check
   const canManageSettings = user?.id === "00000000-0000-0000-0000-000000000000" || user?.staffRole === 'finance';
@@ -62,6 +64,7 @@ export default function CommissionsManagement() {
       } else {
         const res = await commissionsAPI.getSettings();
         setSettings(res.data.data);
+        setPendingSettings(res.data.data);
       }
     } catch (error) {
       toast.error('Failed to load commission data');
@@ -79,18 +82,63 @@ export default function CommissionsManagement() {
     }
   };
 
-  const handleUpdateSetting = async (planType: string, currency: string, field: string, value: any) => {
-    const existing = settings.find(s => s.plan_type === planType && s.currency === currency);
-    const updated = existing ? { ...existing, [field]: value } : { plan_type: planType, currency, [field]: value };
-    
+  const handleEditSetting = (planType: string, currency: string, billingCycle: 'monthly' | 'yearly', field: string, value: any) => {
+    setPendingSettings(prev => {
+      const existingIdx = prev.findIndex(s => s.plan_type === planType && s.currency === currency && s.billing_cycle === billingCycle);
+      
+      if (existingIdx > -1) {
+        const updated = [...prev];
+        updated[existingIdx] = { ...updated[existingIdx], [field]: value };
+        return updated;
+      } else {
+        // Create default if not found
+        const newSetting: CommissionSetting = {
+          plan_type: planType,
+          currency,
+          billing_cycle: billingCycle,
+          points_within_30_days: 0,
+          points_after_30_days: 0,
+          monetary_value_per_point: 0,
+          max_commissions_per_school: 1,
+          [field]: value
+        };
+        return [...prev, newSetting];
+      }
+    });
+  };
+
+  const handleSaveChanges = async () => {
+    setIsSaving(true);
     try {
-      await commissionsAPI.updateSettings(updated);
-      toast.success('Settings updated');
+      // Find what actually changed compared to original 'settings'
+      const changed = pendingSettings.filter(ps => {
+        const original = settings.find(s => s.plan_type === ps.plan_type && s.currency === ps.currency && s.billing_cycle === ps.billing_cycle);
+        if (!original) return true; // New record
+        return JSON.stringify(ps) !== JSON.stringify(original);
+      });
+
+      if (changed.length === 0) {
+        toast.info("No changes to save");
+        setIsSaving(false);
+        return;
+      }
+
+      // Save sequentially
+      for (const item of changed) {
+        await commissionsAPI.updateSettings(item);
+      }
+
+      toast.success(`${changed.length} settings updated successfully`);
       fetchData();
     } catch (error) {
-      toast.error('Failed to save settings');
+      console.error("Save error:", error);
+      toast.error('Failed to save some settings');
+    } finally {
+      setIsSaving(false);
     }
   };
+
+  const hasUnsavedChanges = JSON.stringify(settings) !== JSON.stringify(pendingSettings);
 
   return (
     <div className="space-y-6">
@@ -99,6 +147,15 @@ export default function CommissionsManagement() {
           <h1 className="text-3xl font-bold tracking-tight">Commission Management</h1>
           <p className="text-gray-500 text-sm">Oversee sales performance and manage financial rewards.</p>
         </div>
+        {activeTab === 'settings' && canManageSettings && (
+           <Button 
+            onClick={handleSaveChanges} 
+            disabled={!hasUnsavedChanges || isSaving}
+            className="bg-indigo-600 hover:bg-indigo-700 shadow-sm"
+           >
+             {isSaving ? "Saving..." : "Save All Changes"}
+           </Button>
+        )}
       </div>
 
       <div className="flex border-b">
@@ -194,83 +251,119 @@ export default function CommissionsManagement() {
       )}
 
       {activeTab === 'settings' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-6">
           {['NGN', 'USD'].map((curr) => (
-            <Card key={curr}>
-              <CardHeader className="bg-slate-900 text-white rounded-t-lg">
+            <Card key={curr} className="overflow-hidden">
+              <CardHeader className="bg-slate-900 text-white border-none py-4">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                       <Wallet className="h-5 w-5" /> {curr} Config
-                    </CardTitle>
-                    <CardDescription className="text-slate-400">Commission rates for {curr} payments</CardDescription>
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center">
+                       <Wallet className="h-5 w-5 text-indigo-400" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xl">
+                         {curr} Configuration
+                      </CardTitle>
+                      <CardDescription className="text-slate-400">Manage earnings for {curr} subscription conversions</CardDescription>
+                    </div>
                   </div>
-                  <Coins className="h-8 w-8 text-amber-400 opacity-50" />
+                  <Coins className="h-8 w-8 text-amber-500 opacity-20" />
                 </div>
               </CardHeader>
-              <CardContent className="pt-6 space-y-6">
-                {['basic', 'advanced', 'enterprise'].map((plan) => {
-                  const s = settings.find(st => st.plan_type === plan && st.currency === curr) || {
-                    plan_type: plan,
-                    currency: curr,
-                    points_within_30_days: 0,
-                    points_after_30_days: 0,
-                    monetary_value_per_point: 0,
-                    max_commissions_per_school: 1
-                  } as CommissionSetting;
+              <CardContent className="pt-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {['basic', 'advanced', 'enterprise'].map((plan) => (
+                    <div key={plan} className="space-y-4">
+                      <div className="flex items-center gap-2 mb-2">
+                         <div className="h-2 w-2 rounded-full bg-indigo-600" />
+                         <h4 className="font-bold uppercase tracking-wider text-xs text-gray-500">{plan} Plan</h4>
+                      </div>
 
-                  return (
-                    <div key={plan} className="p-4 border rounded-lg bg-gray-50/50 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-bold capitalize text-indigo-700 flex items-center gap-2">
-                          <ArrowRight className="h-4 w-4" /> {plan} Plan
-                        </h4>
-                        <Badge variant="outline" className="bg-white">Rate Setup</Badge>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <Label className="text-[10px] uppercase font-bold text-gray-400">Early Pts (30d)</Label>
-                          <Input 
-                            type="number" 
-                            className="h-8 bg-white" 
-                            value={s.points_within_30_days}
-                            onChange={(e) => handleUpdateSetting(plan, curr, 'points_within_30_days', parseInt(e.target.value))}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[10px] uppercase font-bold text-gray-400">Standard Pts</Label>
-                          <Input 
-                            type="number" 
-                            className="h-8 bg-white" 
-                            value={s.points_after_30_days}
-                            onChange={(e) => handleUpdateSetting(plan, curr, 'points_after_30_days', parseInt(e.target.value))}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[10px] uppercase font-bold text-gray-400">Cash per Pt ({curr})</Label>
-                          <Input 
-                            type="number" 
-                            className="h-8 bg-white font-mono" 
-                            value={s.monetary_value_per_point}
-                            onChange={(e) => handleUpdateSetting(plan, curr, 'monetary_value_per_point', parseFloat(e.target.value))}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[10px] uppercase font-bold text-gray-400">Limit (Payments)</Label>
-                          <Input 
-                            type="number" 
-                            className="h-8 bg-white" 
-                            value={s.max_commissions_per_school}
-                            onChange={(e) => handleUpdateSetting(plan, curr, 'max_commissions_per_school', parseInt(e.target.value))}
-                          />
-                        </div>
-                      </div>
+                      {['monthly', 'yearly'].map((cycle) => {
+                         const s = pendingSettings.find(st => st.plan_type === plan && st.currency === curr && st.billing_cycle === cycle) || {
+                            plan_type: plan,
+                            currency: curr,
+                            billing_cycle: cycle as any,
+                            points_within_30_days: 0,
+                            points_after_30_days: 0,
+                            monetary_value_per_point: 0,
+                            max_commissions_per_school: 1
+                          } as CommissionSetting;
+
+                         return (
+                          <div key={cycle} className="p-4 border rounded-xl bg-gray-50/50 hover:bg-white transition-colors border-gray-200">
+                            <div className="flex items-center justify-between mb-3">
+                              <Badge className={cycle === 'yearly' ? "bg-amber-100 text-amber-700 hover:bg-amber-100 border-none" : "bg-blue-100 text-blue-700 hover:bg-blue-100 border-none"}>
+                                {cycle.toUpperCase()}
+                              </Badge>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <Label className="text-[9px] uppercase font-bold text-gray-400 tracking-tighter">Early (30d)</Label>
+                                <Input 
+                                  type="number" 
+                                  className="h-9 bg-white text-sm" 
+                                  value={s.points_within_30_days}
+                                  onChange={(e) => handleEditSetting(plan, curr, cycle as any, 'points_within_30_days', parseInt(e.target.value) || 0)}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-[9px] uppercase font-bold text-gray-400 tracking-tighter">Standard</Label>
+                                <Input 
+                                  type="number" 
+                                  className="h-9 bg-white text-sm" 
+                                  value={s.points_after_30_days}
+                                  onChange={(e) => handleEditSetting(plan, curr, cycle as any, 'points_after_30_days', parseInt(e.target.value) || 0)}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-[9px] uppercase font-bold text-gray-400 tracking-tighter">Value/Pt ({curr})</Label>
+                                <Input 
+                                  type="number" 
+                                  className="h-9 bg-white font-mono text-sm" 
+                                  value={s.monetary_value_per_point}
+                                  onChange={(e) => handleEditSetting(plan, curr, cycle as any, 'monetary_value_per_point', parseFloat(e.target.value) || 0)}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-[9px] uppercase font-bold text-gray-400 tracking-tighter">Max Payouts</Label>
+                                <Input 
+                                  type="number" 
+                                  className="h-9 bg-white text-sm" 
+                                  value={s.max_commissions_per_school}
+                                  onChange={(e) => handleEditSetting(plan, curr, cycle as any, 'max_commissions_per_school', parseInt(e.target.value) || 1)}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                         );
+                      })}
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
               </CardContent>
             </Card>
           ))}
+          
+          {canManageSettings && hasUnsavedChanges && (
+            <div className="fixed bottom-8 right-8 animate-in fade-in slide-in-from-bottom-4">
+              <Card className="shadow-2xl border-indigo-200">
+                <CardContent className="p-4 flex items-center gap-4">
+                  <div className="text-sm">
+                    <p className="font-bold text-indigo-900">Unsaved Changes</p>
+                    <p className="text-gray-500">You have modified commission rates.</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => setPendingSettings(settings)}>Discard</Button>
+                    <Button size="sm" className="bg-indigo-600" onClick={handleSaveChanges} disabled={isSaving}>
+                      {isSaving ? "Saving..." : "Save Now"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -53,54 +53,114 @@ export default function ExamsScreen({ navigation }: any) {
     setRefreshing(false);
   };
 
-  const renderExam = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={styles.examCard}
-      onPress={() => navigation.navigate('TakeExam', { scheduleId: item.id })}
-    >
-      <View style={styles.cardHeader}>
-        <View style={styles.titleContainer}>
-          <Text style={styles.examTitle}>{item.examTitle}</Text>
-          <Text style={styles.categoryText}>{item.categoryName || 'General Assessment'}</Text>
-        </View>
-        <View style={[styles.statusBadge, {
-          backgroundColor: item.status === 'scheduled' ? '#fef3c7' : '#dcfce7'
-        }]}>
-          <Text style={[styles.statusText, {
-            color: item.status === 'scheduled' ? '#d97706' : '#16a34a'
-          }]}>
-            {item.status === 'scheduled' ? 'Coming Soon' : 'Available'}
-          </Text>
-        </View>
-      </View>
+  const renderExam = ({ item }: { item: any }) => {
+    const isPast = item.isExpired || item.isCompleted;
+    const isScheduled = item.status === 'scheduled';
+    const isInProgress = item.status === 'in_progress';
 
-      <View style={styles.divider} />
+    let badgeColor = '#f1f5f9';
+    let badgeTextColor = '#475569';
+    let badgeLabel = item.status.toUpperCase();
 
-      <View style={styles.detailsGrid}>
-        <View style={styles.detailItem}>
-          <MaterialCommunityIcons name="clock-outline" size={16} color="#64748b" />
-          <Text style={styles.detailText}>{item.durationMinutes} mins</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <MaterialCommunityIcons name="calendar-clock" size={16} color="#64748b" />
-          <Text style={styles.detailText}>{formatDate(item.scheduledDate)}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <MaterialCommunityIcons name="help-circle-outline" size={16} color="#64748b" />
-          <Text style={styles.detailText}>{item.questionCount || 0} Questions</Text>
-        </View>
-      </View>
+    switch (item.status) {
+      case 'scheduled':
+        badgeColor = '#fef3c7';
+        badgeTextColor = '#d97706';
+        badgeLabel = 'SURE SOON';
+        break;
+      case 'in_progress':
+        badgeColor = '#e0e7ff';
+        badgeTextColor = '#4f46e5';
+        badgeLabel = 'IN PROGRESS';
+        break;
+      case 'completed':
+        badgeColor = '#dcfce7';
+        badgeTextColor = '#16a34a';
+        badgeLabel = 'COMPLETED';
+        break;
+      case 'failed':
+        badgeColor = '#fee2e2';
+        badgeTextColor = '#dc2626';
+        badgeLabel = 'FAILED';
+        break;
+      case 'expired':
+        badgeColor = '#f1f5f9';
+        badgeTextColor = '#64748b';
+        badgeLabel = 'EXPIRED';
+        break;
+      case 'disqualified':
+        badgeColor = '#000';
+        badgeTextColor = '#fff';
+        badgeLabel = 'DISQUALIFIED';
+        break;
+      case 'pending_grading':
+        badgeColor = '#fef3c7';
+        badgeTextColor = '#d97706';
+        badgeLabel = 'PENDING GRADING';
+        break;
+    }
 
-      <View style={styles.footer}>
-        <View style={[styles.typeTag, { backgroundColor: item.isCompetition ? '#fce7f3' : '#e0e7ff' }]}>
-          <Text style={[styles.typeTagText, { color: item.isCompetition ? '#db2777' : '#4f46e5' }]}>
-            {getExamLabel(!!item.isCompetition)}
-          </Text>
+    // Override label for coming soon if date is in future
+    if (isScheduled) {
+      badgeLabel = 'Coming Soon';
+    } else if (item.status === 'scheduled' || item.status === 'in_progress') {
+      badgeLabel = 'Available';
+      badgeColor = '#dcfce7';
+      badgeTextColor = '#16a34a';
+    }
+
+    return (
+      <TouchableOpacity
+        style={[styles.examCard, isPast && { opacity: 0.8 }]}
+        onPress={() => {
+          if (isPast) {
+            alert(`This exam has ${item.isExpired ? 'expired' : 'been completed'}.`);
+            return;
+          }
+          navigation.navigate('TakeExam', { scheduleId: item.id });
+        }}
+        disabled={isPast}
+      >
+        <View style={styles.cardHeader}>
+          <View style={styles.titleContainer}>
+            <Text style={styles.examTitle}>{item.examTitle}</Text>
+            <Text style={styles.categoryText}>{item.categoryName || 'General Assessment'}</Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: badgeColor }]}>
+            <Text style={[styles.statusText, { color: badgeTextColor }]}>
+              {badgeLabel}
+            </Text>
+          </View>
         </View>
-        <MaterialCommunityIcons name="chevron-right" size={20} color="#94a3b8" />
-      </View>
-    </TouchableOpacity>
-  );
+
+        <View style={styles.divider} />
+
+        <View style={styles.detailsGrid}>
+          <View style={styles.detailItem}>
+            <MaterialCommunityIcons name="clock-outline" size={16} color="#64748b" />
+            <Text style={styles.detailText}>{item.durationMinutes} mins</Text>
+          </View>
+          <View style={styles.detailItem}>
+            <MaterialCommunityIcons name="calendar-clock" size={16} color="#64748b" />
+            <Text style={styles.detailText}>{formatDate(item.scheduledDate)}</Text>
+          </View>
+          <View style={styles.detailItem}>
+            <MaterialCommunityIcons name="help-circle-outline" size={16} color="#64748b" />
+            <Text style={styles.detailText}>{item.questionCount || 0} Questions</Text>
+          </View>
+        </View>
+
+        <View style={styles.footer}>
+          <View style={[styles.typeTag, { backgroundColor: item.isCompetition ? '#fce7f3' : '#e0e7ff' }]}>
+            <Text style={[styles.typeTagText, { color: item.isCompetition ? '#db2777' : '#4f46e5' }]}>
+              {getExamLabel(!!item.isCompetition)}
+            </Text>
+          </View>
+          {!isPast && <MaterialCommunityIcons name="chevron-right" size={20} color="#94a3b8" />}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const styles = StyleSheet.create({
     container: {

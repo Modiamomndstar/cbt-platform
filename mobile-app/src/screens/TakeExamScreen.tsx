@@ -458,6 +458,16 @@ export default function TakeExamScreen({ route, navigation }: any) {
       if (response.data.success) {
         const exam = response.data.data.find((e: any) => e.id === scheduleId);
         if (exam) {
+          // Security check: If exam is expired or completed, don't allow starting
+          if (exam.isExpired || exam.isCompleted) {
+            Alert.alert(
+              'Exam Unavailable',
+              `This exam has ${exam.isExpired ? 'expired' : 'been completed'}.`,
+              [{ text: 'OK', onPress: () => navigation.goBack() }]
+            );
+            return;
+          }
+
           setExamData(exam);
 
           // Load questions
@@ -537,7 +547,10 @@ export default function TakeExamScreen({ route, navigation }: any) {
         isAuto ? 'Exam Auto-Submitted' : 'Exam Submitted',
         isAuto ? 'The exam was auto-submitted due to time expiry or security violation.' : 'Your exam has been submitted successfully!',
         [
-          { text: 'View Results', onPress: () => navigation.navigate('Results') },
+          { 
+            text: user?.isExternal ? 'Back to Exams' : 'View Results', 
+            onPress: () => navigation.navigate(user?.isExternal ? 'Exams' : 'Results') 
+          },
         ]
       );
     } catch (error: any) {
@@ -555,7 +568,10 @@ export default function TakeExamScreen({ route, navigation }: any) {
           Alert.alert(
             'Offline Submission',
             'You are currently offline. Your exam has been saved locally and will be synced automatically when your connection is restored.',
-            [{ text: 'View History', onPress: () => navigation.navigate('Results') }]
+            [{ 
+              text: user?.isExternal ? 'Back to Exams' : 'View History', 
+              onPress: () => navigation.navigate(user?.isExternal ? 'Exams' : 'Results') 
+            }]
           );
         } catch (storageErr) {
           Alert.alert('Submission Error', 'Failed to save exam locally. Please try submitting again when you have a connection.');

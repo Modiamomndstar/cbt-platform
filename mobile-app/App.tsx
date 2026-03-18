@@ -6,7 +6,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ThemeProvider } from './src/context/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, TouchableOpacity } from 'react-native';
 
 // Screens
 import LoginScreen from './src/screens/LoginScreen';
@@ -53,7 +53,7 @@ function TabNavigator() {
 }
 
 function Navigation() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, logout } = useAuth();
 
   if (isLoading) {
     return (
@@ -67,6 +67,45 @@ function Navigation() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {!user ? (
         <Stack.Screen name="Login" component={LoginScreen} />
+      ) : user.isExternal ? (
+        <>
+          <Stack.Screen 
+            name="Exams" 
+            component={ExamsScreen} 
+            options={{ 
+              headerShown: true, 
+              title: 'My Exams',
+              headerStyle: { backgroundColor: '#4f46e5' },
+              headerTintColor: '#fff',
+              headerRight: () => (
+                <TouchableOpacity onPress={logout} style={{ marginRight: 15 }}>
+                  <MaterialCommunityIcons name="logout" size={24} color="#fff" />
+                </TouchableOpacity>
+              )
+            }} 
+          />
+          <Stack.Screen
+            name="TakeExam"
+            component={TakeExamScreen}
+            options={{
+              headerShown: true,
+              title: 'Ongoing Exam',
+              headerStyle: { backgroundColor: '#ef4444' },
+              headerTintColor: '#fff',
+              headerLeft: () => null
+            }}
+          />
+          <Stack.Screen
+            name="ResultDetail"
+            component={ResultDetailScreen}
+            options={{
+              headerShown: true,
+              title: 'Result Analysis',
+              headerStyle: { backgroundColor: '#4f46e5' },
+              headerTintColor: '#fff'
+            }}
+          />
+        </>
       ) : (
         <>
           <Stack.Screen name="Main" component={TabNavigator} />
