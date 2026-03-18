@@ -113,8 +113,16 @@ export default function CommissionsManagement() {
       // Find what actually changed compared to original 'settings'
       const changed = pendingSettings.filter(ps => {
         const original = settings.find(s => s.plan_type === ps.plan_type && s.currency === ps.currency && s.billing_cycle === ps.billing_cycle);
+        
         if (!original) return true; // New record
-        return JSON.stringify(ps) !== JSON.stringify(original);
+        
+        // Detailed comparison to handle string vs number issues from DB
+        return (
+          String(ps.points_within_30_days) !== String(original.points_within_30_days) ||
+          String(ps.points_after_30_days) !== String(original.points_after_30_days) ||
+          String(ps.monetary_value_per_point) !== String(original.monetary_value_per_point) ||
+          String(ps.max_commissions_per_school) !== String(original.max_commissions_per_school)
+        );
       });
 
       if (changed.length === 0) {
@@ -123,13 +131,21 @@ export default function CommissionsManagement() {
         return;
       }
 
-      // Save sequentially
+      // Save sequentially to avoid race conditions on the same unique constraint
       for (const item of changed) {
-        await commissionsAPI.updateSettings(item);
+        // Sanitize: ensure numbers are numbers
+        const payload = {
+          ...item,
+          points_within_30_days: parseInt(String(item.points_within_30_days)) || 0,
+          points_after_30_days: parseInt(String(item.points_after_30_days)) || 0,
+          monetary_value_per_point: parseFloat(String(item.monetary_value_per_point)) || 0,
+          max_commissions_per_school: parseInt(String(item.max_commissions_per_school)) || 1
+        };
+        await commissionsAPI.updateSettings(payload);
       }
 
       toast.success(`${changed.length} settings updated successfully`);
-      fetchData();
+      await fetchData(); // Await the re-fetch to ensure UI updates with fresh DB data
     } catch (error) {
       console.error("Save error:", error);
       toast.error('Failed to save some settings');
@@ -138,7 +154,17 @@ export default function CommissionsManagement() {
     }
   };
 
-  const hasUnsavedChanges = JSON.stringify(settings) !== JSON.stringify(pendingSettings);
+  // Compare arrays for unsaved changes indicator
+  const hasUnsavedChanges = settings.length !== pendingSettings.length || pendingSettings.some(ps => {
+    const original = settings.find(s => s.plan_type === ps.plan_type && s.currency === ps.currency && s.billing_cycle === ps.billing_cycle);
+    if (!original) return true;
+    return (
+      String(ps.points_within_30_days) !== String(original.points_within_30_days) ||
+      String(ps.points_after_30_days) !== String(original.points_after_30_days) ||
+      String(ps.monetary_value_per_point) !== String(original.monetary_value_per_point) ||
+      String(ps.max_commissions_per_school) !== String(original.max_commissions_per_school)
+    );
+  });
 
   return (
     <div className="space-y-6">

@@ -5,6 +5,7 @@ import { ApiResponseHandler } from "../utils/apiResponse";
 import { body, param, query } from "express-validator";
 import { validate } from "../middleware/validation";
 import { logStaffActivity } from "../utils/auditLogger";
+import { logger } from "../utils/logger";
 
 const router = Router();
 
@@ -16,9 +17,24 @@ router.use(authenticate);
 // Get all commission settings
 router.get("/settings", requireFinanceAccess, async (req, res) => {
   try {
-    const result = await db.query("SELECT * FROM commission_settings ORDER BY id ASC");
+    const result = await db.query(`
+      SELECT 
+        id, 
+        plan_type, 
+        currency, 
+        billing_cycle,
+        points_within_30_days::int as points_within_30_days,
+        points_after_30_days::int as points_after_30_days,
+        monetary_value_per_point::float as monetary_value_per_point,
+        max_commissions_per_school::int as max_commissions_per_school,
+        created_at,
+        updated_at
+      FROM commission_settings 
+      ORDER BY id ASC
+    `);
     ApiResponseHandler.success(res, result.rows, "Commission settings retrieved");
   } catch (error) {
+    logger.error("Get settings error:", error);
     ApiResponseHandler.serverError(res, "Failed to retrieve settings");
   }
 });
@@ -37,6 +53,8 @@ router.post("/settings",
   ],
   async (req: Request, res: Response) => {
     try {
+      logger.info(`Updating commission setting for ${req.body.plan_type} ${req.body.currency} (${req.body.billing_cycle})`);
+      
       const { 
         plan_type, 
         currency, 
@@ -47,6 +65,12 @@ router.post("/settings",
         max_commissions_per_school
       } = req.body;
       
+      // Sanitization: Ensure they are numbers
+      const p30 = parseInt(String(points_within_30_days)) || 0;
+      const pStd = parseInt(String(points_after_30_days)) || 0;
+      const mVal = parseFloat(String(monetary_value_per_point)) || 0;
+      const mLimit = parseInt(String(max_commissions_per_school)) || 1;
+
       const result = await db.query(
         `INSERT INTO commission_settings (
           plan_type, 
@@ -69,20 +93,22 @@ router.post("/settings",
           plan_type, 
           currency, 
           billing_cycle,
-          points_within_30_days, 
-          points_after_30_days, 
-          monetary_value_per_point,
-          max_commissions_per_school || 1
+          p30, 
+          pStd, 
+          mVal, 
+          mLimit
         ]
       );
 
+      logger.info(`Commission setting saved: ID ${result.rows[0].id}`);
+
       await logStaffActivity(req, 'update_commission_settings', {
-        details: req.body
+        details: { ...req.body, saved_id: result.rows[0].id }
       });
 
       ApiResponseHandler.success(res, result.rows[0], "Commission settings updated");
     } catch (error) {
-      console.error("Update settings error:", error);
+      logger.error("Update settings error:", error);
       ApiResponseHandler.serverError(res, "Failed to update settings");
     }
   }
