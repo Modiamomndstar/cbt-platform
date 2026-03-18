@@ -31,13 +31,13 @@ interface Commission {
 
 interface CommissionSetting {
   id?: string;
-  plan_type: string;
+  planType: string;
   currency: string;
-  billing_cycle: 'monthly' | 'yearly';
-  points_within_30_days: number;
-  points_after_30_days: number;
-  monetary_value_per_point: number;
-  max_commissions_per_school: number;
+  billingCycle: 'monthly' | 'yearly';
+  pointsWithin30Days: number;
+  pointsAfter30Days: number;
+  monetaryValuePerPoint: number;
+  maxCommissionsPerSchool: number;
 }
 
 export default function CommissionsManagement() {
@@ -82,9 +82,9 @@ export default function CommissionsManagement() {
     }
   };
 
-  const handleEditSetting = (planType: string, currency: string, billingCycle: 'monthly' | 'yearly', field: string, value: any) => {
+  const handleEditSetting = (planType: string, currency: string, billingCycle: 'monthly' | 'yearly', field: keyof CommissionSetting, value: any) => {
     setPendingSettings(prev => {
-      const existingIdx = prev.findIndex(s => s.plan_type === planType && s.currency === currency && s.billing_cycle === billingCycle);
+      const existingIdx = prev.findIndex(s => s.planType === planType && s.currency === currency && s.billingCycle === billingCycle);
       
       if (existingIdx > -1) {
         const updated = [...prev];
@@ -93,13 +93,13 @@ export default function CommissionsManagement() {
       } else {
         // Create default if not found
         const newSetting: CommissionSetting = {
-          plan_type: planType,
+          planType,
           currency,
-          billing_cycle: billingCycle,
-          points_within_30_days: 0,
-          points_after_30_days: 0,
-          monetary_value_per_point: 0,
-          max_commissions_per_school: 1,
+          billingCycle,
+          pointsWithin30Days: 0,
+          pointsAfter30Days: 0,
+          monetaryValuePerPoint: 0,
+          maxCommissionsPerSchool: 1,
           [field]: value
         };
         return [...prev, newSetting];
@@ -112,16 +112,16 @@ export default function CommissionsManagement() {
     try {
       // Find what actually changed compared to original 'settings'
       const changed = pendingSettings.filter(ps => {
-        const original = settings.find(s => s.plan_type === ps.plan_type && s.currency === ps.currency && s.billing_cycle === ps.billing_cycle);
+        const original = settings.find(s => s.planType === ps.planType && s.currency === ps.currency && s.billingCycle === ps.billingCycle);
         
         if (!original) return true; // New record
         
-        // Detailed comparison to handle string vs number issues from DB
+        // Detailed comparison using camelCase keys
         return (
-          String(ps.points_within_30_days) !== String(original.points_within_30_days) ||
-          String(ps.points_after_30_days) !== String(original.points_after_30_days) ||
-          String(ps.monetary_value_per_point) !== String(original.monetary_value_per_point) ||
-          String(ps.max_commissions_per_school) !== String(original.max_commissions_per_school)
+          String(ps.pointsWithin30Days) !== String(original.pointsWithin30Days) ||
+          String(ps.pointsAfter30Days) !== String(original.pointsAfter30Days) ||
+          String(ps.monetaryValuePerPoint) !== String(original.monetaryValuePerPoint) ||
+          String(ps.maxCommissionsPerSchool) !== String(original.maxCommissionsPerSchool)
         );
       });
 
@@ -133,13 +133,19 @@ export default function CommissionsManagement() {
 
       // Save sequentially to avoid race conditions on the same unique constraint
       for (const item of changed) {
-        // Sanitize: ensure numbers are numbers
+        // Sanitize: ensure numbers are numbers. 
+        // Note: The backend receives these and transforms them back to snake_case for the DB.
         const payload = {
           ...item,
-          points_within_30_days: parseInt(String(item.points_within_30_days)) || 0,
-          points_after_30_days: parseInt(String(item.points_after_30_days)) || 0,
-          monetary_value_per_point: parseFloat(String(item.monetary_value_per_point)) || 0,
-          max_commissions_per_school: parseInt(String(item.max_commissions_per_school)) || 1
+          // Re-mapping to snake_case for the backend validator/controller which might expect snake_case in body
+          // Actually, our backend POST /settings uses snake_case in the destructuring.
+          plan_type: item.planType,
+          currency: item.currency,
+          billing_cycle: item.billingCycle,
+          points_within_30_days: parseInt(String(item.pointsWithin30Days)) || 0,
+          points_after_30_days: parseInt(String(item.pointsAfter30Days)) || 0,
+          monetary_value_per_point: parseFloat(String(item.monetaryValuePerPoint)) || 0,
+          max_commissions_per_school: parseInt(String(item.maxCommissionsPerSchool)) || 1
         };
         await commissionsAPI.updateSettings(payload);
       }
@@ -156,13 +162,13 @@ export default function CommissionsManagement() {
 
   // Compare arrays for unsaved changes indicator
   const hasUnsavedChanges = settings.length !== pendingSettings.length || pendingSettings.some(ps => {
-    const original = settings.find(s => s.plan_type === ps.plan_type && s.currency === ps.currency && s.billing_cycle === ps.billing_cycle);
+    const original = settings.find(s => s.planType === ps.planType && s.currency === ps.currency && s.billingCycle === ps.billingCycle);
     if (!original) return true;
     return (
-      String(ps.points_within_30_days) !== String(original.points_within_30_days) ||
-      String(ps.points_after_30_days) !== String(original.points_after_30_days) ||
-      String(ps.monetary_value_per_point) !== String(original.monetary_value_per_point) ||
-      String(ps.max_commissions_per_school) !== String(original.max_commissions_per_school)
+      String(ps.pointsWithin30Days) !== String(original.pointsWithin30Days) ||
+      String(ps.pointsAfter30Days) !== String(original.pointsAfter30Days) ||
+      String(ps.monetaryValuePerPoint) !== String(original.monetaryValuePerPoint) ||
+      String(ps.maxCommissionsPerSchool) !== String(original.maxCommissionsPerSchool)
     );
   });
 
@@ -306,14 +312,14 @@ export default function CommissionsManagement() {
                       </div>
 
                       {['monthly', 'yearly'].map((cycle) => {
-                         const s = pendingSettings.find(st => st.plan_type === plan && st.currency === curr && st.billing_cycle === cycle) || {
-                            plan_type: plan,
+                         const s = pendingSettings.find(st => st.planType === plan && st.currency === curr && st.billingCycle === cycle) || {
+                            planType: plan,
                             currency: curr,
-                            billing_cycle: cycle as any,
-                            points_within_30_days: 0,
-                            points_after_30_days: 0,
-                            monetary_value_per_point: 0,
-                            max_commissions_per_school: 1
+                            billingCycle: cycle as any,
+                            pointsWithin30Days: 0,
+                            pointsAfter30Days: 0,
+                            monetaryValuePerPoint: 0,
+                            maxCommissionsPerSchool: 1
                           } as CommissionSetting;
 
                          return (
@@ -330,8 +336,8 @@ export default function CommissionsManagement() {
                                 <Input 
                                   type="number" 
                                   className="h-9 bg-white text-sm" 
-                                  value={s.points_within_30_days}
-                                  onChange={(e) => handleEditSetting(plan, curr, cycle as any, 'points_within_30_days', parseInt(e.target.value) || 0)}
+                                  value={s.pointsWithin30Days}
+                                  onChange={(e) => handleEditSetting(plan, curr, cycle as any, 'pointsWithin30Days', e.target.value)}
                                 />
                               </div>
                               <div className="space-y-1">
@@ -339,8 +345,8 @@ export default function CommissionsManagement() {
                                 <Input 
                                   type="number" 
                                   className="h-9 bg-white text-sm" 
-                                  value={s.points_after_30_days}
-                                  onChange={(e) => handleEditSetting(plan, curr, cycle as any, 'points_after_30_days', parseInt(e.target.value) || 0)}
+                                  value={s.pointsAfter30Days}
+                                  onChange={(e) => handleEditSetting(plan, curr, cycle as any, 'pointsAfter30Days', e.target.value)}
                                 />
                               </div>
                               <div className="space-y-1">
@@ -348,8 +354,8 @@ export default function CommissionsManagement() {
                                 <Input 
                                   type="number" 
                                   className="h-9 bg-white font-mono text-sm" 
-                                  value={s.monetary_value_per_point}
-                                  onChange={(e) => handleEditSetting(plan, curr, cycle as any, 'monetary_value_per_point', parseFloat(e.target.value) || 0)}
+                                  value={s.monetaryValuePerPoint}
+                                  onChange={(e) => handleEditSetting(plan, curr, cycle as any, 'monetaryValuePerPoint', e.target.value)}
                                 />
                               </div>
                               <div className="space-y-1">
@@ -357,8 +363,8 @@ export default function CommissionsManagement() {
                                 <Input 
                                   type="number" 
                                   className="h-9 bg-white text-sm" 
-                                  value={s.max_commissions_per_school}
-                                  onChange={(e) => handleEditSetting(plan, curr, cycle as any, 'max_commissions_per_school', parseInt(e.target.value) || 1)}
+                                  value={s.maxCommissionsPerSchool}
+                                  onChange={(e) => handleEditSetting(plan, curr, cycle as any, 'maxCommissionsPerSchool', e.target.value)}
                                 />
                               </div>
                             </div>
