@@ -72,9 +72,25 @@ export const scheduleAPI = {
     api.post('/schedules/verify-access', { scheduleId, accessCode }),
 };
 
-// Exam API
 export const examAPI = {
   getQuestions: (examId: string) => api.get(`/questions/exam/${examId}`),
+  getSecurityStatus: (scheduleId: string) => 
+    api.get(`/exams/security/session-status/${scheduleId}`),
+  recordViolation: (data: { scheduleId: string; violationType: string; metadata?: any }) => 
+    api.post("/exams/security/violation", data),
+  uploadIdentitySnapshot: (scheduleId: string, imageUri: string) => {
+    const formData = new FormData();
+    formData.append('scheduleId', scheduleId);
+    // @ts-ignore
+    formData.append('image', {
+      uri: imageUri,
+      name: `identity_${scheduleId}.jpg`,
+      type: 'image/jpeg',
+    });
+    return api.post("/exams/security/identity-snapshot", formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
 };
 
 // Result API

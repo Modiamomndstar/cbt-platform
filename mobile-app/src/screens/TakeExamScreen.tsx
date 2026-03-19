@@ -1,16 +1,32 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Modal, AppState, AppStateStatus, Platform } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
+  TouchableOpacity, 
+  Alert, 
+  ActivityIndicator, 
+  Modal, 
+  AppState, 
+  AppStateStatus, 
+  Platform,
+  Image
+} from 'react-native';
+import { CameraView, Camera } from 'expo-camera';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { scheduleAPI, examAPI, resultAPI } from '../services/api';
 import { getRulesTitle, getExamLabel, formatTime } from '../lib/utils';
 import { getImageUrl } from '../lib/imageUtils';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Image } from 'react-native';
 
 export default function TakeExamScreen({ route, navigation }: any) {
   const { scheduleId } = route.params;
   const { colors, spacing } = useTheme();
+  const { user } = useAuth();
 
   const styles = StyleSheet.create({
     container: {
@@ -260,10 +276,72 @@ export default function TakeExamScreen({ route, navigation }: any) {
       alignItems: 'center',
     },
     proceedBtn: {
-      backgroundColor: '#4f46e5',
-      padding: spacing.md,
-      borderRadius: 12,
       alignItems: 'center',
+    },
+    cameraContainer: {
+      flex: 1,
+      backgroundColor: '#000',
+    },
+    camera: {
+      flex: 1,
+    },
+    cameraOverlay: {
+      flex: 1,
+      justifyContent: 'space-between',
+      padding: spacing.xl,
+    },
+    cameraTop: {
+      alignItems: 'center',
+      marginTop: 40,
+    },
+    cameraTitle: {
+      color: '#fff',
+      fontSize: 20,
+      fontWeight: 'bold',
+      marginBottom: 8,
+    },
+    cameraSubtitle: {
+      color: '#cbd5e1',
+      fontSize: 14,
+      textAlign: 'center',
+    },
+    cameraBottom: {
+      alignItems: 'center',
+      marginBottom: 40,
+    },
+    captureBtn: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: '#fff',
+      borderWidth: 6,
+      borderColor: 'rgba(255,255,255,0.3)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    previewImage: {
+      flex: 1,
+      resizeMode: 'cover',
+    },
+    previewActions: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: spacing.lg,
+      padding: spacing.xl,
+      backgroundColor: '#fff',
+    },
+    previewBtn: {
+      paddingHorizontal: spacing.xl,
+      paddingVertical: spacing.md,
+      borderRadius: 12,
+      minWidth: 120,
+      alignItems: 'center',
+    },
+    retakeBtn: {
+      backgroundColor: '#f1f5f9',
+    },
+    verifyBtn: {
+      backgroundColor: '#4f46e5',
     },
   });
 
@@ -281,7 +359,12 @@ export default function TakeExamScreen({ route, navigation }: any) {
   const [appState, setAppState] = useState(AppState.currentState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [outboxSyncing, setOutboxSyncing] = useState(false);
+  const [identityVerified, setIdentityVerified] = useState(false);
+  const [isUploadingIdentity, setIsUploadingIdentity] = useState(false);
+  const [cameraPermission, setCameraPermission] = useState<boolean | null>(null);
+  const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const violationsRef = useRef<any[]>([]);
+  const cameraRef = useRef<any>(null);
 
   // Update ref when violations state changes
   useEffect(() => {
@@ -408,50 +491,60 @@ export default function TakeExamScreen({ route, navigation }: any) {
     return () => subscription.remove();
   }, [examStarted, examData]);
 
-  const handleAppStateChange = (nextAppState: AppStateStatus) => {
+  const handleAppStateChange = async (nextAppState: AppStateStatus) => {
     // Detect background/inactive transitions (Android/iOS)
     const isLeaving = (appState === 'active') && (nextAppState === 'background' || nextAppState === 'inactive');
     
-    if (isLeaving) {
+    setAppState(nextAppState); // Always update current state
+
+    if (isLeaving && examStarted && examData?.isSecureMode) {
       const violation = {
         type: 'app_switch',
         timestamp: new Date().toISOString(),
         message: 'Student left the examination application'
       };
 
+      // 1. Update local UI
       const newViolations = [...violationsRef.current, violation];
       setViolations(newViolations);
 
       const maxAllowed = examData?.maxViolations || 3;
       const currentCount = newViolations.length;
 
-      if (currentCount >= maxAllowed) {
-        // Final violation: Auto-submit IMMEDIATELY
-        console.log(`[AntiCheating] Final violation ${currentCount}/${maxAllowed}. Auto-submitting...`);
-        
-        // We use a small timeout to ensure the state updates or logs can be processed, 
-        // but we don't wait for user interaction.
-        setTimeout(() => executeSubmission(true), 100);
+      // 2. Report to Backend
+      try {
+        const response = await examAPI.recordViolation({
+          scheduleId: scheduleId,
+          violationType: 'app_switch',
+          metadata: { message: violation.message }
+        });
 
-        Alert.alert(
-          'Security Violation',
-          'You have reached the maximum number of security violations. Your exam has been auto-submitted.',
-          [{ text: 'OK' }]
-        );
+        if (response.data.success) {
+           const { isDisqualified } = response.data.data;
+           if (isDisqualified) {
+             Alert.alert('Security Violation', 'Maximum violations reached. Your exam is being auto-submitted.');
+             executeSubmission(true);
+             return;
+           }
+        }
+      } catch (err) {
+        console.error('Failed to report violation to server:', err);
+      }
+
+      // Fallback for local state warning (if API fails or is slow)
+      if (currentCount >= maxAllowed) {
+        setTimeout(() => executeSubmission(true), 100);
+        Alert.alert('Security Violation', 'Maximum violations reached. Your exam has been auto-submitted.');
       } else {
-        // Warning violation
-        console.log(`[AntiCheating] Violation ${currentCount}/${maxAllowed}`);
         Alert.alert(
           'Security Warning',
-          `Violation ${currentCount}/${maxAllowed}: Do not leave the app during the exam. ${maxAllowed - currentCount} attempts remaining.`,
+          `Violation ${currentCount}/${maxAllowed}: Do not leave the app. ${maxAllowed - currentCount} attempts remaining.`,
           [{ text: 'I Understand', style: 'default' }]
         );
       }
     }
-    
-    setAppState(nextAppState);
   };
-
+    
   const loadExam = async () => {
     try {
       const response = await scheduleAPI.getMyExams();
@@ -484,6 +577,30 @@ export default function TakeExamScreen({ route, navigation }: any) {
       Alert.alert('Error', 'Failed to load exam');
     } finally {
       setLoading(false);
+
+      try {
+        const statusRes = await examAPI.getSecurityStatus(scheduleId);
+        if (statusRes.data.success) {
+           const { isDisqualified, identitySnapshotUrl } = statusRes.data.data;
+           if (isDisqualified) {
+             Alert.alert("Security Check", "This session is disqualified.");
+             navigation.goBack();
+             return;
+           }
+           if (identitySnapshotUrl) {
+             setIdentityVerified(true);
+           }
+        }
+      } catch (e) {
+        console.warn("Security status sync failed");
+      }
+
+      // Check for camera permission if secure mode
+      if (examData?.isSecureMode) {
+        const { status } = await Camera.requestCameraPermissionsAsync();
+        setCameraPermission(status === 'granted');
+      }
+
       // Check for resumable session after loading exam
       loadProgress();
     }
@@ -524,6 +641,7 @@ export default function TakeExamScreen({ route, navigation }: any) {
   };
 
   const executeSubmission = async (isAuto: boolean) => {
+    if (!examData) return;
     const timeSpent = examData.durationMinutes * 60 - timeLeft;
     const payload = {
       scheduleId,
@@ -585,7 +703,7 @@ export default function TakeExamScreen({ route, navigation }: any) {
     }
   };
 
-  const formatTime = (seconds: number) => {
+  const formatTimeLocal = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
@@ -594,6 +712,105 @@ export default function TakeExamScreen({ route, navigation }: any) {
   const selectAnswer = (questionId: string, answer: string) => {
     setAnswers((prev) => ({ ...prev, [questionId]: answer }));
   };
+
+  const handleCaptureIdentity = async () => {
+    if (cameraRef.current) {
+      try {
+        const photo = await cameraRef.current.takePictureAsync({ quality: 0.7 });
+        setCapturedUri(photo.uri);
+      } catch (e) {
+        Alert.alert('Error', 'Failed to capture photo');
+      }
+    }
+  };
+
+  const handleUploadIdentity = async () => {
+    if (!capturedUri) return;
+    try {
+      setIsUploadingIdentity(true);
+      
+      // Resize to save bandwidth
+      const manipulated = await ImageManipulator.manipulateAsync(
+        capturedUri,
+        [{ resize: { width: 640 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
+      const response = await examAPI.uploadIdentitySnapshot(scheduleId, manipulated.uri);
+      
+      if (response.data.success) {
+        setIdentityVerified(true);
+        Alert.alert('Success', 'Identity verified successfully!');
+      }
+    } catch (error) {
+       console.error('Identity upload error:', error);
+       Alert.alert('Error', 'Failed to verify identity. Please try again.');
+    } finally {
+      setIsUploadingIdentity(false);
+    }
+  };
+
+  if (examData?.isSecureMode && !identityVerified) {
+    if (cameraPermission === false) {
+      return (
+        <View style={styles.startContainer}>
+          <MaterialCommunityIcons name="camera-off" size={64} color="#ef4444" style={{ alignSelf: 'center' }} />
+          <Text style={styles.examTitle}>Camera Required</Text>
+          <Text style={styles.infoText}>This is a secure exam and requires camera access for identity verification. Please enable camera permissions in your settings.</Text>
+          <TouchableOpacity style={[styles.launchBtn, { marginTop: 24 }]} onPress={() => navigation.goBack()}>
+            <Text style={styles.launchBtnText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (capturedUri) {
+      return (
+        <View style={{ flex: 1 }}>
+          <Image source={{ uri: capturedUri || undefined }} style={styles.previewImage} />
+          <View style={styles.previewActions}>
+            <TouchableOpacity 
+              style={[styles.previewBtn, styles.retakeBtn]} 
+              onPress={() => setCapturedUri(null)}
+              disabled={isUploadingIdentity}
+            >
+              <Text style={{ color: '#475569', fontWeight: 'bold' }}>Retake</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.previewBtn, styles.verifyBtn]} 
+              onPress={handleUploadIdentity}
+              disabled={isUploadingIdentity}
+            >
+              {isUploadingIdentity ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={{ color: '#fff', fontWeight: 'bold' }}>Verify & Continue</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.cameraContainer}>
+        <CameraView style={styles.camera} facing="front" ref={cameraRef}>
+          <View style={styles.cameraOverlay}>
+             <View style={styles.cameraTop}>
+                <Text style={styles.cameraTitle}>Identity Verification</Text>
+                <Text style={styles.cameraSubtitle}>Position your face in the center of the frame</Text>
+             </View>
+             
+             <View style={styles.cameraBottom}>
+                <TouchableOpacity style={styles.captureBtn} onPress={handleCaptureIdentity}>
+                   <MaterialCommunityIcons name="camera" size={32} color="#4f46e5" />
+                </TouchableOpacity>
+             </View>
+          </View>
+        </CameraView>
+      </View>
+    );
+  }
 
   if (loading) {
     return (
@@ -632,39 +849,67 @@ export default function TakeExamScreen({ route, navigation }: any) {
             <Text style={styles.infoTitle}>EXAMINATION RULES</Text>
             <Text style={styles.infoText}>
               • Ensure a stable internet connection.{'\n'}
-              • Do not minimize or switch the application.{'\n'}
-              • Results available immediately after submission.{'\n'}
-              {examData?.isSecureMode && '• SECURE MODE: App switching is strictly forbidden.'}
+              • Do not minimize or leave this application.{'\n'}
+              • Your progress is auto-saved locally.{'\n'}
+              • Security violations will be recorded and may lead to disqualification.
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.launchBtn} onPress={startExam}>
-            <Text style={styles.launchBtnText}>Launch {isCompetition ? 'Competition' : 'Assessment'}</Text>
+          <TouchableOpacity
+            style={styles.launchBtn}
+            onPress={() => setShowRules(true)}
+          >
+            <Text style={styles.launchBtnText}>Start Examination</Text>
           </TouchableOpacity>
         </View>
 
-        <Modal visible={showRules && !!examData} transparent={true} animationType="fade">
+        <Modal
+          visible={showRules}
+          transparent={true}
+          animationType="slide"
+        >
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>{getRulesTitle(isCompetition)}</Text>
+              
               <ScrollView style={styles.rulesScroll}>
-                 <Text style={styles.rulesText}>
-                   {examData?.competitionRules || "Please ensure you have a stable internet connection. All activities are monitored for security."}
-                 </Text>
+                <Text style={styles.rulesText}>
+                  1. You must not receive assistance from anyone.{'\n'}
+                  2. All your activities will be monitored.{'\n'}
+                  3. Switching apps or minimizing will be flagged.{'\n'}
+                  4. The exam will end automatically once the timer expires.{'\n'}
+                  5. Ensure you have submitted all answers before leaving.
+                </Text>
               </ScrollView>
-              <TouchableOpacity style={styles.agreeRow} onPress={() => setAcceptedRules(!acceptedRules)}>
-                 <View style={[styles.checkbox, acceptedRules && { backgroundColor: '#4f46e5' }]}>
-                   {acceptedRules && <MaterialCommunityIcons name="check" size={16} color="#fff" />}
-                 </View>
-                 <Text style={{ color: '#4b5563' }}>I understand and agree to the rules</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.proceedBtn, !acceptedRules && { opacity: 0.5 }]}
-                disabled={!acceptedRules}
-                onPress={() => setShowRules(false)}
-              >
-                <Text style={{ color: '#fff', fontWeight: 'bold' }}>Continue</Text>
-              </TouchableOpacity>
+
+              <View style={styles.agreeRow}>
+                <TouchableOpacity 
+                  style={[styles.checkbox, acceptedRules && { backgroundColor: '#4f46e5' }]}
+                  onPress={() => setAcceptedRules(!acceptedRules)}
+                >
+                  {acceptedRules && <MaterialCommunityIcons name="check" size={16} color="#fff" />}
+                </TouchableOpacity>
+                <Text style={{ fontSize: 13, color: '#4b5563' }}>I have read and agree to the rules</Text>
+              </View>
+
+              <View style={styles.footer}>
+                 <TouchableOpacity 
+                   style={[styles.navBtn, { flex: 1, backgroundColor: '#f1f5f9' }]} 
+                   onPress={() => setShowRules(false)}
+                 >
+                    <Text style={{ color: '#475569', fontWeight: 'bold' }}>Cancel</Text>
+                 </TouchableOpacity>
+                 <TouchableOpacity 
+                   style={[styles.navBtn, { flex: 2, backgroundColor: acceptedRules ? '#4f46e5' : '#cbd5e1' }, !acceptedRules && { elevation: 0 }]}
+                   disabled={!acceptedRules}
+                   onPress={() => {
+                     setShowRules(false);
+                     startExam();
+                   }}
+                 >
+                    <Text style={{ color: '#fff', fontWeight: 'bold' }}>Begin Exam</Text>
+                 </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
@@ -672,88 +917,92 @@ export default function TakeExamScreen({ route, navigation }: any) {
     );
   }
 
-  const question = questions[currentQuestion];
-  const progress = ((currentQuestion + 1) / questions.length) * 100;
+  const currentQ = questions[currentQuestion];
+  const progressPercent = questions.length > 0 ? (Object.keys(answers).length / questions.length) * 100 : 0;
 
   return (
     <View style={styles.container}>
       <View style={styles.timerArea}>
-        <MaterialCommunityIcons name="clock-outline" size={20} color="#fff" />
-        <Text style={styles.timerText}>{formatTime(timeLeft)}</Text>
+        <MaterialCommunityIcons name="clock-outline" size={24} color="#fff" />
+        <Text style={styles.timerText}>{formatTimeLocal(timeLeft)}</Text>
       </View>
 
       <View style={styles.progressHeader}>
         <Text style={styles.progressText}>Question {currentQuestion + 1} of {questions.length}</Text>
         <View style={styles.progressBarBg}>
-          <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
+          <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
         </View>
+        <Text style={styles.progressText}>{Math.round(progressPercent)}%</Text>
       </View>
 
-      <ScrollView style={styles.questionScroll} contentContainerStyle={styles.questionContainer}>
-        <TouchableOpacity
-          style={[styles.flagBtn, { backgroundColor: flaggedQuestions.includes(question?.id) ? '#fef3c7' : '#f1f5f9' }]}
-          onPress={() => toggleFlag(question.id)}
-        >
-          <MaterialCommunityIcons
-            name={flaggedQuestions.includes(question?.id) ? "flag" : "flag-outline"}
-            size={18}
-            color={flaggedQuestions.includes(question?.id) ? "#d97706" : "#64748b"}
-          />
-          <Text style={{ marginLeft: 8, color: flaggedQuestions.includes(question?.id) ? "#d97706" : "#64748b", fontWeight: '600' }}>
-            {flaggedQuestions.includes(question?.id) ? 'FLAGGED FOR REVIEW' : 'FLAG THIS QUESTION'}
-          </Text>
-        </TouchableOpacity>
-
-        <Text style={styles.questionText}>{question?.questionText}</Text>
-
-        {question?.image_url && (
-          <Image
-            source={{ uri: getImageUrl(question.image_url) || '' }}
-            style={{ width: '100%', height: 200, borderRadius: 12, marginBottom: spacing.lg }}
-            resizeMode="contain"
-          />
-        )}
-
-        {question?.options?.map((option: string, index: number) => (
-          <TouchableOpacity
-            key={index}
-            style={[styles.option, answers[question.id] === option && styles.optionSelected]}
-            onPress={() => selectAnswer(question.id, option)}
-          >
-            <View style={[styles.optionLetter, answers[question.id] === option && styles.optionLetterSelected]}>
-              <Text style={[styles.optionLetterText, answers[question.id] === option && styles.optionLetterTextSelected]}>
-                {String.fromCharCode(65 + index)}
+      <ScrollView style={styles.questionScroll}>
+        <View style={styles.questionContainer}>
+           <TouchableOpacity 
+             style={[styles.flagBtn, flaggedQuestions.includes(currentQ?.id) && { backgroundColor: '#fee2e2' }]} 
+             onPress={() => toggleFlag(currentQ?.id)}
+           >
+              <MaterialCommunityIcons 
+                name={flaggedQuestions.includes(currentQ?.id) ? "flag" : "flag-outline"} 
+                size={20} 
+                color={flaggedQuestions.includes(currentQ?.id) ? "#ef4444" : "#94a3b8"} 
+              />
+              <Text style={{ marginLeft: 8, color: flaggedQuestions.includes(currentQ?.id) ? "#ef4444" : "#64748b", fontWeight: '600' }}>
+                {flaggedQuestions.includes(currentQ?.id) ? "Flagged" : "Flag for Review"}
               </Text>
-            </View>
-            <Text style={styles.optionText}>{option}</Text>
-          </TouchableOpacity>
-        ))}
+           </TouchableOpacity>
+
+           <Text style={styles.questionText}>{currentQ?.questionText}</Text>
+
+           {currentQ?.imageUrl && (
+             <Image source={{ uri: getImageUrl(currentQ.imageUrl) || undefined }} style={{ width: '100%', height: 200, borderRadius: 12, marginBottom: 20 }} resizeMode="contain" />
+           )}
+
+           {currentQ?.options?.map((opt: any, idx: number) => {
+              const letter = String.fromCharCode(65 + idx);
+              const isSelected = answers[currentQ.id] === opt;
+              return (
+                <TouchableOpacity 
+                  key={idx} 
+                  style={[styles.option, isSelected && styles.optionSelected]}
+                  onPress={() => selectAnswer(currentQ.id, opt)}
+                >
+                  <View style={[styles.optionLetter, isSelected && styles.optionLetterSelected]}>
+                    <Text style={[styles.optionLetterText, isSelected && styles.optionLetterTextSelected]}>{letter}</Text>
+                  </View>
+                  <Text style={styles.optionText}>{opt}</Text>
+                </TouchableOpacity>
+              )
+           })}
+        </View>
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.navBtn, styles.prevBtn, currentQuestion === 0 && { opacity: 0.5 }]}
-          onPress={() => setCurrentQuestion((prev) => Math.max(0, prev - 1))}
-          disabled={currentQuestion === 0}
-        >
-          <MaterialCommunityIcons name="chevron-left" size={20} color="#475569" />
-          <Text style={[styles.navBtnText, { color: '#475569' }]}>Back</Text>
-        </TouchableOpacity>
+         <TouchableOpacity 
+           style={[styles.navBtn, styles.prevBtn, currentQuestion === 0 && { opacity: 0.5 }]} 
+           disabled={currentQuestion === 0}
+           onPress={() => setCurrentQuestion(prev => prev - 1)}
+         >
+            <MaterialCommunityIcons name="chevron-left" size={24} color="#475569" />
+            <Text style={[styles.navBtnText, { color: '#475569' }]}>Prev</Text>
+         </TouchableOpacity>
 
-        {currentQuestion === questions.length - 1 ? (
-          <TouchableOpacity style={[styles.navBtn, styles.submitBtn]} onPress={() => submitExam()}>
-            <Text style={[styles.navBtnText, { color: '#fff' }]}>Submit Final</Text>
-            <MaterialCommunityIcons name="check-all" size={20} color="#fff" />
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={[styles.navBtn, styles.nextBtn]}
-            onPress={() => setCurrentQuestion((prev) => Math.min(questions.length - 1, prev + 1))}
-          >
-            <Text style={[styles.navBtnText, { color: '#fff' }]}>Next</Text>
-            <MaterialCommunityIcons name="chevron-right" size={20} color="#fff" />
-          </TouchableOpacity>
-        )}
+         {currentQuestion === questions.length - 1 ? (
+            <TouchableOpacity 
+              style={[styles.navBtn, styles.submitBtn]} 
+              onPress={() => submitExam()}
+              disabled={isSubmitting}
+            >
+               {isSubmitting ? <ActivityIndicator color="#fff" /> : <Text style={[styles.navBtnText, { color: '#fff' }]}>Submit</Text>}
+            </TouchableOpacity>
+         ) : (
+            <TouchableOpacity 
+              style={[styles.navBtn, styles.nextBtn]} 
+              onPress={() => setCurrentQuestion(prev => prev + 1)}
+            >
+               <Text style={[styles.navBtnText, { color: '#fff' }]}>Next</Text>
+               <MaterialCommunityIcons name="chevron-right" size={24} color="#fff" />
+            </TouchableOpacity>
+         )}
       </View>
     </View>
   );

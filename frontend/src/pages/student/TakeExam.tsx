@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
 import { Card, CardContent } from '@/components/ui/card';
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { scheduleAPI, resultAPI } from '@/services/api';
+import { scheduleAPI, resultAPI, examAPI } from '@/services/api';
 import { Clock, AlertTriangle, ChevronLeft, ChevronRight, Flag, ShieldCheck, AlertCircle, Play, Save, WifiOff, CloudOff, CloudUpload } from 'lucide-react';
 import { toast } from 'sonner';
 import { secureSet, secureGet, secureRemove } from '@/lib/storage';
@@ -23,6 +23,102 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import Webcam from "react-webcam";
+import imageCompression from 'browser-image-compression';
+
+const IdentityVerification = ({ onVerified, scheduleId }: { onVerified: (url: string) => void, scheduleId: string }) => {
+  const webcamRef = useRef<any>(null);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleCapture = useCallback(() => {
+    const imageSrc = webcamRef.current?.getScreenshot();
+    if (imageSrc) {
+       setCapturedImage(imageSrc);
+    }
+  }, [webcamRef]);
+
+  const handleUpload = async () => {
+    if (!capturedImage) return;
+    setIsUploading(true);
+    try {
+      // Convert base64 to Blob
+      const res = await fetch(capturedImage);
+      const blob = await res.blob();
+      const initialFile = new File([blob], "identity.jpg", { type: "image/jpeg" });
+      
+      // Compress image
+      const options = {
+        maxSizeMB: 0.1, // 100KB target
+        maxWidthOrHeight: 640,
+        useWebWorker: true
+      };
+      const compressedBlob = await imageCompression(initialFile, options);
+      const file = new File([compressedBlob], `identity_${scheduleId}.jpg`, { type: 'image/jpeg' });
+      
+      const response = await examAPI.uploadIdentitySnapshot(scheduleId, file);
+      if (response.data.success) {
+        onVerified(response.data.data.imageUrl);
+        toast.success("Identity verified successfully!");
+      }
+    } catch (err) {
+      console.error("Selfie upload failed:", err);
+      toast.error("Failed to verify identity. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-6 p-6">
+      <div className="text-center space-y-2">
+        <h2 className="text-2xl font-bold flex items-center justify-center gap-2">
+          <ShieldCheck className="text-primary w-6 h-6" />
+          Face Verification
+        </h2>
+        <p className="text-muted-foreground max-w-md">
+          This is a secure exam. Please take a clear selfie to verify your identity before starting.
+        </p>
+      </div>
+
+      <div className="relative rounded-2xl overflow-hidden border-4 border-muted shadow-2xl bg-black aspect-video w-full max-w-md">
+        {!capturedImage ? (
+          <Webcam
+            audio={false}
+            ref={webcamRef}
+            screenshotFormat="image/jpeg"
+            videoConstraints={{ facingMode: "user" }}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <img src={capturedImage} className="w-full h-full object-cover" alt="Captured" />
+        )}
+      </div>
+
+      <div className="flex gap-4">
+        {!capturedImage ? (
+          <Button onClick={handleCapture} size="lg" className="rounded-full px-8">
+            Capture Photo
+          </Button>
+        ) : (
+          <>
+            <Button variant="outline" onClick={() => setCapturedImage(null)} disabled={isUploading} className="rounded-full">
+              Retake
+            </Button>
+            <Button onClick={handleUpload} disabled={isUploading} size="lg" className="rounded-full px-8 bg-green-600 hover:bg-green-700">
+              {isUploading ? "Verifying..." : "Verify & Continue"}
+            </Button>
+          </>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-4">
+        <Clock className="w-3 h-3" />
+        Verification takes less than 10 seconds.
+      </div>
+    </div>
+  );
+};
 
 export default function TakeExam() {
   const { scheduleId } = useParams<{ scheduleId: string }>();
@@ -55,6 +151,7 @@ export default function TakeExam() {
   const [maxViolations, setMaxViolations] = useState(3);
   const [hasAgreed, setHasAgreed] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [identityVerified, setIdentityVerified] = useState(false);
 
   // Load exam data
   useEffect(() => {
@@ -90,6 +187,24 @@ export default function TakeExam() {
           if (mySchedule.accessCode) {
             setAccessCode(mySchedule.accessCode);
           }
+
+          // Load existing violations from backend
+          try {
+            const statusRes = await examAPI.getSecurityStatus(scheduleId as string);
+            if (statusRes.data.success) {
+              const { isDisqualified, identitySnapshotUrl } = statusRes.data.data;
+              if (isDisqualified) {
+                 toast.error("This session is disqualified.");
+                 navigate('/student/exams');
+                 return;
+              }
+              if (identitySnapshotUrl) {
+                setIdentityVerified(true);
+              }
+            }
+          } catch (e) {
+            console.warn("Could not sync security status on load");
+          }
         }
       }
     } catch (err) {
@@ -123,7 +238,8 @@ export default function TakeExam() {
       }
     };
 
-    const recordViolation = (type: string, description: string) => {
+    const recordViolation = async (type: string, description: string) => {
+      // 1. Update local UI state
       setViolations((prev: any[]) => {
         const newViolation = {
           type,
@@ -131,19 +247,41 @@ export default function TakeExam() {
           description
         };
         const updated = [...prev, newViolation];
-
-        toast.error(`SECURITY VIOLATION DETECTED: ${description}`, {
-          description: `Warning ${updated.length} of ${maxViolations}. Your exam will be automatically submitted if you reach the limit.`,
+        
+        toast.error(`SECURITY VIOLATION: ${description}`, {
+          description: `Warning ${updated.length} of ${maxViolations}.`,
           duration: 10000,
           id: 'violation-toast'
         });
 
-        if (updated.length >= maxViolations) {
-          toast.error("Security threshold exceeded. Disqualifying...");
-          handleSubmit(true, updated);
-        }
         return updated;
       });
+
+      // 2. Report to Backend
+      try {
+        const response = await examAPI.recordViolation({
+          scheduleId: scheduleId!,
+          violationType: type,
+          metadata: { description, url: window.location.href }
+        });
+
+        if (response.data.success) {
+           const { isDisqualified } = response.data.data;
+           if (isDisqualified) {
+              toast.error("SECURITY DISQUALIFICATION", {
+                description: "Maximum violations reached. Your exam is being submitted.",
+                duration: 5000
+              });
+              handleSubmit(true); // Auto-submit due to disqualification
+           }
+        }
+      } catch (err) {
+        console.error('Failed to report violation:', err);
+        // We still trust local state for immediate feedback
+        if (violations.length + 1 >= maxViolations) {
+           handleSubmit(true);
+        }
+      }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -486,6 +624,23 @@ export default function TakeExam() {
                 </Button>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (exam?.isSecureMode && !identityVerified) {
+    return (
+      <div className="container max-w-4xl py-12">
+        <Card className="shadow-2xl border-none overflow-hidden bg-gradient-to-b from-white to-slate-50">
+          <CardContent className="p-0">
+            <IdentityVerification 
+              scheduleId={scheduleId as string} 
+              onVerified={() => {
+                setIdentityVerified(true);
+              }} 
+            />
           </CardContent>
         </Card>
       </div>

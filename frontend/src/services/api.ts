@@ -166,6 +166,18 @@ export const examAPI = {
   getByTutor: (tutorId: string) => api.get(`/exams/tutor/${tutorId}`),
   getByCategory: (categoryId: string) =>
     api.get(`/exams/category/${categoryId}`),
+  recordViolation: (data: { scheduleId: string; violationType: string; metadata?: any }) => 
+    api.post("/exams/security/violation", data),
+  getSecurityStatus: (scheduleId: string) => 
+    api.get(`/exams/security/session-status/${scheduleId}`),
+  uploadIdentitySnapshot: (scheduleId: string, image: File | Blob) => {
+    const formData = new FormData();
+    formData.append('scheduleId', scheduleId);
+    formData.append('image', image);
+    return api.post("/exams/security/identity-snapshot", formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
 };
 
 // Question API
