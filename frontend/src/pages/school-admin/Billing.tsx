@@ -142,6 +142,7 @@ export default function BillingPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [availablePlans, setAvailablePlans] = useState<any[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => { loadData(); }, []);
@@ -149,15 +150,17 @@ export default function BillingPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [statusRes, marketplaceRes, historyRes] = await Promise.all([
+      const [statusRes, marketplaceRes, historyRes, plansRes] = await Promise.all([
         billingAPI.getStatus(),
         billingAPI.getMarketplace(),
-        billingAPI.getPaygHistory()
+        billingAPI.getPaygHistory(),
+        billingAPI.getPlans()
       ]);
 
       if (statusRes.data.success) setStatus(statusRes.data.data);
       if (marketplaceRes.data.success) setMarketplace(marketplaceRes.data.data);
       if (historyRes.data.success) setHistory(historyRes.data.data);
+      if (plansRes.data.success) setAvailablePlans(plansRes.data.data.plans);
     } catch {
       toast.error('Failed to load billing information');
     } finally {
@@ -560,92 +563,101 @@ export default function BillingPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            {/* Basic Plan */}
-            <div className="border border-gray-200 rounded-xl p-5 hover:border-indigo-300 hover:shadow-md transition-all flex flex-col relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
-                <GraduationCap className="h-24 w-24" />
-              </div>
-              <div className="relative z-10 flex-1">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-lg font-black text-gray-900">Basic Premium</h3>
-                  <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">Most Popular</span>
-                </div>
-                <div className="my-4">
-                  <span className="text-3xl font-black text-gray-900">₦8,000</span>
-                  <span className="text-sm font-medium text-gray-500"> / month</span>
-                </div>
-                <p className="text-sm text-gray-600 mb-6 font-medium">Core platform tools, exams, and reports tailored for standard institutions.</p>
+          {(() => {
+            const basicPlan = availablePlans.find(p => p.planType === 'basic');
+            const advancedPlan = availablePlans.find(p => p.planType === 'advanced');
 
-                <ul className="space-y-3 mb-6 flex-1">
-                  <li className="flex items-start text-sm text-gray-700">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500 mr-2 shrink-0 mt-0.5" />
-                    <span className="font-medium">Up to 300 Students <span className="text-gray-400 font-normal">/ 10 Tutors</span></span>
-                  </li>
-                  <li className="flex items-start text-sm text-gray-700">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500 mr-2 shrink-0 mt-0.5" />
-                    <span className="font-medium">Unlimited Active Exams</span>
-                  </li>
-                  <li className="flex items-start text-sm text-gray-700">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500 mr-2 shrink-0 mt-0.5" />
-                    <span className="font-medium">Full Student CBT Portal</span>
-                  </li>
-                  <li className="flex items-start text-sm text-gray-700">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500 mr-2 shrink-0 mt-0.5" />
-                    <span className="font-medium">30 AI Generation Queries <span className="text-gray-400 font-normal">/ month</span></span>
-                  </li>
-                </ul>
-              </div>
-              <Button 
-                onClick={() => navigate('/school-admin/checkout?type=upgrade&planType=basic')} 
-                className="w-full mt-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-11 relative z-10"
-              >
-                Select Basic Premium
-              </Button>
-            </div>
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                {/* Basic Plan */}
+                <div className="border border-gray-200 rounded-xl p-5 hover:border-indigo-300 hover:shadow-md transition-all flex flex-col relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
+                    <GraduationCap className="h-24 w-24" />
+                  </div>
+                  <div className="relative z-10 flex-1">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="text-lg font-black text-gray-900">{basicPlan?.displayName || 'Basic Premium'}</h3>
+                      <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">Most Popular</span>
+                    </div>
+                    <div className="my-4">
+                      <span className="text-3xl font-black text-gray-900">₦{basicPlan?.priceNgn ? Number(basicPlan.priceNgn).toLocaleString() : '8,000'}</span>
+                      {basicPlan?.priceUsd && <span className="text-lg font-bold text-gray-500 ml-1">(${basicPlan.priceUsd})</span>}
+                      <span className="text-sm font-medium text-gray-500"> / month</span>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-6 font-medium">Core platform tools, exams, and reports tailored for standard institutions.</p>
 
-            {/* Advanced Plan */}
-            <div className="border border-purple-200 bg-purple-50/30 rounded-xl p-5 hover:border-purple-400 hover:shadow-lg transition-all flex flex-col relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-4 opacity-[0.04] group-hover:opacity-[0.1] transition-opacity">
-                <Sparkles className="h-24 w-24 text-purple-600" />
-              </div>
-              <div className="relative z-10 flex-1">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-lg font-black text-purple-900">Advanced</h3>
+                    <ul className="space-y-3 mb-6 flex-1">
+                      <li className="flex items-start text-sm text-gray-700">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500 mr-2 shrink-0 mt-0.5" />
+                        <span className="font-medium">{basicPlan?.maxInternalStudents ? `Up to ${basicPlan.maxInternalStudents} Students` : 'Unlimited Students'} <span className="text-gray-400 font-normal">/ {basicPlan?.maxTutors ? `${basicPlan.maxTutors} Tutors` : 'Unlimited Tutors'}</span></span>
+                      </li>
+                      <li className="flex items-start text-sm text-gray-700">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500 mr-2 shrink-0 mt-0.5" />
+                        <span className="font-medium">{basicPlan?.maxActiveExams ? `${basicPlan.maxActiveExams} Active Exams` : 'Unlimited Active Exams'}</span>
+                      </li>
+                      <li className="flex items-start text-sm text-gray-700">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500 mr-2 shrink-0 mt-0.5" />
+                        <span className="font-medium">Full Student CBT Portal</span>
+                      </li>
+                      <li className="flex items-start text-sm text-gray-700">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500 mr-2 shrink-0 mt-0.5" />
+                        <span className="font-medium">{basicPlan?.aiQueriesPerMonth || 30} AI Query Credits <span className="text-gray-400 font-normal">/ month</span></span>
+                      </li>
+                    </ul>
+                  </div>
+                  <Button 
+                    onClick={() => navigate('/school-admin/checkout?type=upgrade&planType=basic')} 
+                    className="w-full mt-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-11 relative z-10"
+                  >
+                    Select Basic Premium
+                  </Button>
                 </div>
-                <div className="my-4">
-                  <span className="text-3xl font-black text-purple-900">₦20,000</span>
-                  <span className="text-sm font-medium text-purple-600/70"> / month</span>
-                </div>
-                <p className="text-sm text-purple-800/80 mb-6 font-medium">Unlimited limits and deep AI automation for massive enterprise scaling.</p>
 
-                <ul className="space-y-3 mb-6 flex-1">
-                  <li className="flex items-start text-sm text-gray-800">
-                    <CheckCircle2 className="h-4 w-4 text-purple-600 mr-2 shrink-0 mt-0.5" />
-                    <span className="font-bold">Unlimited Students & Tutors</span>
-                  </li>
-                  <li className="flex items-start text-sm text-gray-800">
-                    <CheckCircle2 className="h-4 w-4 text-purple-600 mr-2 shrink-0 mt-0.5" />
-                    <span className="font-bold">200 AI Generation Queries <span className="font-medium opacity-70">/ month</span></span>
-                  </li>
-                  <li className="flex items-start text-sm text-gray-800">
-                    <CheckCircle2 className="h-4 w-4 text-purple-600 mr-2 shrink-0 mt-0.5" />
-                    <span className="font-medium">Advanced Matrix Analytics</span>
-                  </li>
-                  <li className="flex items-start text-sm text-gray-800">
-                    <CheckCircle2 className="h-4 w-4 text-purple-600 mr-2 shrink-0 mt-0.5" />
-                    <span className="font-medium">Custom Dynamic Branding</span>
-                  </li>
-                </ul>
+                {/* Advanced Plan */}
+                <div className="border border-purple-200 bg-purple-50/30 rounded-xl p-5 hover:border-purple-400 hover:shadow-lg transition-all flex flex-col relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-4 opacity-[0.04] group-hover:opacity-[0.1] transition-opacity">
+                    <Sparkles className="h-24 w-24 text-purple-600" />
+                  </div>
+                  <div className="relative z-10 flex-1">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="text-lg font-black text-purple-900">{advancedPlan?.displayName || 'Advanced'}</h3>
+                    </div>
+                    <div className="my-4">
+                      <span className="text-3xl font-black text-purple-900">₦{advancedPlan?.priceNgn ? Number(advancedPlan.priceNgn).toLocaleString() : '20,000'}</span>
+                      {advancedPlan?.priceUsd && <span className="text-lg font-bold text-purple-600/60 ml-1">(${advancedPlan.priceUsd})</span>}
+                      <span className="text-sm font-medium text-purple-600/70"> / month</span>
+                    </div>
+                    <p className="text-sm text-purple-800/80 mb-6 font-medium">Unlimited limits and deep AI automation for massive enterprise scaling.</p>
+
+                    <ul className="space-y-3 mb-6 flex-1">
+                      <li className="flex items-start text-sm text-gray-800">
+                        <CheckCircle2 className="h-4 w-4 text-purple-600 mr-2 shrink-0 mt-0.5" />
+                        <span className="font-bold">{advancedPlan?.maxInternalStudents ? `Up to ${advancedPlan.maxInternalStudents} Students & Tutors` : 'Unlimited Students & Tutors'}</span>
+                      </li>
+                      <li className="flex items-start text-sm text-gray-800">
+                        <CheckCircle2 className="h-4 w-4 text-purple-600 mr-2 shrink-0 mt-0.5" />
+                        <span className="font-bold">{advancedPlan?.aiQueriesPerMonth || 200} AI Query Credits <span className="font-medium opacity-70">/ month</span></span>
+                      </li>
+                      <li className="flex items-start text-sm text-gray-800">
+                        <CheckCircle2 className="h-4 w-4 text-purple-600 mr-2 shrink-0 mt-0.5" />
+                        <span className="font-medium">Advanced Matrix Analytics</span>
+                      </li>
+                      <li className="flex items-start text-sm text-gray-800">
+                        <CheckCircle2 className="h-4 w-4 text-purple-600 mr-2 shrink-0 mt-0.5" />
+                        <span className="font-medium">Custom Dynamic Branding</span>
+                      </li>
+                    </ul>
+                  </div>
+                  <Button 
+                    onClick={() => navigate('/school-admin/checkout?type=upgrade&planType=advanced')} 
+                    className="w-full mt-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold h-11 relative z-10 border-0 shadow-md"
+                  >
+                    Select Advanced Plan
+                  </Button>
+                </div>
               </div>
-              <Button 
-                onClick={() => navigate('/school-admin/checkout?type=upgrade&planType=advanced')} 
-                className="w-full mt-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold h-11 relative z-10 border-0 shadow-md"
-              >
-                Select Advanced Plan
-              </Button>
-            </div>
-          </div>
+            );
+          })()}
           
           <p className="text-center text-[11px] text-gray-400 mt-2 font-medium">Enterprise licenses require direct administrative approval. Payments processed securely via Paystack.</p>
         </DialogContent>
