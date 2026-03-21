@@ -2,7 +2,7 @@
 
 A production-ready **Computer-Based Testing (CBT) and Learning Management System (LMS)** natively built for modern educational institutions. Designed with security, artificial intelligence, and network resilience at its core. Deployed on Oracle Cloud Infrastructure (OCI) via Docker and GitHub Actions CI/CD.
 
-🌐 **Live Web Platform:** [http://145.241.97.246](http://145.241.97.246)
+🌐 **Live Web Platform:** [https://your-production-url.com](https://your-production-url.com)
 
 ---
 
