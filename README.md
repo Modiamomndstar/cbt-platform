@@ -63,6 +63,35 @@ The platform is built to support massive scale, segmented into distinct access t
 
 ---
 
+## 🧠 Developer Onboarding & Architecture Guide
+
+Welcome, new developers! This platform is designed to be highly modular. Here is a breakdown to get you oriented rapidly.
+
+### 1. Repository Structure
+*   `backend/`: Node.js/Express REST API. 
+    *   **Core Logic:** `src/controllers` and `src/services`.
+    *   **Architecture:** Controllers handle HTTP req/res, while Services handle heavy business logic (AI generation, Commission calculations, DB queries).
+*   `frontend/`: React 18 SPA built with Vite. 
+    *   **State & API:** We use Axios for API calls and React Context for global state (e.g., `useAuth`, `usePlan`).
+    *   **UI System:** Built strictly on **Tailwind CSS** and **Shadcn UI** (`src/components/ui`).
+*   `mobile-app/`: React Native mobile application built with **Expo**.
+    *   **Key Focus:** Offline-first architecture (`AsyncStorage` + NetInfo) taking exams without internet.
+
+### 2. Core Database Entities (PostgreSQL)
+*   `schools` / `users`: Base multi-tenant architecture. Every user belongs to a school (except Super/Sales Admins).
+*   `plan_definitions` / `subscriptions`: Drives the Monetization engine. Controls what a school can access.
+*   `exams` / `questions`: The CBT Engine.
+*   `course_modules` / `course_progress`: The LMS Engine connecting lessons to linked exams.
+*   `exam_results`: Highly detailed JSON arrays storing analytical matrices of student performance.
+
+### 3. Linting & Code Quality
+We enforce a strict "Perfect Build" policy using **ESLint v9 (Flat Config)**.
+*   Backend: `cd backend && npm run lint`
+*   Frontend: `cd frontend && npm run lint`
+*   **Rule:** Zero errors are expected before pushing. `tsc` (TypeScript Compiler) must also pass cleanly.
+
+---
+
 ## 🚀 Local Development Setup
 
 ### Prerequisites
