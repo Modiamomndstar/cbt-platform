@@ -72,7 +72,7 @@ export default function ExternalStudents() {
     try {
       const res = await api.get('/tutor/external-students/categories');
       setCategories(res.data.data);
-    } catch (e) {}
+    } catch (_e) { /* no-op */ }
   };
 
   const fetchStudents = async () => {

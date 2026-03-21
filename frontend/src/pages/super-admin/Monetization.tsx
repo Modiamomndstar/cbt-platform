@@ -833,8 +833,6 @@ export default function MonetizationPage() {
   const [marketplace, setMarketplace] = useState<MarketplaceItem[]>([]);
   const [activeTab, setActiveTab] = useState<'plans' | 'features' | 'coupons' | 'marketplace' | 'settings' | 'payments'>('plans');
 
-  useEffect(() => { loadAll(); }, []);
-
   const loadAll = async () => {
     try {
       const [plansRes, flagsRes, couponsRes, marketplaceRes] = await Promise.allSettled([
@@ -856,6 +854,8 @@ export default function MonetizationPage() {
       toast.error('Failed to load monetization data');
     }
   };
+
+  useEffect(() => { loadAll(); }, []);
 
   const TABS = [
     { key: 'plans', label: 'Plans', icon: DollarSign },

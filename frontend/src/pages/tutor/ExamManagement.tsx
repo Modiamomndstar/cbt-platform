@@ -52,7 +52,7 @@ export default function ExamManagement() {
     try {
       const res = await api.get('/exam-categories');
       setCategories(res.data.data || []);
-    } catch (err) {}
+    } catch (_err) { /* no-op */ }
   };
 
   const loadExams = async () => {
