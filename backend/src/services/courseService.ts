@@ -179,11 +179,28 @@ class CourseService {
 
     // 2. Module Management
     async addModule(data: Partial<CourseModule>) {
+        let orderIndex = data.order_index;
+        if (orderIndex === undefined || orderIndex === null) {
+            let nextOrderRes;
+            if (data.parent_module_id) {
+                nextOrderRes = await db.query(
+                    "SELECT COALESCE(MAX(order_index), -1) + 1 as next_order FROM course_modules WHERE course_id = $1 AND parent_module_id = $2",
+                    [data.course_id, data.parent_module_id]
+                );
+            } else {
+                nextOrderRes = await db.query(
+                    "SELECT COALESCE(MAX(order_index), -1) + 1 as next_order FROM course_modules WHERE course_id = $1 AND parent_module_id IS NULL",
+                    [data.course_id]
+                );
+            }
+            orderIndex = parseInt(nextOrderRes.rows[0].next_order);
+        }
+
         const result = await db.query(
             `INSERT INTO course_modules (course_id, title, description, order_index, parent_module_id, linked_exam_id, min_pass_score, assessment_type, exam_type_id, academic_week_id)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
              RETURNING *`,
-            [data.course_id, data.title, data.description, data.order_index, data.parent_module_id, data.linked_exam_id, data.min_pass_score || 50, data.assessment_type, data.exam_type_id, data.academic_week_id]
+            [data.course_id, data.title, data.description, orderIndex, data.parent_module_id, data.linked_exam_id, data.min_pass_score || 50, data.assessment_type, data.exam_type_id, data.academic_week_id]
         );
         return result.rows[0];
     }
@@ -222,11 +239,20 @@ class CourseService {
 
     // 3. Content Management
     async addContent(data: CourseContent) {
+        let orderIndex = data.order_index;
+        if (orderIndex === undefined || orderIndex === null) {
+            const nextOrderRes = await db.query(
+                "SELECT COALESCE(MAX(order_index), -1) + 1 as next_order FROM course_contents WHERE module_id = $1",
+                [data.module_id]
+            );
+            orderIndex = parseInt(nextOrderRes.rows[0].next_order);
+        }
+
         const result = await db.query(
             `INSERT INTO course_contents (module_id, title, content_type, content_data, video_url, file_url, linked_exam_id, order_index)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
              RETURNING *`,
-            [data.module_id, data.title, data.content_type, data.content_data, data.video_url, data.file_url, data.linked_exam_id, data.order_index]
+            [data.module_id, data.title, data.content_type, data.content_data, data.video_url, data.file_url, data.linked_exam_id, orderIndex]
         );
         return result.rows[0];
     }
