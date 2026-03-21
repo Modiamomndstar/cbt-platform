@@ -1,223 +1,152 @@
-# CBT Platform
+# 🎓 Advanced CBT & LMS Educational Platform
 
-A production-ready **Computer-Based Testing (CBT)** platform built for schools — enabling exam creation, student management, scheduling, and detailed result analytics. Deployed on Oracle Cloud Infrastructure (OCI) via Docker and GitHub Actions CI/CD.
+A production-ready **Computer-Based Testing (CBT) and Learning Management System (LMS)** natively built for modern educational institutions. Designed with security, artificial intelligence, and network resilience at its core. Deployed on Oracle Cloud Infrastructure (OCI) via Docker and GitHub Actions CI/CD.
 
-🌐 **Live:** [http://145.241.97.246](http://145.241.97.246)
-
----
-
-## Features
-
-### Multi-Role System
-| Role | Capabilities |
-|------|-------------|
-| **Super Admin** | Platform-wide management, school approval |
-| **School Admin** | School setup, tutor & student management |
-| **Tutor** | Exam creation, question management, scheduling |
-| **Student** | Take exams, view results via student portal |
-
-### Exam Management
-- Multiple question types: MCQ, True/False, Theory
-- AI-powered question generation (OpenAI)
-- Bulk question upload via CSV
-- Randomized question order per student
-- Time-limited exams with auto-submission
-
-### Student & School Features
-- Student categories/classes (JSS1, SS2, etc.)
-- CSV bulk import for students and tutors
-- School logo upload & profile management
-- Unique per-student exam access credentials
-
-### Scheduling & Results
-- Schedule exams for specific students or categories
-- Auto-grading for objective questions
-- Manual grading for theory questions
-- Analytics dashboard with pass/fail breakdown
-
-### Payment Integration
-- **Stripe** — international payments
-- **Paystack** — Nigeria/Africa payments
-- Subscription plans with automatic management
+🌐 **Live Web Platform:** [http://145.241.97.246](http://145.241.97.246)
 
 ---
 
-## Tech Stack
+## 🌟 Comprehensive Feature Set
 
-| Layer | Technology |
-|-------|-----------|
-| **Backend** | Node.js 18, Express.js, TypeScript |
-| **Database** | PostgreSQL 15 |
-| **Frontend** | React 18, TypeScript, Tailwind CSS, shadcn/ui |
-| **Mobile** | React Native (Expo) — iOS & Android |
-| **Auth** | JWT (RS256, 7-day expiry) |
-| **Reverse Proxy** | Caddy 2 (auto HTTPS) |
-| **Container** | Docker + Docker Compose |
-| **Registry** | GitHub Container Registry (GHCR) |
-| **CI/CD** | GitHub Actions |
-| **Hosting** | Oracle Cloud Infrastructure (Always Free) |
+### 1. Hierarchical Multi-Role Ecosystem
+The platform is built to support massive scale, segmented into distinct access tiers:
+*   **👑 Super Administrator**: Platform-wide oversight, SaaS subscription management, global feature toggling, AI limits control, and raw database metrics.
+*   **💼 Sales Administrator (Franchise)**: Dedicated marketing portal to onboard schools using unique referral links. Tracks conversions and manages multi-currency NGN/USD commissions.
+*   **🏫 School Administrator**: Complete control over a single institution. Manages tutors, students, overall academic calendar, and tracks aggregate performance.
+*   **👨‍🏫 Tutor / Instructor**: Exam creation, question bank management, LMS course curation, grading, and detailed cohort analysis.
+*   **👨‍🎓 Student / Learner**: A unified studying and testing portal.
+*   **👪 Parent Portal** (Coming Soon): Secured PIN and QR-code verified access to student performance data.
 
----
+### 2. Intelligent LMS Module (Learning Management)
+*   **Course Builder**: Hierarchical structure supporting Courses → Modules → Subtopics.
+*   **Multimedia Integration**: Support for text content and embedded YouTube instructional videos.
+*   **AI Syllabus Generation**: Instantly generate termly syllabuses based on academic grade levels.
+*   **Assessment Linking**: "One-Click" AI Exam linking that generates quizzes directly tied to the specific syllabus content read by the student.
+*   **Session & Term Filtering**: Dynamic filtering for active academic sessions and calendar terms.
 
-## Project Structure
+### 3. State-of-the-Art CBT Engine & Offline App
+*   **Question Types**: Multiple Choice (MCQ), True/False, Theory, and Fill-in-the-Blank.
+*   **Real-time Anti-Cheating**: Tracks visibility API (tab switching), browser minimization, and triggers automatic disqualification thresholds.
+*   **Mobile Network Resilience (Offline-First)**: The React Native mobile app features an "Outbox Queue". It saves encrypted exam state (answers, time remaining) locally (`AsyncStorage`) every few seconds. If a student loses network, they can finish the exam, and the app will automatically background-sync the payload the moment they are back online.
+*   **Identity Snapshot Storage**: integration with OCI Object Storage to store pre-exam selfie verification snapshots to prevent impersonation.
 
-```
-cbt-platform/
-├── .github/workflows/     # CI/CD pipeline (build, push, deploy)
-├── backend/               # Node.js/Express API
-│   ├── src/
-│   │   ├── config/        # Database config
-│   │   ├── middleware/    # Auth & validation
-│   │   ├── routes/        # API routes
-│   │   ├── services/      # Email & services
-│   │   └── utils/         # Logger
-│   └── Dockerfile
-├── frontend/              # React web app
-│   ├── src/
-│   │   ├── components/    # Reusable UI components
-│   │   ├── hooks/         # Custom React hooks
-│   │   ├── pages/         # Page components
-│   │   ├── services/      # API service layer
-│   │   └── types/         # TypeScript types
-│   └── Dockerfile
-├── mobile-app/            # React Native (Expo)
-├── Caddyfile              # Reverse proxy config
-├── docker-compose.yml     # Local development
-└── docker-compose.prod.yml # Production deployment
-```
+### 4. Generative AI Superpowers (OpenAI)
+*   **Automated Question Generation**: Bulk generate relevant exam questions based on a topic prompt, difficulty level, and format.
+*   **Cohort Analysis AI**: Provides tutors and admins with deep insights into where a class is failing and succeeding after an exam batch.
+*   **Personalized Study Plans**: Generates individualized weekly actionable study routines for students based on their specific weaknesses in past exams.
+*   **AI Coach Chatbot**: Native integration in the course player guiding students step-by-step.
+
+### 5. Robust Monetization & SaaS Billing
+*   **Automated Gateways**: Integrated with Stripe (International) and Paystack (Africa).
+*   **Manual/Crypto Verification**: SuperAdmins can manually verify USDT/TRC20 crypto payments or direct bank transfers securely.
+*   **Smart Subscription Gating**: Frontend UI sidebars and API routes are strictly protected by a `planGuard` middleware, evaluating `Basic`, `Advanced`, `Enterprise`, and `Premium` tiers.
+*   **Marketplace (PAYG)**: Schools can purchase "extra credits" for AI generation or student packs without upgrading their entire subscription plan.
+*   **Granular Feature Gifting**: SuperAdmins can permanently unlock specific features (like Advanced Analytics or LMS) for individual schools overriding default plan logic.
+
+### 6. Deep Analytics & Grading
+*   **Continuous Assessment (CA) Engine**: Configurable weighting logic (e.g., 10% Attendance, 30% Test, 60% Exam) mapped directly to Term Report Cards.
+*   **Global Traffic & Event Tracking**: Built-in generic intelligence API monitoring total platform interactions.
 
 ---
 
-## Local Development
+## 🛠 Tech Stack Details
+
+| Component | Technology | Description |
+|-----------|-----------|-------------|
+| **Backend API** | Node.js 18, Express, TypeScript | Highly strongly-typed REST architecture with JWT (RS256) auth. |
+| **Database** | PostgreSQL 15 | Relational integrity holding JSONB config payloads. |
+| **Frontend Web** | React 18, Vite, TypeScript | Styled with Tailwind CSS & Radix/Shadcn UI components. |
+| **Mobile App** | React Native (Expo) | Cross-platform repository mapped to Android/iOS build pipelines (EAS). |
+| **Lint/Format** | ESLint v9 (Flat Config) | Enforces "Perfect Builds" rejecting impure functions across TS/TSX. |
+| **Storage** | Oracle Cloud (OCI SDK) | Object storage mapped for profile avatars and exam assets. |
+| **Hosting Deployment** | Docker + Compose | Containerized and deployed via GitHub Actions to OCI ARM architecture. |
+
+---
+
+## 🚀 Local Development Setup
 
 ### Prerequisites
-- Docker Desktop (recommended) **or** Node.js 18+ and PostgreSQL 15+
+- Docker Desktop (recommended) **or** local Node.js 18+ and PostgreSQL 15+
 - Git
 
-### Docker (Recommended)
+### 1. Docker Environment (Recommended)
+This approach isolates the `node_modules` and database seamlessly.
 
 ```bash
 git clone https://github.com/Modiamomndstar/cbt-platform.git
 cd cbt-platform
 
-# Copy and configure environment
+# 1. Prepare environment variables
 cp backend/.env.example backend/.env
-# Edit backend/.env with your values (see Environment Variables section)
+# Edit backend/.env with your local credentials
 
-# Start all services
-docker compose up -d
+# 2. Start the containerized stack
+docker compose up -d --build
 
-# View logs
+# 3. View logs
 docker compose logs -f backend
 ```
+Access the application locally:
+- **Frontend App**: `http://localhost:5173`
+- **Backend API**: `http://localhost:5000`
 
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:5000
+### 2. Manual Environment Setup
 
-### Without Docker
+If you prefer running services directly via npm:
 
 ```bash
-# Backend
+# Terminal 1: Setup Backend
 cd backend
 npm install
-npm run dev   # runs on http://localhost:5000
+npm run dev
 
-# Frontend (separate terminal)
+# Terminal 2: Setup Frontend
 cd frontend
 npm install
-npm run dev   # runs on http://localhost:5173
+npm run dev
 ```
 
 ---
 
-## Environment Variables
+## 🔒 Environment Secrets & Configuration
 
-Create `backend/.env` from the example:
-
-```bash
-cp backend/.env.example backend/.env
-```
+The `backend/.env` file requires the following structure to fully operate the LMS and Monetization engines:
 
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `NODE_ENV` | `development` or `production` | Yes |
 | `PORT` | Server port (default: 5000) | Yes |
-| `DB_HOST` | PostgreSQL host | Yes |
-| `DB_PORT` | PostgreSQL port (default: 5432) | Yes |
-| `DB_NAME` | Database name | Yes |
-| `DB_USER` | Database user | Yes |
-| `DB_PASSWORD` | Database password | Yes |
-| `JWT_SECRET` | Strong random secret for JWT signing | **Yes** |
-| `JWT_EXPIRES_IN` | Token lifetime (e.g. `7d`) | Yes |
-| `FRONTEND_URL` | Allowed CORS origin | Yes |
-| `SUPER_ADMIN_USERNAME` | Super admin login username | Yes |
-| `SUPER_ADMIN_PASSWORD` | Super admin login password | Yes |
-| `OPENAI_API_KEY` | OpenAI key (AI question generation) | No |
-| `STRIPE_SECRET_KEY` | Stripe secret key | No |
-| `PAYSTACK_SECRET_KEY` | Paystack secret key | No |
+| `DB_HOST` / `PORT` / `NAME` | PostgreSQL credentials | Yes |
+| `JWT_SECRET` | Strong random secret for RS256 signing | **Yes** |
+| `OPENAI_API_KEY` | Key required for LMS generation and Cohort analysis | No |
+| `STRIPE_SECRET_KEY` | Processing international school subscriptions | No |
+| `PAYSTACK_SECRET_KEY` | Processing local school subscriptions | No |
+| `OCI_TENANCY` / `USER` | Oracle Cloud Storage Credentials | No |
 
-> ⚠️ Never commit `.env` or `.env.production` files to the repository.
+> ⚠️ Never commit `.env` files. Ensure they are injected directly into your CI/CD pipeline secrets.
 
 ---
 
-## Deployment (OCI via GitHub Actions)
+## 🚢 CI/CD Production Deployment 
+The repository includes a highly optimized `.github/workflows/deploy.yml` pipeline triggering on merges to the `main` branch. 
 
-The CI/CD pipeline automatically builds and deploys on every push to `main`.
+**Deployment Flow:**
+1. Actions checks out the repository.
+2. Authenticates and packages backend/frontend Docker images via Github Container Registry (`GHCR`).
+3. Logs securely into the Oracle Cloud via SSH.
+4. Pulls the latest containers, applies Prisma/SQL migrations, and restarts the Caddy Reverse Proxy.
 
-### Required GitHub Secrets
-
-Configure these in **Settings → Secrets → Actions**:
-
-| Secret | Description |
-|--------|-------------|
-| `OCI_HOST` | Server IP address |
-| `OCI_USER` | SSH username (e.g. `ubuntu`) |
-| `OCI_SSH_PRIVATE_KEY` | Private SSH key (PEM format) |
-| `GHCR_PAT` | GitHub Personal Access Token (with `packages:write`) |
-
-### Pipeline Steps
-
-1. **Build** — Docker images compiled for `linux/amd64` + `linux/arm64`
-2. **Push** — Images pushed to GHCR tagged with commit SHA
-3. **Deploy** — SSH into OCI server, pull new images, restart services
-
-### Server `.env.production`
-
-On first setup, create `~/cbt-platform/.env.production` on the server with all required variables (see table above). This file is **not** managed by CI/CD for security reasons.
+To configure, provide `OCI_HOST`, `OCI_USER`, `OCI_SSH_PRIVATE_KEY`, and `GHCR_PAT` in the repository secrets.
 
 ---
 
-## API Overview
-
-| Prefix | Description |
-|--------|-------------|
-| `POST /api/auth/school/login` | School admin login |
-| `POST /api/auth/tutor/login` | Tutor login |
-| `POST /api/auth/student/login` | Student exam login |
-| `GET /api/auth/me` | Current user info |
-| `POST /api/schools/register` | Register a new school |
-| `GET /api/schools/profile` | School profile |
-| `GET /api/exams` | List exams |
-| `POST /api/questions/ai-generate` | AI question generation |
-| `POST /api/uploads/image` | Upload school logo / image |
-| `GET /api/health` | Health check |
-
----
-
-## Contributing
-
+## 🤝 Contributing
 1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Commit: `git commit -m 'feat: add your feature'`
-4. Push: `git push origin feature/your-feature`
-5. Open a Pull Request against `main`
+2. Create a feature branch: `git checkout -b feature/advanced-lms`
+3. Commit locally: `git commit -m 'feat: added advanced lms capabilities'`
+4. Push: `git push origin feature/advanced-lms`
+5. Open a Pull Request reviewing your additions against `main`.
 
 ---
 
-## License
-
-MIT License — see [LICENSE](LICENSE) for details.
-
----
-
-*Built by the CBT Platform Team*
+*Engineered for Scale. Built by the CBT Platform Team.*
