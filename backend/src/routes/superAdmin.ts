@@ -95,7 +95,7 @@ router.get('/schools/:id/details', [
 // PATCH /api/super-admin/schools/:id/subscription
 router.patch('/schools/:id/subscription', [
   param('id').isUUID(),
-  body('plan_type').optional().isIn(['freemium', 'basic', 'advanced', 'enterprise']),
+  body('plan_type').optional().isIn(['freemium', 'basic', 'advanced', 'advanced_plus', 'enterprise']),
   body('billing_cycle').optional().isIn(['monthly', 'annual', 'payg', 'free']),
   body('status').optional().isIn(['trialing', 'active', 'past_due', 'cancelled', 'expired', 'gifted', 'suspended']),
   validate
@@ -237,7 +237,7 @@ router.get('/feature-flags', async (req, res, next) => {
 // PUT /api/super-admin/feature-flags/:featureKey
 router.put('/feature-flags/:featureKey', [
   param('featureKey').notEmpty(),
-  body('minPlan').optional().isIn(['freemium', 'basic', 'advanced', 'enterprise']),
+  body('minPlan').optional().isIn(['freemium', 'basic', 'advanced', 'advanced_plus', 'enterprise']),
   body('isEnabled').optional().isBoolean(),
   validate
 ], async (req: any, res: any, next: any) => {
@@ -395,7 +395,7 @@ router.put('/settings/secure', [
 // POST /api/super-admin/schools/:id/gift-plan
 router.post('/schools/:id/gift-plan', [
   param('id').isUUID(),
-  body('planType').isIn(['basic', 'advanced', 'enterprise']).withMessage('Invalid plan type'),
+  body('planType').isIn(['basic', 'advanced', 'advanced_plus', 'enterprise']).withMessage('Invalid plan type'),
   body('days').isInt({ min: 1, max: 3650 }).withMessage('Days must be 1–3650'),
   body('reason').optional().trim(),
   validate
@@ -674,7 +674,7 @@ router.post('/coupons', [
       `INSERT INTO coupons (code, name, description, type, value, applicable_plans, max_uses, uses_per_school, valid_until, requires_annual, created_by_staff_id)
        VALUES (UPPER($1), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
-      [code, name, description, type, value, applicablePlans || ['basic', 'advanced', 'enterprise'], maxUses, usesPerSchool || 1, validUntil, requiresAnnual || false, req.user.id]
+      [code, name, description, type, value, applicablePlans || ['basic', 'advanced', 'advanced_plus', 'enterprise'], maxUses, usesPerSchool || 1, validUntil, requiresAnnual || false, req.user.id]
     );
 
     await logAudit(req, 'coupon_created', 'coupon', result.rows[0].id, code);
@@ -730,6 +730,7 @@ router.get('/overview', async (req, res, next) => {
         (SELECT COUNT(*) FROM school_subscriptions WHERE status = 'trialing') as trialing,
         (SELECT COUNT(*) FROM school_subscriptions WHERE plan_type = 'basic' AND status = 'active') as basic_subscribers,
         (SELECT COUNT(*) FROM school_subscriptions WHERE plan_type = 'advanced' AND status = 'active') as advanced_subscribers,
+        (SELECT COUNT(*) FROM school_subscriptions WHERE plan_type = 'advanced_plus' AND status = 'active') as advanced_plus_subscribers,
         (SELECT COUNT(*) FROM school_subscriptions WHERE plan_type = 'enterprise' AND status = 'active') as enterprise_subscribers,
         (SELECT COUNT(*) FROM school_subscriptions WHERE status = 'suspended') as suspended,
         (SELECT COUNT(*) FROM staff_accounts WHERE is_active = true) as active_staff,

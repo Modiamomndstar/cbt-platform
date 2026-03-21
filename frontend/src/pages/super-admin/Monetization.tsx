@@ -62,11 +62,12 @@ interface MarketplaceItem {
   isActive: boolean;
 }
 
-const PLAN_ORDER = ['freemium', 'basic', 'advanced', 'enterprise'];
+const PLAN_ORDER = ['freemium', 'basic', 'advanced', 'advanced_plus', 'enterprise'];
 const PLAN_COLORS: Record<string, string> = {
   freemium: 'bg-gray-100 text-gray-700',
   basic: 'bg-blue-100 text-blue-700',
-  advanced: 'bg-purple-100 text-purple-700',
+  advanced: 'bg-indigo-100 text-indigo-700',
+  advanced_plus: 'bg-purple-100 text-purple-700',
   enterprise: 'bg-amber-100 text-amber-700',
 };
 

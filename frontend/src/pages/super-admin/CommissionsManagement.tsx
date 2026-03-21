@@ -303,8 +303,8 @@ export default function CommissionsManagement() {
                 </div>
               </CardHeader>
               <CardContent className="pt-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {['basic', 'advanced', 'enterprise'].map((plan) => (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  {['basic', 'advanced', 'advanced_plus', 'enterprise'].map((plan) => (
                     <div key={plan} className="space-y-4">
                       <div className="flex items-center gap-2 mb-2">
                          <div className="h-2 w-2 rounded-full bg-indigo-600" />

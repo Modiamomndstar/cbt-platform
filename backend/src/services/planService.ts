@@ -142,7 +142,7 @@ const PLAN_HIERARCHY: Record<string, number> = {
   'freemium': 0,
   'basic': 1,
   'advanced': 2,
-  'premium': 3, // For future use if added
+  'advanced_plus': 3,
   'enterprise': 4
 };
 
