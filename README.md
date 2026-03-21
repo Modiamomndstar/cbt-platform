@@ -127,6 +127,49 @@ The `backend/.env` file requires the following structure to fully operate the LM
 
 ---
 
+## 📡 Core API Overview
+
+The backend uses a standard REST architecture. All protected routes require a `Bearer <token>` utilizing JWT RS256.
+
+### Authentication & Roles
+| Route | Method | Description |
+|---|---|---|
+| `/api/auth/superadmin/login` | `POST` | Master login. |
+| `/api/auth/salesadmin/login` | `POST` | Franchise/Sales admin login. |
+| `/api/auth/school/login` | `POST` | School Admin login. |
+| `/api/auth/tutor/login` | `POST` | Tutor login. |
+| `/api/auth/student/login` | `POST` | Student portal login. |
+
+### LMS & Courses (Gated)
+| Route | Method | Description |
+|---|---|---|
+| `/api/courses` | `GET/POST` | Fetch or create macro-courses. |
+| `/api/courses/:id/modules` | `POST` | Add instructional modules & subtopics. |
+| `/api/courses/student/dashboard-context` | `GET` | Fetch active term schedule for a student. |
+
+### CBT Engine & Exams
+| Route | Method | Description |
+|---|---|---|
+| `/api/exams` | `GET/POST` | Manage exams, time limits, and configs. |
+| `/api/exams/:id/submit` | `POST` | Submit decrypted exam payload payload. |
+| `/api/results/cumulative-report` | `GET` | Generates Session/Term C.A reports. |
+
+### AI Integration
+| Route | Method | Description |
+|---|---|---|
+| `/api/questions/ai-generate` | `POST` | Stream bulk OpenAI generated questions. |
+| `/api/ai/syllabus-generate` | `POST` | Autogenerate a course curriculum. |
+| `/api/ai/cohort-analysis` | `GET/POST` | Analyze a class's weakness on an exam. |
+
+### Monetization & Marketplace
+| Route | Method | Description |
+|---|---|---|
+| `/api/billing/subscribe/stripe` | `POST` | Initializes Stripe plan checkout. |
+| `/api/marketplace/purchase` | `POST` | Buys PAYG credits (AI limits / add-ons). |
+| `/api/super-admin/payg/gift` | `POST` | Gifts features/overrides to a school. |
+
+---
+
 ## 🚢 CI/CD Production Deployment 
 The repository includes a highly optimized `.github/workflows/deploy.yml` pipeline triggering on merges to the `main` branch. 
 
