@@ -19,17 +19,30 @@ router.get('/', async (req, res, next) => {
   try {
     const schoolId = req.user!.id;
     const result = await db.query(
-      'SELECT * FROM school_settings WHERE school_id = $1',
+      `SELECT ss.*, p.allow_lms as plan_allow_lms 
+       FROM school_settings ss
+       JOIN school_subscriptions sub ON ss.school_id = sub.school_id
+       JOIN plan_definitions p ON sub.plan_type = p.plan_type
+       WHERE ss.school_id = $1`,
       [schoolId]
     );
 
     if (result.rows.length === 0) {
       // Auto-create with defaults
-      const created = await db.query(
-        'INSERT INTO school_settings (school_id) VALUES ($1) RETURNING *',
+      await db.query(
+        'INSERT INTO school_settings (school_id) VALUES ($1) ON CONFLICT (school_id) DO NOTHING',
         [schoolId]
       );
-      return ApiResponseHandler.success(res, transformResult(created.rows[0]), 'School settings created');
+      // Re-fetch with join
+      const refetch = await db.query(
+        `SELECT ss.*, p.allow_lms as plan_allow_lms 
+         FROM school_settings ss
+         JOIN school_subscriptions sub ON ss.school_id = sub.school_id
+         JOIN plan_definitions p ON sub.plan_type = p.plan_type
+         WHERE ss.school_id = $1`,
+        [schoolId]
+      );
+      return ApiResponseHandler.success(res, transformResult(refetch.rows[0]), 'School settings retrieved');
     }
 
     ApiResponseHandler.success(res, transformResult(result.rows[0]), 'School settings retrieved');
@@ -54,6 +67,7 @@ router.put('/', [
   body('primaryColor').optional().matches(/^#[0-9A-Fa-f]{6}$/).withMessage('Invalid hex color'),
   body('reportSignatureTitle').optional().isString().isLength({ max: 255 }),
   body('reportSignatureName').optional().isString().isLength({ max: 255 }),
+  body('allowTutorLms').optional().isBoolean(),
   validate
 ], async (req, res, next) => {
   try {
@@ -62,7 +76,8 @@ router.put('/', [
       allowExternalStudents, maxExternalPerTutor, allowTutorCreateStudents,
       allowTutorEditCategories, studentPortalEnabled, resultReleaseMode, allowStudentPdfDownload,
       defaultExamAttempts, emailOnExamComplete, emailOnNewStudent,
-      emailOnResultsRelease, primaryColor, reportSignatureTitle, reportSignatureName
+      emailOnResultsRelease, primaryColor, reportSignatureTitle, reportSignatureName,
+      allowTutorLms
     } = req.body;
 
     // Clamp maxExternalPerTutor to plan ceiling
@@ -99,6 +114,7 @@ router.put('/', [
       primary_color: primaryColor,
       report_signature_title: reportSignatureTitle,
       report_signature_name: reportSignatureName,
+      allow_tutor_lms: allowTutorLms,
     };
 
     for (const [col, val] of Object.entries(fields)) {

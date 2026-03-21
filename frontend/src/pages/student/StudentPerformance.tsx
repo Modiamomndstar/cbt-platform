@@ -1,25 +1,42 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { analyticsAPI } from '@/services/api';
+import { analyticsAPI, academicCalendarAPI } from '@/services/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend
 } from 'recharts';
-import { TrendingUp, Target, Award, Brain, Loader2, Download, ExternalLink } from 'lucide-react';
+import { TrendingUp, Target, Award, Brain, Loader2, Download, Calendar, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function StudentPerformance() {
   const { user } = useAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [years, setYears] = useState<any[]>([]);
+  const [selectedYear, setSelectedYear] = useState<string>('all');
+
+  useEffect(() => {
+    const loadYears = async () => {
+      try {
+        const res = await academicCalendarAPI.getYears();
+        setYears(res.data.data || []);
+      } catch (err) {
+        console.error('Failed to load sessions:', err);
+      }
+    };
+    loadYears();
+  }, []);
 
   useEffect(() => {
     const fetchPerformance = async () => {
+      setLoading(true);
       try {
-        const response = await analyticsAPI.getStudentDashboard();
+        const params = selectedYear !== 'all' ? { yearId: selectedYear } : {};
+        const response = await analyticsAPI.getStudentDashboard(params);
         if (response.data.success) {
           setData(response.data.data);
         }
@@ -31,7 +48,7 @@ export default function StudentPerformance() {
       }
     };
     fetchPerformance();
-  }, []);
+  }, [selectedYear]);
 
   if (loading) {
     return (
@@ -58,8 +75,20 @@ export default function StudentPerformance() {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Academic Performance</h1>
           <p className="text-muted-foreground text-sm">In-depth analysis of your learning journey</p>
         </div>
-        <div className="flex gap-3">
-           <Button variant="outline" size="sm" onClick={() => window.open(`/report-card/${user?.id}`, '_blank')}>
+        <div className="flex flex-wrap gap-3">
+           <Select value={selectedYear} onValueChange={setSelectedYear}>
+              <SelectTrigger className="w-[180px] bg-white">
+                <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Select Session" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Global (All Time)</SelectItem>
+                {years.map(y => (
+                  <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
+                ))}
+              </SelectContent>
+           </Select>
+           <Button variant="outline" size="sm" onClick={() => window.open(`/report-card/${user?.id}${selectedYear !== 'all' ? `?yearId=${selectedYear}` : ''}`, '_blank')}>
             <Download className="h-4 w-4 mr-2" />
             Download PDF Report
           </Button>

@@ -20,6 +20,8 @@ interface SchoolSettings {
   primaryColor: string;
   reportSignatureTitle: string;
   reportSignatureName: string;
+  allowTutorLms: boolean;
+  planAllowLms: boolean;
 }
 
 function Toggle({ enabled, onChange, label, description }: {
@@ -205,6 +207,42 @@ export default function SchoolSettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Learning Management */}
+      {settings.planAllowLms ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-indigo-500" />
+              Learning Management (LMS)
+            </CardTitle>
+            <p className="text-xs text-gray-500 mt-1">
+              Control access to courses and AI-powered learning features.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <Toggle
+              enabled={settings.allowTutorLms}
+              onChange={(v) => update('allowTutorLms', v)}
+              label="Enable Tutor LMS Access"
+              description="Allow tutors to create courses, generate content with AI, and use the learning assistant."
+            />
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="bg-gray-50 border-dashed">
+          <CardContent className="py-6 flex flex-col items-center text-center">
+            <BookOpen className="h-8 w-8 text-gray-400 mb-2" />
+            <h3 className="text-sm font-semibold text-gray-900">Learning Management (LMS)</h3>
+            <p className="text-xs text-gray-500 mt-1 max-w-xs">
+              AI-powered learning features are available on Advanced Premium and Enterprise plans.
+            </p>
+            <Button variant="outline" size="sm" className="mt-3 text-xs" onClick={() => window.location.href='/school-admin/billing'}>
+              Upgrade Plan
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Exam Results */}
       <Card>

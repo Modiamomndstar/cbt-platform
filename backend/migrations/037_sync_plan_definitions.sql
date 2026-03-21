@@ -37,6 +37,7 @@ BEGIN
     INSERT INTO plan_definitions (
         plan_type, display_name, price_usd, price_ngn, trial_days,
         max_tutors, max_internal_students, max_external_per_tutor, max_active_exams, ai_queries_per_month,
+        allow_student_portal, allow_external_students, allow_bulk_import,
         allow_email_notifications,
         allow_sms_notifications, allow_advanced_analytics, allow_custom_branding, allow_api_access,
         allow_result_pdf, allow_result_export,

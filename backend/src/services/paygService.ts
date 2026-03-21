@@ -41,15 +41,15 @@ export const paygService = {
     try {
       await client.query('BEGIN');
 
-      // 1. Get pricing
+      // 1. Get pricing and validity
       const pricingRes = await client.query(
-        'SELECT credit_cost, display_name, batch_size FROM marketplace_items WHERE feature_key = $1',
+        'SELECT credit_cost, display_name, batch_size, validity_days FROM marketplace_items WHERE feature_key = $1',
         [featureKey]
       );
       if (pricingRes.rows.length === 0) {
         throw new Error(`Pricing not found for feature: ${featureKey}`);
       }
-      const { credit_cost, display_name, batch_size = 1 } = pricingRes.rows[0];
+      const { credit_cost, display_name, batch_size = 1, validity_days = 30 } = pricingRes.rows[0];
 
       // 2. Calculate required credits
       const batches = Math.ceil(itemCount / batch_size);
@@ -82,7 +82,14 @@ export const paygService = {
         [newBalance, schoolId]
       );
 
-      // 5. Log to ledger
+      // 5. Log as purchase with expiry
+      await client.query(
+        `INSERT INTO marketplace_purchases (school_id, feature_key, credits_spent, quantity, expires_at)
+         VALUES ($1, $2, $3, $4, NOW() + ($5 || ' days')::interval)`,
+        [schoolId, featureKey, totalRequired, itemCount, validity_days]
+      );
+
+      // 6. Log to ledger
       await client.query(
         `INSERT INTO payg_ledger (school_id, type, credits, balance_after, description, feature_key, amount_paid, currency)
          VALUES ($1, 'deduction', $2, $3, $4, $5, $6, $7)`,
@@ -92,7 +99,7 @@ export const paygService = {
           newBalance,
           `Consumed for ${itemCount} ${display_name}(s)`,
           featureKey,
-          totalRequired * 50, // Assuming 1 credit = 50 NGN for now (unearned to earned)
+          totalRequired * 50, // Assuming 1 credit = 50 NGN
           'NGN'
         ]
       );
@@ -117,11 +124,12 @@ export const paygService = {
       await client.query('BEGIN');
 
       const pricingRes = await client.query(
-        'SELECT display_name, item_type FROM marketplace_items WHERE feature_key = $1',
+        'SELECT display_name, item_type, validity_days FROM marketplace_items WHERE feature_key = $1',
         [featureKey]
       );
       if (pricingRes.rows.length === 0) throw new Error('Feature not found');
       const p = pricingRes.rows[0];
+      const validity = p.validity_days || 30;
 
       // 1. Log as gift in ledger (no credit deduction)
       await client.query(
@@ -131,7 +139,14 @@ export const paygService = {
         [schoolId, `Gifted ${quantity} ${p.display_name}(s) by Admin`, featureKey, adminId]
       );
 
-      // 2. Apply persistent capacity if applicable
+      // 1b. Record in marketplace purchases for validity tracking
+      await client.query(
+        `INSERT INTO marketplace_purchases (school_id, feature_key, is_gift, quantity, expires_at, gifted_by_staff_id)
+         VALUES ($1, $2, true, $3, NOW() + ($4 || ' days')::interval, $5)`,
+        [schoolId, featureKey, quantity, validity, adminId]
+      );
+
+      // 2. Apply persistent capacity or feature overrides
       if (p.item_type === 'capacity' || p.item_type === 'slot') {
         if (featureKey === 'extra_tutor_slot') {
           await client.query(
@@ -145,6 +160,14 @@ export const paygService = {
             [quantity, packSize, schoolId]
           );
         }
+      } else if (p.item_type === 'feature') {
+        // Gift a persistent feature override
+        await client.query(
+          `INSERT INTO school_feature_overrides (school_id, feature_key, is_allowed, reason)
+           VALUES ($1, $2, true, $3)
+           ON CONFLICT (school_id, feature_key) DO UPDATE SET is_allowed = true, updated_at = NOW()`,
+          [schoolId, featureKey, `Gifted ${p.display_name} by Admin`]
+        );
       }
 
       await client.query('COMMIT');

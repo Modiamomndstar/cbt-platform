@@ -32,7 +32,8 @@ export default function ExamResults() {
     startDate: '',
     endDate: '',
     status: 'all',
-    studentType: 'all' as 'all' | 'internal' | 'external'
+    studentType: 'all' as 'all' | 'internal' | 'external',
+    assessmentType: 'all'
   });
 
   const [stats, setStats] = useState({
@@ -192,6 +193,16 @@ export default function ExamResults() {
     setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page on filter change
   };
 
+  const renderAssessmentType = (type: string) => {
+    switch (type) {
+      case 'weekly_classwork': return <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 text-[10px]">Weekly Classwork</Badge>;
+      case 'assignment': return <Badge variant="outline" className="border-purple-200 text-purple-700 bg-purple-50 text-[10px]">Assignment</Badge>;
+      case 'midterm': return <Badge variant="outline" className="border-orange-200 text-orange-700 bg-orange-50 text-[10px]">Mid-Term</Badge>;
+      case 'final_exam': return <Badge variant="outline" className="border-red-200 text-red-700 bg-red-50 text-[10px]">Final Exam</Badge>;
+      default: return null;
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
@@ -346,14 +357,27 @@ export default function ExamResults() {
                />
             </div>
 
-            <Select value={filters.studentType} onValueChange={(val) => handleFilterChange('studentType', val)}>
+            <Select value={filters.studentType} onValueChange={(val: any) => handleFilterChange('studentType', val)}>
               <SelectTrigger>
-                <SelectValue placeholder="All Students" />
+                <SelectValue placeholder="All Student Types" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Student Types</SelectItem>
                 <SelectItem value="internal">Internal Students</SelectItem>
                 <SelectItem value="external">External Students</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={filters.assessmentType} onValueChange={(val) => handleFilterChange('assessmentType', val)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Assessment Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Assessments</SelectItem>
+                <SelectItem value="weekly_classwork">Weekly Classwork</SelectItem>
+                <SelectItem value="assignment">Assignment</SelectItem>
+                <SelectItem value="midterm">Mid-Term</SelectItem>
+                <SelectItem value="final_exam">Final Exam</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -400,6 +424,7 @@ export default function ExamResults() {
                   <tr>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Student</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Exam</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Type</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Score</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Performance</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
@@ -435,10 +460,13 @@ export default function ExamResults() {
                       </td>
                       <td className="px-4 py-3">
                         <div>
-                          <p className="font-medium text-gray-900">{result.examTitle || ''}</p>
-                          <Badge variant="secondary" className="text-xs font-normal mt-0.5">
-                            {result.examCategory || 'General'}
-                          </Badge>
+                          <p className="font-medium text-gray-900 leading-none mb-1">{result.examTitle || ''}</p>
+                          <div className="flex flex-wrap gap-1">
+                            <Badge variant="secondary" className="text-[10px] font-normal">
+                              {result.examCategory || 'General'}
+                            </Badge>
+                            {renderAssessmentType(result.assessmentType)}
+                          </div>
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -537,7 +565,7 @@ export default function ExamResults() {
             <div className="text-center py-12">
               <TrendingUp className="h-12 w-12 mx-auto mb-3 text-gray-300" />
               <p className="text-gray-500">No results found matching your filters</p>
-              <Button variant="link" onClick={() => setFilters({ examId: 'all', search: '', startDate: '', endDate: '', status: 'all', studentType: 'all' })}>
+              <Button variant="link" onClick={() => setFilters({ examId: 'all', search: '', startDate: '', endDate: '', status: 'all', studentType: 'all', assessmentType: 'all' })}>
                 Clear all filters
               </Button>
             </div>

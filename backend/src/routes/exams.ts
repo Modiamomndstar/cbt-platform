@@ -123,7 +123,7 @@ router.post('/', authorize('tutor'), [
     const {
       title, description, categoryId, examTypeId, duration, totalQuestions,
       passingScore, shuffleQuestions, shuffleOptions, showResultImmediately,
-      isSecureMode, maxViolations, examType, academicSession
+      isSecureMode, maxViolations, examType, academicSession, academicYearId, academicPeriodId
     } = req.body;
 
     const tutorId = req.user!.tutorId;
@@ -154,12 +154,13 @@ router.post('/', authorize('tutor'), [
     const result = await db.query(
       `INSERT INTO exams (school_id, tutor_id, title, description, category_id, exam_type_id, duration, total_questions,
                           passing_score, shuffle_questions, shuffle_options, show_result_immediately,
-                          is_secure_mode, max_violations, exam_type, academic_session)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+                          is_secure_mode, max_violations, exam_type, academic_session, academic_year_id, academic_period_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
        RETURNING *`,
       [schoolId, tutorId, title, description, categoryId || null, examTypeId || null, duration, totalQuestions,
        passingScore || 50, shuffleQuestions ?? true, shuffleOptions ?? true, showResultImmediately ?? true,
-       isSecureMode ?? false, maxViolations ?? 3, examType || 'official', academicSession || null]
+       isSecureMode ?? false, maxViolations ?? 3, examType || 'official', academicSession || null,
+       academicYearId || null, academicPeriodId || null]
     );
 
     const exam = result.rows[0];
@@ -176,6 +177,39 @@ router.post('/', authorize('tutor'), [
   } catch (error) {
     next(error);
   }
+});
+
+// Create exam with questions in one go (for AI integration)
+router.post('/integrated-import', authorize('tutor'), async (req: any, res, next) => {
+    try {
+        const { examData, questions, examTypeId } = req.body;
+        const { tutorId, schoolId } = req.user!;
+
+        const result = await db.transaction(async (client) => {
+            // 1. Create Exam
+            const examRes = await client.query(
+                `INSERT INTO exams (school_id, tutor_id, title, description, category_id, duration, total_questions, passing_score, exam_type, is_published, exam_type_id)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                 RETURNING id`,
+                [schoolId, tutorId, examData.title, examData.description, examData.categoryId, examData.duration || 30, questions.length, 50, 'integrated', true, examTypeId]
+            );
+            const examId = examRes.rows[0].id;
+
+            // 2. Insert Questions
+            for (const q of questions) {
+                await client.query(
+                    `INSERT INTO questions (exam_id, question_text, options, correct_answer, marks, question_type)
+                     VALUES ($1, $2, $3, $4, $5, $6)`,
+                    [examId, q.questionText, JSON.stringify(q.options), q.correctAnswer, q.marks || 5, 'multiple_choice']
+                );
+            }
+            return examId;
+        });
+
+        ApiResponseHandler.created(res, { id: result }, "Integrated exam created and linked");
+    } catch (error) {
+        next(error);
+    }
 });
 
 // Update exam
@@ -209,7 +243,7 @@ router.put('/:id', [
       }
     }
 
-    const allowedFields = ['title', 'description', 'categoryId', 'examTypeId', 'duration', 'totalQuestions', 'passingScore', 'shuffleQuestions', 'shuffleOptions', 'showResultImmediately', 'isPublished', 'isSecureMode', 'maxViolations', 'examType', 'academicSession'];
+    const allowedFields = ['title', 'description', 'categoryId', 'examTypeId', 'duration', 'totalQuestions', 'passingScore', 'shuffleQuestions', 'shuffleOptions', 'showResultImmediately', 'isPublished', 'isSecureMode', 'maxViolations', 'examType', 'academicSession', 'academicYearId', 'academicPeriodId'];
     const setClauses: string[] = [];
     const values: any[] = [];
     let paramIndex = 1;
@@ -219,6 +253,8 @@ router.put('/:id', [
         let dbField = key.replace(/[A-Z]/g, l => `_${l.toLowerCase()}`);
         if (key === 'categoryId') dbField = 'category_id';
         if (key === 'examTypeId') dbField = 'exam_type_id';
+        if (key === 'academicYearId') dbField = 'academic_year_id';
+        if (key === 'academicPeriodId') dbField = 'academic_period_id';
 
         setClauses.push(`${dbField} = $${paramIndex++}`);
         values.push(value);

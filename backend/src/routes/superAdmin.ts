@@ -190,7 +190,7 @@ router.put('/plans/:planType', [
       'allow_advanced_analytics', 'allow_custom_branding', 'allow_api_access',
       'allow_result_pdf', 'allow_result_export', 'extra_internal_student_price_usd',
       'extra_external_student_price_usd', 'is_active',
-      'max_ai_queries_per_student', 'max_ai_queries_per_tutor'
+      'max_ai_queries_per_student', 'max_ai_queries_per_tutor', 'allow_lms'
     ];
     const updates: string[] = [];
     const values: any[] = [];

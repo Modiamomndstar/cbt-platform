@@ -68,8 +68,10 @@ export default function SchoolAdminLayout() {
     { name: 'Internal Students', href: '/school-admin/students', icon: BookOpen },
     { name: 'Question Bank', href: '/school-admin/questions', icon: BookOpen },
     { name: 'Exam Schedules', href: '/school-admin/schedules', icon: Calendar },
+    { name: 'Academic Calendar', href: '/school-admin/calendar', icon: Layers },
     { name: 'Competition Hub', href: '/school-admin/competitions', icon: Trophy },
     { name: 'Exam Results', href: '/school-admin/results', icon: FileText },
+    { name: 'LMS Courses', href: '/school-admin/courses', icon: GraduationCap, feature: 'lms_access' },
     { name: 'Billing & Plans', href: '/school-admin/billing', icon: CreditCard },
     { name: 'Settings', href: '/school-admin/settings', icon: Settings },
   ] as ({ name: string; href: string; icon: any; badge?: number; feature?: string })[];

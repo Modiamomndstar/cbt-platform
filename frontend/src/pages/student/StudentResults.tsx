@@ -2,15 +2,19 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { resultAPI } from '@/services/api';
-import { Award, CheckCircle, Clock, TrendingUp } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { resultAPI, academicCalendarAPI } from '@/services/api';
+import { Award, CheckCircle, Clock, TrendingUp, Calendar } from 'lucide-react';
 import { formatDate } from '@/lib/dateUtils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function StudentResults() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [years, setYears] = useState<any[]>([]);
+  const [selectedYear, setSelectedYear] = useState<string>('all');
   const [stats, setStats] = useState({
     totalExams: 0,
     averageScore: 0,
@@ -19,12 +23,26 @@ export default function StudentResults() {
   });
 
   useEffect(() => {
+    const loadYears = async () => {
+      try {
+        const res = await academicCalendarAPI.getYears();
+        setYears(res.data.data || []);
+      } catch (err) {
+        console.error('Failed to load sessions:', err);
+      }
+    };
+    loadYears();
+  }, []);
+
+  useEffect(() => {
     loadResults();
-  }, [user]);
+  }, [user, selectedYear]);
 
   const loadResults = async () => {
+    setLoading(true);
     try {
-      const response = await resultAPI.getMyHistory();
+      const params = selectedYear !== 'all' ? { yearId: selectedYear } : {};
+      const response = await resultAPI.getMyHistory(params);
       if (response.data.success) {
         const allResults = (response.data.data || [])
           .filter((r: any) => ['completed', 'failed', 'pending_grading', 'disqualified'].includes(r.status))
@@ -69,6 +87,16 @@ export default function StudentResults() {
     return 'bg-red-50';
   };
 
+  const renderAssessmentType = (type: string) => {
+    switch (type) {
+      case 'weekly_classwork': return <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 text-[10px] h-4">Weekly Classwork</Badge>;
+      case 'assignment': return <Badge variant="outline" className="border-purple-200 text-purple-700 bg-purple-50 text-[10px] h-4">Assignment</Badge>;
+      case 'midterm': return <Badge variant="outline" className="border-orange-200 text-orange-700 bg-orange-50 text-[10px] h-4">Mid-Term</Badge>;
+      case 'final_exam': return <Badge variant="outline" className="border-red-200 text-red-700 bg-red-50 text-[10px] h-4">Final Exam</Badge>;
+      default: return null;
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -79,9 +107,23 @@ export default function StudentResults() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">My Results</h1>
-        <p className="text-gray-600">View your exam performance history</p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">My Results</h1>
+          <p className="text-gray-600">View your exam performance history</p>
+        </div>
+        <Select value={selectedYear} onValueChange={setSelectedYear}>
+          <SelectTrigger className="w-[200px] bg-white">
+            <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+            <SelectValue placeholder="Filter by Session" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Sessions (Global)</SelectItem>
+            {years.map(y => (
+              <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Stats */}
@@ -150,9 +192,12 @@ export default function StudentResults() {
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div>
-                      <h3 className="font-semibold text-gray-900">
-                        {result.examTitle || 'Exam'}
-                      </h3>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-gray-900 leading-none">
+                          {result.examTitle || 'Exam'}
+                        </h3>
+                        {renderAssessmentType(result.assessmentType)}
+                      </div>
                       <p className="text-sm text-gray-500">
                         {result.examCategory || ''}
                       </p>

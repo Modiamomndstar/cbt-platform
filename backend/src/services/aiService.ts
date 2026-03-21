@@ -53,6 +53,43 @@ export interface AIStudentFeedbackRequest {
   weakTopics: string[];
 }
 
+export interface AISyllabusResponse {
+  modules: Array<{
+    title: string;
+    description: string;
+    subtopics?: string[]; // Nested subtopics
+    lessons: string[];    // Top-level lessons for the module
+  }>;
+}
+
+export interface AILessonContentResponse {
+  title: string;
+  content: string; // Markdown
+  keyTakeaways: string[];
+  suggestedQuizQuestions: Array<{
+    question: string;
+    answer: string;
+  }>;
+}
+
+export interface AIStudyPlanRequest {
+  studentName: string;
+  academicWeekLabel: string;
+  courses: Array<{
+    title: string;
+    focusModules: string[];
+  }>;
+}
+
+export interface AIStudyPlanResponse {
+  weeklyOverview: string;
+  dailySchedule: Array<{
+    day: string;
+    tasks: string[];
+    priority: 'low' | 'medium' | 'high';
+  }>;
+}
+
 class AIService {
   private client: OpenAI | null = null;
   private model: string;
@@ -220,6 +257,207 @@ class AIService {
     });
 
     return completion.choices[0].message.content || "No feedback available.";
+  }
+
+  async generateCourseSyllabus(topic: string, subject: string): Promise<AISyllabusResponse> {
+    if (!this.isAvailable()) {
+      throw new Error("AI Service not configured");
+    }
+
+    const prompt = `Create a comprehensive 5-module course syllabus for the subject "${subject}" specifically on the topic "${topic}".
+    
+    The structure should be hierarchical:
+    1. Each module is a major topic.
+    2. Each module can have optional "subtopics" (sub-modules).
+    3. Each module (and its subtopics) contains specific lesson titles.
+    
+    For each module, provide:
+    1. A clear title.
+    2. A brief 1-sentence description.
+    3. A list of 2-3 subtopcs (optional).
+    4. Exactly 3 key lesson titles.
+
+    Return ONLY a valid JSON object in this exact format:
+    {
+      "modules": [
+        {
+          "title": "Module Title",
+          "description": "Short description",
+          "subtopics": ["Subtopic A", "Subtopic B"],
+          "lessons": ["Lesson 1 Title", "Lesson 2 Title", "Lesson 3 Title"]
+        }
+      ]
+    }`;
+
+    const completion = await this.client!.chat.completions.create({
+      model: this.model,
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert curriculum designer. Your goal is to create logical, high-quality learning paths.",
+        },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.7,
+    });
+
+    const responseText = completion.choices[0].message.content || "{}";
+    return this.parseJSON(responseText);
+  }
+
+  async generateIntegratedExam(topic: string, courseContent: string, numQuestions: number = 10): Promise<AIQuestionResponse[]> {
+    if (!this.isAvailable()) {
+      throw new Error("AI Service not configured");
+    }
+
+    const prompt = `Generate a comprehensive ${numQuestions}-question exam for the topic "${topic}" based ONLY on the following lesson content:
+    
+    --- CONTENT START ---
+    ${courseContent.substring(0, 4000)} 
+    --- CONTENT END ---
+    
+    Return ONLY a valid JSON array in this exact format:
+    [
+      {
+        "questionText": "The question text",
+        "options": ["Option A", "Option B", "Option C", "Option D"],
+        "correctAnswer": "Option A",
+        "marks": 5
+      }
+    ]
+    
+    STRICT RULES:
+    1. Every question MUST be directly answerable from the provided content.
+    2. Ensure a mix of conceptual and factual questions.
+    3. Options must be plausible but only one correct.`;
+
+    const completion = await this.client!.chat.completions.create({
+      model: this.model,
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert examiner. You generate high-quality assessments based strictly on provided curriculum content.",
+        },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.7,
+    });
+
+    const responseText = completion.choices[0].message.content || "[]";
+    return this.parseJSON(responseText);
+  }
+
+  async generateLessonContent(moduleTitle: string, lessonTitle: string, topic: string): Promise<AILessonContentResponse> {
+    if (!this.isAvailable()) {
+      throw new Error("AI Service not configured");
+    }
+
+    const prompt = `Write a detailed educational lesson for "${lessonTitle}" which is part of the module "${moduleTitle}" in the broader topic of "${topic}".
+    
+    The content should be:
+    1. Educational, engaging, and clear.
+    2. Formatted in clean Markdown (use headers, bolding, and lists).
+    3. Approximately 400-600 words.
+    
+    Also provide:
+    1. Three key takeaways.
+    2. Two suggested quiz questions (with answers) for this specific lesson.
+
+    Return ONLY a valid JSON object in this exact format:
+    {
+      "title": "${lessonTitle}",
+      "content": "Full markdown content here...",
+      "keyTakeaways": ["Takeaway 1", "Takeaway 2", "Takeaway 3"],
+      "suggestedQuizQuestions": [
+        { "question": "Q1", "answer": "A1" },
+        { "question": "Q2", "answer": "A2" }
+      ]
+    }`;
+
+    const completion = await this.client!.chat.completions.create({
+      model: this.model,
+      messages: [
+        {
+          role: "system",
+          content: "You are a professional educator. You write clear, informative, and engaging lesson content.",
+        },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.7,
+    });
+
+    const responseText = completion.choices[0].message.content || "{}";
+    return this.parseJSON(responseText);
+  }
+
+  async learningAssistantChat(lessonContent: string, userMessage: string, history: any[]): Promise<string> {
+    if (!this.isAvailable()) {
+      throw new Error("AI Service not configured");
+    }
+
+    const messages: any[] = [
+      {
+        role: "system",
+        content: `You are an AI Learning Assistant. Your goal is to help students understand the following lesson content:\n\n${lessonContent}\n\nSTRICT RULES:
+        1. ONLY answer questions related to this lesson or the broader subject.
+        2. If a student asks something irrelevant, politely redirect them to the lesson.
+        3. Explain complex concepts using analogies.
+        4. Be encouraging and patient.`,
+      },
+      ...history.slice(-6), // Keep last 3 turns
+      { role: "user", content: userMessage }
+    ];
+
+    const completion = await this.client!.chat.completions.create({
+      model: this.model,
+      messages,
+      temperature: 0.7,
+    });
+
+    return completion.choices[0].message.content || "I'm sorry, I couldn't process that. How else can I help with this lesson?";
+  }
+
+  async generateStudyPlan(req: AIStudyPlanRequest): Promise<AIStudyPlanResponse> {
+    if (!this.isAvailable()) {
+      throw new Error("AI Service not configured");
+    }
+
+    const coursesStr = req.courses.map(c => `- ${c.title}: ${c.focusModules.join(', ')}`).join('\n');
+
+    const prompt = `Student: ${req.studentName}
+    Current Academic Week: ${req.academicWeekLabel}
+    Enrolled Courses & Active Modules:
+    ${coursesStr}
+
+    Generate a personalized weekly study plan (Mon-Fri) for this student. 
+    Focus on the modules specifically assigned to this academic week.
+
+    Return ONLY a valid JSON object in this exact format:
+    {
+      "weeklyOverview": "A brief encouraging summary for the week.",
+      "dailySchedule": [
+        {
+          "day": "Monday",
+          "tasks": ["Review Lesson 1 of Maths", "Complete Science Quiz"],
+          "priority": "high"
+        }
+      ]
+    }`;
+
+    const completion = await this.client!.chat.completions.create({
+      model: this.model,
+      messages: [
+        {
+          role: "system",
+          content: "You are an AI Academic Planner. You help students organize their time and stay on top of their curriculum.",
+        },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.7,
+    });
+
+    const responseText = completion.choices[0].message.content || "{}";
+    return this.parseJSON(responseText);
   }
 
   private parseJSON(text: string): any {

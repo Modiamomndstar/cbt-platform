@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { schoolAPI, tutorAPI, examAPI } from '@/services/api';
+import { schoolAPI } from '@/services/api';
 import { CompetitionBanner } from '@/components/competitions/CompetitionBanner';
 import { usePlan } from '@/hooks/usePlan';
 import { FeatureLockedModal, FeatureLockBadge } from '@/components/common/FeatureLock';
@@ -13,9 +13,9 @@ import {
   CheckCircle,
   TrendingUp,
   Calendar,
-  ArrowRight,
   Trophy
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import OnboardingWizard from '@/components/common/OnboardingWizard';
 
@@ -24,8 +24,6 @@ export default function SchoolAdminDashboard() {
   const { user } = useAuth();
   const { isFeatureAllowed } = usePlan();
   const [stats, setStats] = useState<any>(null);
-  const [tutors, setTutors] = useState<any[]>([]);
-  const [exams, setExams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showLockModal, setShowLockModal] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -33,24 +31,14 @@ export default function SchoolAdminDashboard() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [dashRes, tutorRes, examRes] = await Promise.all([
-          schoolAPI.getDashboard().catch(() => null),
-          tutorAPI.getAll().catch(() => null),
-          examAPI.getAll().catch(() => null),
-        ]);
+        const dashRes = await schoolAPI.getDashboard();
 
         if (dashRes?.data?.success) {
           const data = dashRes.data.data;
           setStats(data);
-          if ((data.tutorCount) === 0) {
+          if (Number(data.tutorCount) === 0) {
             setShowOnboarding(true);
           }
-        }
-        if (tutorRes?.data?.success) {
-          setTutors((tutorRes.data.data || []).slice(0, 5));
-        }
-        if (examRes?.data?.success) {
-          setExams((examRes.data.data || []).slice(0, 5));
         }
       } catch (err) {
         console.error('Failed to load dashboard:', err);
@@ -104,6 +92,13 @@ export default function SchoolAdminDashboard() {
       color: 'text-cyan-600',
       bgColor: 'bg-cyan-50'
     },
+    {
+      title: 'LMS Courses',
+      value: stats?.lmsStats?.totalCourses || 0,
+      icon: BookOpen,
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50'
+    },
   ];
 
   if (loading) {
@@ -144,75 +139,16 @@ export default function SchoolAdminDashboard() {
           </Card>
         ))}
       </div>
-
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* Recent Tutors */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg">Recent Tutors</CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate('/school-admin/tutors')}
-            >
-              View All
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {tutors.length > 0 ? (
-              <div className="space-y-3">
-                {tutors.map((tutor: any) => (
-                  <div
-                    key={tutor.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                        <span className="text-indigo-700 font-semibold">
-                          {(tutor.fullName || '?').charAt(0)}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{tutor.fullName}</p>
-                        <p className="text-sm text-gray-500">{(tutor.subjects || []).join(', ') || 'No subjects'}</p>
-                      </div>
-                    </div>
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      (tutor.isActive) !== false
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-gray-100 text-gray-700'
-                    }`}>
-                      {(tutor.isActive) !== false ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No tutors added yet</p>
-                <Button
-                  variant="outline"
-                  className="mt-3"
-                  onClick={() => navigate('/school-admin/tutors')}
-                >
-                  Add Tutors
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         {/* Recent Exams */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">Recent Exams</CardTitle>
           </CardHeader>
           <CardContent>
-            {exams.length > 0 ? (
+            {stats?.recentExams?.length > 0 ? (
               <div className="space-y-3">
-                {exams.map((exam: any) => (
+                {stats.recentExams.map((exam: any) => (
                   <div
                     key={exam.id}
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
@@ -223,22 +159,55 @@ export default function SchoolAdminDashboard() {
                       </div>
                       <div>
                         <p className="font-medium text-gray-900">{exam.title}</p>
-                        <p className="text-sm text-gray-500">{exam.categoryName || exam.category || ''} • {exam.duration} mins</p>
+                        <p className="text-sm text-gray-500">{exam.categoryName || ''} • {exam.duration} mins</p>
                       </div>
                     </div>
                     <span className="text-sm text-gray-500">
-                      {exam.questionCount || 0} Qs
+                      {Number(exam.totalQuestions || 0)} Qs
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No exams created yet</p>
-                <p className="text-sm">Exams will appear here once tutors create them</p>
+              <div className="text-center py-8 text-gray-400">
+                <BookOpen className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                <p className="text-sm">No exams found</p>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* LMS Engagement */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-lg">LMS Engagement</CardTitle>
+            <Badge variant="secondary" className="bg-orange-100 text-orange-700 font-normal">
+              New Insight
+            </Badge>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-gray-50 border border-gray-100 rounded-lg text-center hover:bg-white transition-colors">
+                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Enrollments</p>
+                <p className="text-2xl font-bold text-gray-900">{stats?.lmsStats?.totalEnrollments || 0}</p>
+              </div>
+              <div className="p-4 bg-gray-50 border border-gray-100 rounded-lg text-center hover:bg-white transition-colors">
+                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Completion</p>
+                <p className="text-2xl font-bold text-gray-900">{stats?.lmsStats?.avgCompletionRate || 0}%</p>
+              </div>
+            </div>
+            <div className="mt-6">
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-gray-600">Institutional Progress</span>
+                <span className="font-semibold text-orange-600">{stats?.lmsStats?.avgCompletionRate || 0}%</span>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-2 shadow-inner">
+                <div 
+                  className="bg-orange-500 h-2 rounded-full transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(249,115,22,0.4)]" 
+                  style={{ width: `${stats?.lmsStats?.avgCompletionRate || 0}%` }}
+                ></div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

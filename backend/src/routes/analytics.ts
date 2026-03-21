@@ -5,10 +5,11 @@ import { requireFeature } from "../middleware/planGuard";
 import { ApiResponseHandler } from "../utils/apiResponse";
 import { transformResult } from "../utils/responseTransformer";
 import crypto from "crypto";
+import { resultService } from "../services/resultService";
 
 const router = Router();
 
-// School dashboard analytics
+// School Admin dashboard analytics
 router.get(
   "/school/dashboard",
   authenticate,
@@ -19,109 +20,111 @@ router.get(
       const user = req.user!;
 
       // Total counts
-      const tutorCount = await client.query(
-        "SELECT COUNT(*) FROM tutors WHERE school_id = $1 AND is_active = true",
-        [user.schoolId],
+      const [tutorCount, studentCount, examCount, publishedExamCount] = await Promise.all([
+        client.query("SELECT COUNT(*) FROM tutors WHERE school_id = $1 AND is_active = true", [user.schoolId]),
+        client.query("SELECT COUNT(*) FROM students WHERE school_id = $1 AND is_active = true", [user.schoolId]),
+        client.query(
+          `SELECT COUNT(*) FROM exams e JOIN tutors t ON e.tutor_id = t.id WHERE t.school_id = $1`,
+          [user.schoolId]
+        ),
+        client.query(
+          `SELECT COUNT(*) FROM exams e JOIN tutors t ON e.tutor_id = t.id WHERE t.school_id = $1 AND e.is_published = true`,
+          [user.schoolId]
+        ),
+      ]);
+
+      // LMS Stats
+      const lmsStats = await client.query(
+        `SELECT 
+          COUNT(DISTINCT c.id) as total_courses,
+          COUNT(DISTINCT scp.student_id) as total_enrollments,
+          COALESCE(AVG(CASE WHEN scp.is_completed = true THEN 100 ELSE 0 END), 0) as avg_completion
+        FROM courses c
+        LEFT JOIN student_course_progress scp ON c.id = scp.course_id
+        WHERE c.school_id = $1`,
+        [user.schoolId]
       );
 
-      const studentCount = await client.query(
-        "SELECT COUNT(*) FROM students WHERE school_id = $1 AND is_active = true",
-        [user.schoolId],
-      );
-
-      const examCount = await client.query(
-        `SELECT COUNT(*) FROM exams e
-       JOIN tutors t ON e.tutor_id = t.id
-       WHERE t.school_id = $1`,
-        [user.schoolId],
-      );
-
-      const publishedExamCount = await client.query(
-        `SELECT COUNT(*) FROM exams e
-       JOIN tutors t ON e.tutor_id = t.id
-       WHERE t.school_id = $1 AND e.is_published = true`,
-        [user.schoolId],
-      );
-
-      // Recent exams
-      const recentExams = await client.query(
-        `SELECT e.*, COALESCE(t.full_name, NULLIF(TRIM(CONCAT(t.first_name, ' ', t.last_name)), ''), t.username) as tutor_name
-       FROM exams e
-       JOIN tutors t ON e.tutor_id = t.id
-       WHERE t.school_id = $1
-       ORDER BY e.created_at DESC
-       LIMIT 5`,
-        [user.schoolId],
-      );
-
-      // Recent results
-      const recentResults = await client.query(
-        `SELECT se.*, e.title as exam_title,
-              COALESCE(s.full_name, NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), '')) as student_name
-       FROM student_exams se
-       JOIN exams e ON se.exam_id = e.id
-       JOIN tutors t ON e.tutor_id = t.id
-       JOIN students s ON se.student_id = s.id
-       WHERE t.school_id = $1
-       ORDER BY se.completed_at DESC
-       LIMIT 5`,
-        [user.schoolId],
-      );
-
-      // Category distribution
-      const categoryDistribution = await client.query(
-        `SELECT sc.name, COUNT(s.id) as student_count
-       FROM student_categories sc
-       LEFT JOIN students s ON sc.id = s.category_id AND s.is_active = true
-       WHERE sc.school_id = $1
-       GROUP BY sc.id, sc.name
-       ORDER BY sc.name`,
-        [user.schoolId],
-      );
-
-      // Monthly exam completion stats (last 6 months)
-      const monthlyStats = await client.query(
-        `SELECT
-        DATE_TRUNC('month', se.completed_at) as month,
-        COUNT(*) as exam_count,
-        AVG(se.percentage) as average_percentage
-       FROM student_exams se
-       JOIN exams e ON se.exam_id = e.id
-       JOIN tutors t ON e.tutor_id = t.id
-       WHERE t.school_id = $1 AND se.completed_at >= NOW() - INTERVAL '6 months'
-       GROUP BY DATE_TRUNC('month', se.completed_at)
-       ORDER BY month DESC`,
-        [user.schoolId],
-      );
+      // Recent Activity
+      const [recentExams, recentResults, categoryDistribution, monthlyStats] = await Promise.all([
+        client.query(
+          `SELECT e.*, COALESCE(t.full_name, t.username) as tutor_name,
+           (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id) as total_questions
+           FROM exams e
+           JOIN tutors t ON e.tutor_id = t.id
+           WHERE t.school_id = $1
+           ORDER BY e.created_at DESC LIMIT 5`,
+          [user.schoolId]
+        ),
+        client.query(
+          `SELECT se.*, e.title as exam_title, s.full_name as student_name
+           FROM student_exams se
+           JOIN exams e ON se.exam_id = e.id
+           JOIN tutors t ON e.tutor_id = t.id
+           JOIN students s ON se.student_id = s.id
+           WHERE t.school_id = $1
+           ORDER BY se.completed_at DESC LIMIT 5`,
+          [user.schoolId]
+        ),
+        client.query(
+          `SELECT sc.name, COUNT(s.id) as student_count
+           FROM student_categories sc
+           LEFT JOIN students s ON sc.id = s.category_id AND s.is_active = true
+           WHERE sc.school_id = $1
+           GROUP BY sc.id, sc.name ORDER BY sc.name`,
+          [user.schoolId]
+        ),
+        client.query(
+          `SELECT
+            DATE_TRUNC('month', se.completed_at) as month,
+            COUNT(*) as exam_count,
+            AVG(se.percentage) as average_percentage
+           FROM student_exams se
+           JOIN exams e ON se.exam_id = e.id
+           JOIN tutors t ON e.tutor_id = t.id
+           WHERE t.school_id = $1 AND se.completed_at >= NOW() - INTERVAL '6 months'
+           GROUP BY month ORDER BY month DESC`,
+          [user.schoolId]
+        ),
+      ]);
 
       ApiResponseHandler.success(
         res,
         transformResult({
-          totalTutors: parseInt(tutorCount.rows[0].count),
-          totalStudents: parseInt(studentCount.rows[0].count),
-          totalExams: parseInt(examCount.rows[0].count),
-          publishedExams: parseInt(publishedExamCount.rows[0].count),
+          totalTutors: Number(tutorCount.rows[0].count),
+          totalStudents: Number(studentCount.rows[0].count),
+          totalExams: Number(examCount.rows[0].count),
+          publishedExams: Number(publishedExamCount.rows[0].count),
+          lmsStats: {
+            totalCourses: Number(lmsStats.rows[0].total_courses),
+            totalEnrollments: Number(lmsStats.rows[0].total_enrollments),
+            avgCompletionRate: parseFloat(lmsStats.rows[0].avg_completion || 0).toFixed(1)
+          },
           recentExams: recentExams.rows.map((e) => ({
             id: e.id,
             title: e.title,
             tutorName: e.tutor_name,
             isPublished: e.is_published,
             createdAt: e.created_at,
+            totalQuestions: Number(e.total_questions)
           })),
           recentResults: recentResults.rows.map((r) => ({
             id: r.id,
             examTitle: r.exam_title,
-            studentName: r.student_name,
+            fullName: r.student_name,
             score: r.score,
             percentage: r.percentage,
             status: r.status,
             submittedAt: r.completed_at,
           })),
-          categoryDistribution: categoryDistribution.rows,
+          categoryDistribution: categoryDistribution.rows.map(cd => ({
+            name: cd.name,
+            studentCount: Number(cd.student_count)
+          })),
           monthlyStats: monthlyStats.rows.map((m) => ({
             month: m.month,
-            examCount: parseInt(m.exam_count),
-            averagePercentage: parseFloat(m.average_percentage || 0).toFixed(2),
+            examCount: Number(m.exam_count),
+            averagePercentage: parseFloat(m.average_percentage || 0).toFixed(1),
           })),
         }),
         "School dashboard analytics retrieved",
@@ -145,104 +148,86 @@ router.get(
     try {
       const user = req.user!;
 
-      // Tutor's exam stats
-      const examStats = await client.query(
-        `SELECT
-        COUNT(*) as total_exams,
-        COUNT(CASE WHEN is_published = true THEN 1 END) as published_exams
-       FROM exams WHERE tutor_id = $1`,
-        [user.id],
-      );
-
-      // Total students who took tutor's exams
-      const studentStats = await client.query(
-        `SELECT COUNT(DISTINCT se.student_id) as total_students
-       FROM student_exams se
-       JOIN exams e ON se.exam_id = e.id
-       WHERE e.tutor_id = $1`,
-        [user.id],
-      );
-
-      // Average performance
-      const performanceStats = await client.query(
-        `SELECT
-        AVG(se.percentage) as average_percentage,
-        AVG(se.score) as average_score
-       FROM student_exams se
-       JOIN exams e ON se.exam_id = e.id
-       WHERE e.tutor_id = $1`,
-        [user.id],
-      );
-
-      // Recent exams by tutor
-      const recentExams = await client.query(
-        `SELECT * FROM exams
-       WHERE tutor_id = $1
-       ORDER BY created_at DESC
-       LIMIT 5`,
-        [user.id],
-      );
-
-      // Exam performance breakdown
-      const examPerformance = await client.query(
-        `SELECT
-        e.id, e.title,
-        COUNT(se.id) as attempt_count,
-        AVG(se.percentage) as average_percentage,
-        MAX(se.percentage) as highest_percentage,
-        MIN(se.percentage) as lowest_percentage
-       FROM exams e
-       LEFT JOIN student_exams se ON e.id = se.exam_id
-       WHERE e.tutor_id = $1
-       GROUP BY e.id, e.title
-       ORDER BY e.created_at DESC
-       LIMIT 10`,
-        [user.id],
-      );
-
-      // Upcoming exams (scheduled)
-      const upcomingExams = await client.query(
-        `SELECT es.*, e.title as exam_title, e.duration, COUNT(se.id) as student_count
-       FROM exam_schedules es
-       JOIN exams e ON es.exam_id = e.id
-       LEFT JOIN student_exams se ON es.id = se.exam_schedule_id
-       WHERE e.tutor_id = $1
-         AND es.status = 'scheduled'
-         AND es.scheduled_date >= CURRENT_DATE
-       GROUP BY es.id, e.title, e.duration
-       ORDER BY es.scheduled_date ASC
-       LIMIT 5`,
-        [user.id],
-      );
+      // Get all stats in parallel
+      const [examStats, studentStats, performanceStats, recentExams, examPerformance, upcomingExams, courseStats] = await Promise.all([
+        client.query(
+          "SELECT COUNT(*) as total_exams, COUNT(CASE WHEN is_published = true THEN 1 END) as published_exams FROM exams WHERE tutor_id = $1",
+          [user.id]
+        ),
+        client.query(
+          "SELECT COUNT(DISTINCT se.student_id) as total_students FROM student_exams se JOIN exams e ON se.exam_id = e.id WHERE e.tutor_id = $1",
+          [user.id]
+        ),
+        client.query(
+          "SELECT AVG(se.percentage) as average_percentage, AVG(se.score) as average_score FROM student_exams se JOIN exams e ON se.exam_id = e.id WHERE e.tutor_id = $1",
+          [user.id]
+        ),
+        client.query(
+          `SELECT e.*, (SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id) as total_questions
+           FROM exams e WHERE e.tutor_id = $1 ORDER BY e.created_at DESC LIMIT 5`,
+          [user.id]
+        ),
+        client.query(
+          `SELECT e.id, e.title, COUNT(se.id) as attempt_count, AVG(se.percentage) as average_percentage, MAX(se.percentage) as highest_percentage, MIN(se.percentage) as lowest_percentage
+           FROM exams e LEFT JOIN student_exams se ON e.id = se.exam_id
+           WHERE e.tutor_id = $1 GROUP BY e.id, e.title ORDER BY e.created_at DESC LIMIT 10`,
+          [user.id]
+        ),
+        client.query(
+          `SELECT es.*, e.title as exam_title, e.duration, COUNT(se.id) as student_count
+           FROM exam_schedules es JOIN exams e ON es.exam_id = e.id
+           LEFT JOIN student_exams se ON es.id = se.exam_schedule_id
+           WHERE e.tutor_id = $1 AND es.status = 'scheduled' AND es.scheduled_date >= CURRENT_DATE
+           GROUP BY es.id, e.title, e.duration ORDER BY es.scheduled_date ASC LIMIT 5`,
+          [user.id]
+        ),
+        client.query(
+          `SELECT c.id, c.title, COUNT(scp.id) as student_count,
+           COALESCE(AVG(CASE 
+             WHEN (SELECT COUNT(*) FROM course_contents WHERE module_id IN (SELECT id FROM course_modules WHERE course_id = c.id)) = 0 THEN 0
+             ELSE (array_length(scp.completed_contents, 1)::float / (SELECT COUNT(*) FROM course_contents WHERE module_id IN (SELECT id FROM course_modules WHERE course_id = c.id)) * 100)
+           END), 0) as avg_progress
+           FROM courses c
+           LEFT JOIN student_course_progress scp ON c.id = scp.course_id
+           WHERE c.tutor_id = $1
+           GROUP BY c.id, c.title ORDER BY student_count DESC LIMIT 5`,
+          [user.id]
+        )
+      ]);
 
       ApiResponseHandler.success(
         res,
         transformResult({
-          totalExams: parseInt(examStats.rows[0].total_exams),
-          publishedExams: parseInt(examStats.rows[0].published_exams),
-          totalStudents: parseInt(studentStats.rows[0].total_students),
-          averagePercentage: parseFloat(
-            performanceStats.rows[0].average_percentage || 0,
-          ).toFixed(2),
-          averageScore: parseFloat(
-            performanceStats.rows[0].average_score || 0,
-          ).toFixed(2),
-          recentExams: recentExams.rows,
+          totalExams: Number(examStats.rows[0].total_exams),
+          publishedExams: Number(examStats.rows[0].published_exams),
+          totalStudents: Number(studentStats.rows[0].total_students),
+          averagePercentage: parseFloat(performanceStats.rows[0].average_percentage || 0).toFixed(1),
+          averageScore: parseFloat(performanceStats.rows[0].average_score || 0).toFixed(1),
+          recentExams: recentExams.rows.map(e => ({
+            ...e,
+            totalQuestions: Number(e.total_questions)
+          })),
           upcomingExams: upcomingExams.rows.map((e) => ({
             id: e.id,
             examTitle: e.exam_title,
             scheduledDate: e.scheduled_date,
             startTime: e.start_time,
             endTime: e.end_time,
-            studentCount: parseInt(e.student_count),
+            studentCount: Number(e.student_count),
           })),
           examPerformance: examPerformance.rows.map((e) => ({
             id: e.id,
             title: e.title,
-            attemptCount: parseInt(e.attempt_count),
-            averagePercentage: parseFloat(e.average_percentage || 0).toFixed(2),
-            highestPercentage: parseFloat(e.highest_percentage || 0).toFixed(2),
-            lowestPercentage: parseFloat(e.lowest_percentage || 0).toFixed(2),
+            attemptCount: Number(e.attempt_count),
+            averagePercentage: parseFloat(e.average_percentage || 0).toFixed(1),
+            highestPercentage: parseFloat(e.highest_percentage || 0).toFixed(1),
+            lowestPercentage: parseFloat(e.lowest_percentage || 0).toFixed(1),
+          })),
+          courseProgress: courseStats.rows.map(c => ({
+            id: c.id,
+            title: c.title,
+            studentCount: Number(c.student_count),
+            avgProgress: parseFloat(c.avg_progress || 0).toFixed(1)
           })),
         }),
         "Tutor dashboard analytics retrieved",
@@ -265,6 +250,7 @@ router.get(
     const client = await pool.connect();
     try {
       const user = req.user!;
+      const { yearId } = req.query;
 
       // Fetch student's email/phone to merge historical external data
       const studentInfo = await client.query(
@@ -286,27 +272,31 @@ router.get(
       );
       const schoolInfo = schoolResult.rows[0] || { name: 'Portal', logo_url: null };
 
-      // Total exams taken
+      // Total exams taken (Filtered by year if provided)
       const examStats = await client.query(
         `SELECT
-        COUNT(*) as total_exams,
-        COUNT(CASE WHEN status = 'completed' THEN 1 END) as passed_count,
-        COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_count
-       FROM student_exams
-       WHERE (student_id = $1 OR external_student_id = $1)`,
-        [user.id],
+        COUNT(se.id) as total_exams,
+        COUNT(CASE WHEN se.status = 'completed' THEN 1 END) as passed_count,
+        COUNT(CASE WHEN se.status = 'failed' THEN 1 END) as failed_count
+       FROM student_exams se
+       JOIN exams e ON se.exam_id = e.id
+       WHERE (se.student_id = $1 OR se.external_student_id = $1)
+       AND ($2::uuid IS NULL OR e.academic_year_id = $2)`,
+        [user.id, yearId || null],
       );
 
-      // Average score
+      // Average score (Filtered by year if provided)
       const scoreStats = await client.query(
         `SELECT
-        AVG(percentage) as average_percentage,
-        AVG(score) as average_score,
-        MAX(percentage) as highest_percentage,
-        MAX(score) as highest_score
-       FROM student_exams
-       WHERE (student_id = $1 OR external_student_id = $1)`,
-        [user.id],
+        AVG(se.percentage) as average_percentage,
+        AVG(se.score) as average_score,
+        MAX(se.percentage) as highest_percentage,
+        MAX(se.score) as highest_score
+       FROM student_exams se
+       JOIN exams e ON se.exam_id = e.id
+       WHERE (se.student_id = $1 OR se.external_student_id = $1)
+       AND ($2::uuid IS NULL OR e.academic_year_id = $2)`,
+        [user.id, yearId || null],
       );
 
       // Recent exams
@@ -314,8 +304,10 @@ router.get(
         `SELECT se.*, e.title as exam_title, e.description
        FROM student_exams se
        JOIN exams e ON se.exam_id = e.id
-       WHERE (se.student_id = $1 OR se.external_student_id = $1)`,
-        [user.id],
+       WHERE (se.student_id = $1 OR se.external_student_id = $1)
+       AND ($2::uuid IS NULL OR e.academic_year_id = $2)
+       ORDER BY se.completed_at DESC LIMIT 10`,
+        [user.id, yearId || null],
       );
 
       // Upcoming scheduled exams
@@ -326,9 +318,10 @@ router.get(
        WHERE (es.student_id = $1 OR es.external_student_id = $1)
          AND es.status = 'scheduled'
          AND es.scheduled_date >= CURRENT_DATE
+         AND ($2::uuid IS NULL OR e.academic_year_id = $2)
        ORDER BY es.scheduled_date, es.start_time
        LIMIT 5`,
-        [user.id],
+        [user.id, yearId || null],
       );
 
       // Performance by subject/category
@@ -341,8 +334,9 @@ router.get(
        JOIN exams e ON se.exam_id = e.id
        JOIN exam_categories ec ON e.category_id = ec.id
        WHERE (se.student_id = $1 OR se.external_student_id = $1)
+       AND ($2::uuid IS NULL OR e.academic_year_id = $2)
        GROUP BY ec.id, ec.name`,
-        [user.id],
+        [user.id, yearId || null],
       );
 
       // Monthly progress
@@ -352,27 +346,33 @@ router.get(
         COUNT(*) as exam_count,
         AVG(se.percentage) as average_percentage
        FROM student_exams se
+       JOIN exams e ON se.exam_id = e.id
        WHERE (se.student_id = $1 OR se.external_student_id = $1)
          AND se.completed_at >= NOW() - INTERVAL '6 months'
+         AND ($2::uuid IS NULL OR e.academic_year_id = $2)
        GROUP BY DATE_TRUNC('month', se.completed_at)
        ORDER BY month DESC`,
-        [user.id],
+        [user.id, yearId || null],
       );
 
       // Awards Count (Percentage >= 70)
       const awardsCount = await client.query(
-        `SELECT COUNT(*) FROM student_exams
-         WHERE (student_id = $1 OR external_student_id = $1)
-           AND percentage >= 70 AND status = 'completed'`,
-        [user.id]
+        `SELECT COUNT(se.id) FROM student_exams se
+         JOIN exams e ON se.exam_id = e.id
+         WHERE (se.student_id = $1 OR se.external_student_id = $1)
+           AND se.percentage >= 70 AND se.status = 'completed'
+           AND ($2::uuid IS NULL OR e.academic_year_id = $2)`,
+        [user.id, yearId || null]
       );
 
-      // Percentile Calculation (relative to all students in school)
+      // Percentile Calculation (Filtered by year if provided)
       let percentile = 50; // Default
       const avgQuery = await client.query(
-        `SELECT AVG(percentage) as avg_p FROM student_exams
-         WHERE (student_id = $1 OR external_student_id = $1)`,
-        [user.id]
+        `SELECT AVG(se.percentage) as avg_p FROM student_exams se
+         JOIN exams e ON se.exam_id = e.id
+         WHERE (se.student_id = $1 OR se.external_student_id = $1)
+         AND ($2::uuid IS NULL OR e.academic_year_id = $2)`,
+        [user.id, yearId || null]
       );
 
       if (avgQuery.rows[0].avg_p !== null) {
@@ -381,22 +381,26 @@ router.get(
         const schoolRankQuery = await client.query(
           `SELECT
              (SELECT COUNT(*) FROM (
-               SELECT AVG(percentage) as p
+               SELECT AVG(se.percentage) as p
                FROM student_exams se
+               JOIN exams e ON se.exam_id = e.id
                LEFT JOIN students s ON se.student_id = s.id
                LEFT JOIN external_students ext ON se.external_student_id = ext.id
                WHERE COALESCE(s.school_id, ext.school_id) = $1
+               AND ($3::uuid IS NULL OR e.academic_year_id = $3)
                GROUP BY COALESCE(s.id, ext.id)
              ) as school_avgs WHERE p < $2) as below,
              (SELECT COUNT(*) FROM (
-               SELECT AVG(percentage) as p
+               SELECT AVG(se.percentage) as p
                FROM student_exams se
+               JOIN exams e ON se.exam_id = e.id
                LEFT JOIN students s ON se.student_id = s.id
                LEFT JOIN external_students ext ON se.external_student_id = ext.id
                WHERE COALESCE(s.school_id, ext.school_id) = $1
+               AND ($3::uuid IS NULL OR e.academic_year_id = $3)
                GROUP BY COALESCE(s.id, ext.id)
              ) as school_avgs) as total`,
-          [user.schoolId, studentAvg]
+          [user.schoolId, studentAvg, yearId || null]
         );
 
         const { below, total } = schoolRankQuery.rows[0];
@@ -464,6 +468,47 @@ router.get(
       client.release();
     }
   },
+);
+
+// Get student's cumulative term report (Continuous Assessment)
+router.get(
+  "/student/cumulative-report",
+  authenticate,
+  requireRole(["student"]),
+  async (req: Request, res: Response) => {
+    const client = await pool.connect();
+    try {
+      const studentId = req.user!.id;
+      const { periodId } = req.query;
+
+      let targetPeriodId = periodId;
+
+      if (!targetPeriodId) {
+        // Fallback: Get active period for the school
+        const activePeriodRes = await client.query(
+          `SELECT ap.id FROM academic_periods ap
+           JOIN academic_years ay ON ap.academic_year_id = ay.id
+           WHERE ay.school_id = $1 AND ay.is_active = true
+           AND CURRENT_DATE BETWEEN ap.start_date AND ap.end_date
+           LIMIT 1`,
+          [req.user!.schoolId]
+        );
+        
+        if (activePeriodRes.rows.length === 0) {
+          return ApiResponseHandler.notFound(res, "No active academic period found");
+        }
+        targetPeriodId = activePeriodRes.rows[0].id;
+      }
+
+      const report = await resultService.getCumulativeTermReport(studentId, targetPeriodId as string);
+      ApiResponseHandler.success(res, transformResult(report), "Cumulative report retrieved");
+    } catch (error: any) {
+      console.error("Cumulative report error:", error);
+      ApiResponseHandler.serverError(res, error.message || "Failed to fetch cumulative report");
+    } finally {
+      client.release();
+    }
+  }
 );
 
 // Super admin analytics
@@ -568,6 +613,7 @@ router.get(
     const client = await pool.connect();
     try {
       const { studentId } = req.params;
+      const { yearId } = req.query;
       const user = req.user!;
 
       // Authorization Check
@@ -610,7 +656,7 @@ router.get(
         return ApiResponseHandler.forbidden(res, "Access denied. Student does not belong to your school.");
       }
 
-      // Fetch Completed Exam Results
+      // Fetch Completed Exam Results (Filtered by year if provided)
       const resultsQuery = await client.query(
         `SELECT se.id, se.score, se.total_marks, se.percentage, se.status, se.completed_at,
               e.title as exam_title, e.exam_type, e.academic_session,
@@ -621,8 +667,9 @@ router.get(
        LEFT JOIN exam_categories ec ON e.category_id = ec.id
        LEFT JOIN exam_types et ON e.exam_type_id = et.id
        WHERE (se.student_id = $1 OR se.external_student_id = $1) AND se.status = 'completed'
+       AND ($2::uuid IS NULL OR e.academic_year_id = $2)
        ORDER BY se.completed_at DESC`,
-        [studentId],
+        [studentId, yearId || null],
       );
 
       // Group by Category/Subject
@@ -711,7 +758,7 @@ router.get(
     const client = await pool.connect();
     try {
       const { studentId } = req.params;
-      const { timeframe } = req.query; // weekly, monthly, yearly, all
+      const { timeframe, yearId } = req.query; // weekly, monthly, yearly, all, yearId
       const user = req.user!;
 
       // Fetch Student Info and School Details
@@ -751,6 +798,11 @@ router.get(
         filters += " AND se.completed_at >= NOW() - INTERVAL '1 month'";
       } else if (timeframe === "yearly") {
         filters += " AND se.completed_at >= NOW() - INTERVAL '1 year'";
+      }
+
+      if (yearId) {
+        queryParams.push(yearId);
+        filters += ` AND e.academic_year_id = $${queryParams.length}`;
       }
 
       // Dynamic Category Filtering

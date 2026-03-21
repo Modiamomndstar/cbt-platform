@@ -19,6 +19,9 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import PerformanceScreen from './src/screens/PerformanceScreen';
 import CompetitionHubScreen from './src/screens/CompetitionHubScreen';
 import MessagesScreen from './src/screens/MessagesScreen';
+import CourseLibraryScreen from './src/screens/CourseLibraryScreen';
+import CoursePlayerScreen from './src/screens/CoursePlayerScreen';
+import TermReportScreen from './src/screens/TermReportScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -32,6 +35,7 @@ function TabNavigator() {
           if (route.name === 'Dashboard') iconName = 'view-dashboard';
           else if (route.name === 'Exams') iconName = 'book-open-variant';
           else if (route.name === 'Results') iconName = 'poll';
+          else if (route.name === 'Courses') iconName = 'creation';
           else if (route.name === 'Performance') iconName = 'chart-timeline-variant';
           else if (route.name === 'Profile') iconName = 'account';
           return <MaterialCommunityIcons name={iconName} size={size} color={color} />;
@@ -45,6 +49,7 @@ function TabNavigator() {
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ title: 'Home' }} />
       <Tab.Screen name="Exams" component={ExamsScreen} options={{ title: 'My Exams' }} />
+      <Tab.Screen name="Courses" component={CourseLibraryScreen} options={{ title: 'LMS' }} />
       <Tab.Screen name="Results" component={ResultsScreen} options={{ title: 'Results' }} />
       <Tab.Screen name="Performance" component={PerformanceScreen} options={{ title: 'Analytics' }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
@@ -105,6 +110,26 @@ function Navigation() {
               headerTintColor: '#fff'
             }}
           />
+          <Stack.Screen
+            name="Courses"
+            component={CourseLibraryScreen}
+            options={{
+              headerShown: true,
+              title: 'LMS Library',
+              headerStyle: { backgroundColor: '#4f46e5' },
+              headerTintColor: '#fff'
+            }}
+          />
+          <Stack.Screen
+            name="CoursePlayer"
+            component={CoursePlayerScreen}
+            options={{
+              headerShown: true,
+              title: 'Learning Mode',
+              headerStyle: { backgroundColor: '#10b981' },
+              headerTintColor: '#fff'
+            }}
+          />
         </>
       ) : (
         <>
@@ -146,6 +171,26 @@ function Navigation() {
             options={{
               headerShown: true,
               title: 'Notifications',
+              headerStyle: { backgroundColor: '#4f46e5' },
+              headerTintColor: '#fff'
+            }}
+          />
+          <Stack.Screen
+            name="CoursePlayer"
+            component={CoursePlayerScreen}
+            options={{
+              headerShown: true,
+              title: 'Learning Mode',
+              headerStyle: { backgroundColor: '#10b981' },
+              headerTintColor: '#fff'
+            }}
+          />
+          <Stack.Screen
+            name="TermReport"
+            component={TermReportScreen}
+            options={{
+              headerShown: true,
+              title: 'Term Performance Report',
               headerStyle: { backgroundColor: '#4f46e5' },
               headerTintColor: '#fff'
             }}

@@ -4,12 +4,17 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, CheckCircle, AlertCircle, ArrowRight, FileText, UserCircle, Trophy, Award, TrendingUp, Smartphone, ShieldCheck } from 'lucide-react';
-import { scheduleAPI, resultAPI, analyticsAPI } from '@/services/api';
+import { Calendar, Clock, CheckCircle, AlertCircle, ArrowRight, FileText, UserCircle, Trophy, Award, TrendingUp, Smartphone, ShieldCheck, BookOpen, Sparkles, X, Zap, Printer } from 'lucide-react';
+import { scheduleAPI, resultAPI, analyticsAPI, studentPortalAPI } from '@/services/api';
+import { Progress } from '@/components/ui/progress';
+import { format } from 'date-fns';
 import { CompetitionBanner } from '@/components/competitions/CompetitionBanner';
 import { usePlan } from '@/hooks/usePlan';
 import { FeatureLockedModal, FeatureLockBadge } from '@/components/common/FeatureLock';
 import { formatDate, formatTimeRange } from '@/lib/dateUtils';
+import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog';
+import { toast } from 'sonner';
+import { Spinner } from '@/components/ui/spinner';
 
 export default function StudentDashboard() {
   const navigate = useNavigate();
@@ -20,9 +25,13 @@ export default function StudentDashboard() {
   const [completedExams, setCompletedExams] = useState<any[]>([]);
   const [awards, setAwards] = useState<any[]>([]);
   const [issuedReports, setIssuedReports] = useState<any[]>([]);
+  const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [printingAward, setPrintingAward] = useState<any>(null);
   const [showLockModal, setShowLockModal] = useState(false);
+  const [showStudyPlan, setShowStudyPlan] = useState(false);
+  const [generatingPlan, setGeneratingPlan] = useState(false);
+  const [studyPlan, setStudyPlan] = useState<any>(null);
 
   const handlePrintCertificate = (award: any) => {
     setPrintingAward(award);
@@ -32,17 +41,38 @@ export default function StudentDashboard() {
     }, 500);
   };
 
+  const handleGenerateStudyPlan = async () => {
+    setGeneratingPlan(true);
+    try {
+      const res = await studentPortalAPI.generateStudyPlan();
+      if (res.data.success) {
+        setStudyPlan(res.data.data);
+        setShowStudyPlan(true);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to generate AI study plan');
+    } finally {
+      setGeneratingPlan(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
   }, [user]);
 
   const loadData = async () => {
     try {
-      const [schedulesRes, historyRes, reportsRes] = await Promise.all([
+      const [schedulesRes, historyRes, reportsRes, dashboardRes] = await Promise.all([
         scheduleAPI.getMyExams().catch(() => ({ data: { success: true, data: [] } })),
         resultAPI.getMyHistory().catch(() => ({ data: { success: true, data: [] } })),
         analyticsAPI.getIssuedReports(user!.id).catch(() => ({ data: { success: true, data: [] } })),
+        studentPortalAPI.getDashboard().catch(() => ({ data: { success: true, data: null } }))
       ]);
+
+      if (dashboardRes.data.success) {
+        setDashboardData(dashboardRes.data.data);
+      }
 
       if (schedulesRes.data.success) {
         const schedules = schedulesRes.data.data || [];
@@ -89,7 +119,15 @@ export default function StudentDashboard() {
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Student Dashboard</h1>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+            Student Dashboard
+            {dashboardData?.activeYear && (
+              <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 border-indigo-100 font-medium">
+                <Calendar className="h-3 w-3 mr-1" />
+                {dashboardData.activeYear.name}
+              </Badge>
+            )}
+          </h1>
           <p className="text-muted-foreground text-sm">Welcome back, {user?.name || 'Student'}!</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -115,32 +153,126 @@ export default function StudentDashboard() {
             Full Report Card
             {!isFeatureAllowed('advanced_analytics') && <FeatureLockBadge />}
           </Button>
+          <Button variant="default" size="sm" className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white" onClick={() => navigate('/student/term-report')}>
+            <Award className="h-4 w-4 mr-2" />
+            Term Report Card
+          </Button>
         </div>
       </div>
 
-      {/* Mobile App Promotion - HIGH IMPACT */}
-      <Card className="bg-gradient-to-br from-indigo-600 to-purple-700 text-white border-none overflow-hidden relative shadow-lg">
-        <div className="absolute right-0 top-0 p-6 opacity-10">
-           <Smartphone className="h-32 w-32" />
+      {/* Academic Clock & Focus - PHASE 15 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          {dashboardData?.activeWeek && (
+            <Card className="border-indigo-100 bg-white overflow-hidden">
+                <div className="bg-indigo-600 p-4 text-white flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                        <Clock className="h-5 w-5 opacity-80" />
+                        <div>
+                            <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 leading-tight">Academic Clock</p>
+                            <h3 className="font-bold leading-tight">{dashboardData.activeWeek.period_name} — Week {dashboardData.activeWeek.week_number}</h3>
+                        </div>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 leading-tight">Today</p>
+                        <p className="font-bold leading-tight text-sm">{format(new Date(), 'EEEE, MMMM do')}</p>
+                    </div>
+                </div>
+                <CardContent className="p-0">
+                    <div className="p-6">
+                        <div className="flex items-center justify-between mb-4">
+                           <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Focus Modules for this week</h4>
+                           <Button 
+                             disabled={generatingPlan}
+                             onClick={handleGenerateStudyPlan}
+                             variant="outline" 
+                             size="sm" 
+                             className="text-[10px] h-7 bg-indigo-50 border-indigo-100 text-indigo-700 hover:bg-indigo-100"
+                           >
+                             {generatingPlan ? <Spinner className="w-3 h-3 mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                             {generatingPlan ? 'Dreaming Plan...' : 'AI Weekly Plan'}
+                           </Button>
+                        </div>
+                        {dashboardData.focusModules?.length > 0 ? (
+                            <div className="space-y-3">
+                                {dashboardData.focusModules.map((mod: any) => (
+                                    <div key={mod.id} className="flex items-center justify-between p-3 rounded-lg border border-indigo-50 bg-indigo-50/20 group hover:border-indigo-200 transition-all cursor-pointer" onClick={() => navigate(`/student/course/${mod.course_id}`)}>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-white border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                                                <BookOpen className="h-5 w-5" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-bold text-indigo-500 uppercase">{mod.course_title}</p>
+                                                <h5 className="font-bold text-slate-800">{mod.title}</h5>
+                                            </div>
+                                        </div>
+                                        <ArrowRight className="h-4 w-4 text-indigo-300 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-6 text-slate-400">
+                                <p className="text-sm">No specific modules pinned for this week yet.</p>
+                            </div>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
+          )}
+
+          {/* Existing Mobile App Card */}
+          <Card className="bg-gradient-to-br from-indigo-600 to-purple-700 text-white border-none overflow-hidden relative shadow-lg">
+            <div className="absolute right-0 top-0 p-6 opacity-10">
+               <Smartphone className="h-32 w-32" />
+            </div>
+            <CardContent className="p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+              <div className="flex-1 text-center md:text-left">
+                <Badge className="bg-white/20 text-white border-none mb-3 px-3 py-1">Coming Soon</Badge>
+                <h2 className="text-2xl font-black mb-2 tracking-tight">Take your exams on the go!</h2>
+                <p className="text-indigo-100/90 text-sm max-w-md">
+                  We're building a dedicated mobile app for the Student Portal. Access your exams, check your performance, and join competitions directly from your phone.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                 <Button className="bg-white text-indigo-700 hover:bg-indigo-50 font-bold border-none px-6">
+                    <Smartphone className="h-4 w-4 mr-2" /> Notify Me
+                 </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-        <CardContent className="p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
-          <div className="flex-1 text-center md:text-left">
-            <Badge className="bg-white/20 text-white border-none mb-3 px-3 py-1">Coming Soon</Badge>
-            <h2 className="text-2xl font-black mb-2 tracking-tight">Take your exams on the go!</h2>
-            <p className="text-indigo-100/90 text-sm max-w-md">
-              We're building a dedicated mobile app for the Student Portal. Access your exams, check your performance, and join competitions directly from your phone.
-            </p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-             <Button className="bg-white text-indigo-700 hover:bg-indigo-50 font-bold border-none px-6">
-                <Smartphone className="h-4 w-4 mr-2 outline-indigo-700" /> Notify Me
-             </Button>
-             <Button variant="ghost" className="text-white hover:bg-white/10 font-medium">
-                Learn More <ArrowRight className="h-4 w-4 ml-2" />
-             </Button>
-          </div>
-        </CardContent>
-      </Card>
+
+        {/* My Learning Progress Sidebar */}
+        <div className="space-y-6">
+            <Card>
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4 text-emerald-600" />
+                        Learning Progress
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {dashboardData?.courses?.length > 0 ? (
+                        dashboardData.courses.map((course: any) => (
+                            <div key={course.id} className="space-y-2">
+                                <div className="flex justify-between text-xs font-bold">
+                                    <span className="text-slate-700 truncate max-w-[150px]">{course.title}</span>
+                                    <span className="text-emerald-600">{course.progress_percentage}%</span>
+                                </div>
+                                <Progress value={course.progress_percentage} className="h-1.5" />
+                                <p className="text-[10px] text-slate-400">Tutor: {course.tutor_name}</p>
+                            </div>
+                        ))
+                    ) : (
+                        <p className="text-xs text-slate-400 text-center py-4">No active courses yet.</p>
+                    )}
+                    <Button variant="outline" className="w-full text-xs h-8 border-indigo-100 text-indigo-600 hover:bg-indigo-50" onClick={() => navigate('/student/courses')}>
+                        View All Courses
+                    </Button>
+                </CardContent>
+            </Card>
+        </div>
+      </div>
 
       {/* Official Issued Reports Section */}
       {issuedReports.length > 0 && (
@@ -502,6 +634,73 @@ export default function StudentDashboard() {
         featureName="Advanced Analytics"
         description="Detailed performance analytics and comprehensive report cards are available on our Advanced and Enterprise plans. Ask your school administrator to upgrade to unlock these features."
       />
+
+      {/* AI Study Plan Modal */}
+      <Dialog open={showStudyPlan} onOpenChange={setShowStudyPlan}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 border-none">
+          <div className="bg-gradient-to-br from-indigo-700 via-indigo-600 to-purple-600 p-8 text-white">
+            <div className="flex justify-between items-start mb-6">
+               <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md">
+                 <Sparkles className="h-8 w-8 text-white" />
+               </div>
+               <Button variant="ghost" size="icon" className="text-white/70 hover:text-white hover:bg-white/10" onClick={() => setShowStudyPlan(false)}>
+                 <X className="h-5 w-5" />
+               </Button>
+            </div>
+            <h2 className="text-3xl font-black mb-2 animate-in slide-in-from-left duration-300">Your AI Study Plan</h2>
+            <p className="text-indigo-100 text-lg opacity-90 animate-in slide-in-from-left duration-500 delay-150">
+              {studyPlan?.weeklyOverview || "Here's your roadmap for a productive academic week!"}
+            </p>
+          </div>
+          
+          <div className="p-6 bg-white space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {studyPlan?.dailySchedule?.map((day: any, idx: number) => (
+                <div 
+                  key={day.day} 
+                  className={`p-4 rounded-xl border transition-all hover:shadow-md animate-in zoom-in-95 duration-300`}
+                  style={{ animationDelay: `${idx * 100}ms` }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                       <div className={`w-2 h-2 rounded-full ${day.priority === 'high' ? 'bg-red-500' : 'bg-amber-500'}`} />
+                       {day.day}
+                    </h3>
+                    <Badge variant="outline" className="text-[10px] font-bold uppercase">{day.priority}</Badge>
+                  </div>
+                  <ul className="space-y-2">
+                    {day.tasks.map((task: string, tIdx: number) => (
+                      <li key={tIdx} className="text-sm text-slate-600 flex items-start gap-2">
+                         <div className="w-4 h-4 rounded border border-indigo-200 mt-0.5 shrink-0 flex items-center justify-center">
+                            <CheckCircle className="w-3 h-3 text-transparent" />
+                         </div>
+                         <span>{task}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-indigo-50 p-4 rounded-xl flex items-center gap-4 border border-indigo-100">
+               <div className="p-2 bg-white rounded-lg shadow-sm">
+                  <Zap className="h-5 w-5 text-indigo-600" />
+               </div>
+               <p className="text-xs text-indigo-800 font-medium">
+                 Tip: Start with your high-priority items first and take 5-minute breaks every 25 minutes.
+               </p>
+            </div>
+          </div>
+
+          <DialogFooter className="p-6 border-t bg-slate-50">
+             <Button variant="outline" onClick={() => setShowStudyPlan(false)}>Close Plan</Button>
+             <Button className="bg-indigo-600 hover:bg-indigo-700" onClick={() => window.print()}>
+               <Printer className="w-4 h-4 mr-2" />
+               Print Plan
+             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

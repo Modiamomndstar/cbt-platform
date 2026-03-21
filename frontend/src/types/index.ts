@@ -158,4 +158,16 @@ export interface DashboardStats {
   completedExams: number;
   upcomingExams: number;
   averageScore: number;
+  // LMS Additions
+  lmsStats?: {
+    totalCourses: number;
+    totalEnrollments: number;
+    avgCompletionRate: string;
+  };
+  courseProgress?: {
+    id: string;
+    title: string;
+    studentCount: number;
+    avgProgress: string;
+  }[];
 }

@@ -21,6 +21,7 @@ export interface PlanLimits {
   allowApiAccess: boolean;
   allowResultPdf: boolean;
   allowResultExport: boolean;
+  allowLms: boolean;
   // Marketplace purchased extras
   purchasedTutors: number;
   purchasedStudents: number;
@@ -68,7 +69,9 @@ export const getSchoolPlan = async (schoolId: string): Promise<PlanLimits> => {
       ['freemium']
     );
     const pd = freemiumResult.rows[0];
-    return mapPlanDefinition(pd, 'active', 0, 0, 0, false);
+    // Fallback to freemium if no subscription record found
+    const freePlan = await db.query('SELECT * FROM plan_definitions WHERE plan_type = $1', ['freemium']);
+    return mapPlanDefinition(freePlan.rows[0], 'active');
   }
 
   const row = subResult.rows[0];
@@ -85,7 +88,8 @@ export const getSchoolPlan = async (schoolId: string): Promise<PlanLimits> => {
       'SELECT * FROM plan_definitions WHERE plan_type = $1',
       ['freemium']
     );
-    return mapPlanDefinition(freemiumResult.rows[0], 'active', row.purchased_tutor_slots, row.purchased_student_slots, row.purchased_ai_queries, true);
+    // Note: When downgrading from trial, purchased capacity is frozen.
+    return mapPlanDefinition(freemiumResult.rows[0], 'active', 0, 0, 0, true);
   }
 
   // Check if suspended
@@ -125,6 +129,7 @@ function mapPlanDefinition(pd: any, status: string, pTutor: number = 0, pStudent
     allowApiAccess: pd.allow_api_access,
     allowResultPdf: pd.allow_result_pdf,
     allowResultExport: pd.allow_result_export,
+    allowLms: pd.allow_lms,
     // Marketplace purchased extras
     purchasedTutors: !isFrozen ? (pTutor || 0) : 0,
     purchasedStudents: !isFrozen ? (pStudent || 0) : 0,
@@ -146,50 +151,101 @@ const PLAN_HIERARCHY: Record<string, number> = {
  * Also checks feature_flags table for platform-wide overrides by super admin.
  */
 export const isFeatureAllowed = async (schoolId: string, featureKey: string): Promise<boolean> => {
-  const [plan, flagResult] = await Promise.all([
-    getSchoolPlan(schoolId),
-    db.query('SELECT min_plan, is_enabled FROM feature_flags WHERE feature_key = $1', [featureKey])
-  ]);
+  try {
+    // 1. Check for granular overrides (Gifts or Custom restrictions)
+    const overrideResult = await db.query(
+      `SELECT is_allowed FROM school_feature_overrides 
+       WHERE school_id = $1 AND feature_key = $2 
+       AND (expires_at IS NULL OR expires_at > NOW())`,
+      [schoolId, featureKey]
+    );
 
-  // If feature record exists in flags table
-  if (flagResult.rows.length > 0) {
-    const flag = flagResult.rows[0];
-
-    // 1. If feature is globally disabled, deny everyone
-    if (!flag.is_enabled) return false;
-
-    // 2. If SuperAdmin has set a min_plan, compare ranks
-    if (flag.min_plan) {
-      const schoolRank = PLAN_HIERARCHY[plan.planType] ?? 0;
-      const minRank = PLAN_HIERARCHY[flag.min_plan] ?? 0;
-
-      if (schoolRank < minRank) return false;
+    if (overrideResult.rows.length > 0) {
+      return overrideResult.rows[0].is_allowed;
     }
+
+    // 1b. Check for Active Marketplace Purchases (Features)
+    // Marketplace items only work if subscription is NOT frozen
+    const purchaseResult = await db.query(
+      `SELECT mp.id, ss.is_capacity_frozen 
+       FROM marketplace_purchases mp
+       JOIN school_subscriptions ss ON mp.school_id = ss.school_id
+       WHERE mp.school_id = $1 AND mp.feature_key = $2 AND mp.expires_at > NOW()`,
+      [schoolId, featureKey]
+    );
+
+    if (purchaseResult.rows.length > 0) {
+      // Feature acquired via marketplace - respects subscription freeze
+      return !purchaseResult.rows[0].is_capacity_frozen;
+    }
+
+    // 2. Fetch standard Plan & Global Flag logic
+    const [plan, flagResult] = await Promise.all([
+      getSchoolPlan(schoolId),
+      db.query('SELECT min_plan, is_enabled FROM feature_flags WHERE feature_key = $1', [featureKey])
+    ]);
+
+    // If feature record exists in flags table, check global vs plan rank
+    if (flagResult.rows.length > 0) {
+      const flag = flagResult.rows[0];
+
+      // a. If feature is globally disabled, deny everyone
+      if (!flag.is_enabled) return false;
+
+      // b. If SuperAdmin has set a min_plan, compare ranks
+      if (flag.min_plan) {
+        const schoolRank = PLAN_HIERARCHY[plan.planType] ?? 0;
+        const minRank = PLAN_HIERARCHY[flag.min_plan] ?? 0;
+
+        if (schoolRank < minRank) return false;
+      }
+    }
+
+    // 3. Fallback to boolean flags in plan definitions
+    const featureMap: Record<string, keyof PlanLimits> = {
+      student_portal:      'allowStudentPortal',
+      bulk_import:         'allowBulkImport',
+      email_notifications: 'allowEmailNotifications',
+      sms_notifications:   'allowSmsNotifications',
+      advanced_analytics:  'allowAdvancedAnalytics',
+      custom_branding:     'allowCustomBranding',
+      api_access:          'allowApiAccess',
+      result_pdf:          'allowResultPdf',
+      result_export:       'allowResultExport',
+      external_students:   'allowExternalStudents',
+      ai_result_analysis:  'aiQueriesPerMonth', 
+      ai_coach:            'aiQueriesPerMonth',
+      lms_access:          'allowLms', 
+      ai_course_gen:       'allowLms', 
+      ai_learning_assistant: 'allowLms',
+    };
+
+    // Special case for AI — check queries per month (includes purchased packs)
+    if (featureKey === 'ai_question_gen' || featureKey === 'ai_exam_analysis' || featureKey === 'ai_student_analysis') {
+       return plan.aiQueriesPerMonth > 0;
+    }
+
+    // Special case for LMS-linked AI features
+    if (featureKey === 'ai_course_gen' || featureKey === 'ai_learning_assistant') {
+       return plan.allowLms && plan.aiQueriesPerMonth > 0;
+    }
+
+    // Special case for LMS Tutor Access
+    if (featureKey === 'lms_tutor_access') {
+      const settings = await db.query('SELECT allow_tutor_lms FROM school_settings WHERE school_id = $1', [schoolId]);
+      const schoolRank = PLAN_HIERARCHY[plan.planType] ?? 0;
+      const adminAllowed = settings.rows[0]?.allow_tutor_lms !== false;
+      return plan.allowLms && schoolRank >= PLAN_HIERARCHY['advanced'] && adminAllowed;
+    }
+
+    const planKey = featureMap[featureKey];
+    if (!planKey) return false; // Unknown feature — deny by default for security
+
+    return !!(plan as any)[planKey];
+  } catch (error) {
+    console.error(`Error checking feature ${featureKey}:`, error);
+    return false; // Fail safe to disabled
   }
-
-  // Fallback to the legacy boolean flags in plan definitions if not overriding by min_plan
-  const featureMap: Record<string, keyof PlanLimits> = {
-    student_portal:      'allowStudentPortal',
-    bulk_import:         'allowBulkImport',
-    email_notifications: 'allowEmailNotifications',
-    sms_notifications:   'allowSmsNotifications',
-    advanced_analytics:  'allowAdvancedAnalytics',
-    custom_branding:     'allowCustomBranding',
-    api_access:          'allowApiAccess',
-    result_pdf:          'allowResultPdf',
-    result_export:       'allowResultExport',
-    external_students:   'allowExternalStudents',
-    ai_result_analysis:  'aiQueriesPerMonth', // Simplified mapping for now
-    ai_coach:            'aiQueriesPerMonth',
-  };
-
-  // Special case for AI — check queries per month (includes purchased packs)
-  if (featureKey === 'ai_question_gen' || featureKey === 'ai_exam_analysis' || featureKey === 'ai_student_analysis') return plan.aiQueriesPerMonth > 0;
-
-  const planKey = featureMap[featureKey];
-  if (!planKey) return true; // Unknown feature — allow by default
-
-  return !!(plan as any)[planKey];
 };
 
 /**
@@ -362,7 +418,8 @@ export const getSchoolBillingStatus = async (schoolId: string) => {
   const featureKeys = [
     'student_portal', 'bulk_import', 'email_notifications', 'sms_notifications',
     'advanced_analytics', 'custom_branding', 'api_access', 'result_pdf',
-    'result_export', 'external_students', 'ai_question_gen', 'ai_exam_analysis', 'ai_student_analysis'
+    'result_export', 'external_students', 'ai_question_gen', 'ai_exam_analysis', 'ai_student_analysis',
+    'lms_access', 'lms_tutor_access'
   ];
 
   const features: Record<string, boolean> = {};

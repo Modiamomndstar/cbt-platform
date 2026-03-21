@@ -37,6 +37,9 @@ import competitionRoutes from "./routes/competitions";
 import aiCoachRoutes from "./routes/aiCoach";
 import aiAnalyticsRoutes from "./routes/aiAnalytics";
 import commissionRoutes from "./routes/commissions";
+import courseRoutes from "./routes/courses";
+import academicCalendarRoutes from "./routes/academic-calendar";
+import studentPortalRoutes from "./routes/studentPortal";
 import { initCronJobs } from "./services/cronService";
 import { ApiResponseHandler } from "./utils/apiResponse";
 
@@ -170,6 +173,8 @@ app.get("/", (req, res) => {
 });
 
 // API Routes
+app.use("/api/academic-calendar", academicCalendarRoutes);
+
 app.use("/api/auth", authRoutes);
 app.use("/api/schools", schoolRoutes);
 app.use("/api/tutors", tutorRoutes);
@@ -196,6 +201,8 @@ app.use("/api/exams/security", securityRoutes);
 app.use("/api/ai", aiCoachRoutes);
 app.use("/api/ai-analytics", aiAnalyticsRoutes);
 app.use("/api/commissions", commissionRoutes);
+app.use("/api/courses", courseRoutes);
+app.use("/api/student-portal", studentPortalRoutes);
 
 // Error handling middleware
 app.use(

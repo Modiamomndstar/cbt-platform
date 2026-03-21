@@ -66,6 +66,7 @@ async function initSchema() {
         allow_api_access            BOOLEAN DEFAULT false,
         allow_result_pdf            BOOLEAN DEFAULT false,
         allow_result_export         BOOLEAN DEFAULT false,
+        allow_lms                   BOOLEAN DEFAULT false,
         extra_internal_student_price_usd DECIMAL(10,4) DEFAULT 0,
         extra_external_student_price_usd DECIMAL(10,4) DEFAULT 0,
         is_active          BOOLEAN DEFAULT true,

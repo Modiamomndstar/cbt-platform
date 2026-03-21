@@ -267,7 +267,7 @@ export default function BillingPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-base font-bold">Standard Capacity</CardTitle>
-                    <CardDescription text-xs>Your recurring plan limits</CardDescription>
+                    <CardDescription>Your recurring plan limits</CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${PLAN_COLORS[plan.planType]}`}>
@@ -325,13 +325,18 @@ export default function BillingPage() {
 
                    <div className="pt-6 border-t mt-6">
                      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Plan Features</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                        <FeatureItem label="Student Portal" active={status.features?.student_portal} />
-                        <FeatureItem label="Bulk Upload" active={status.features?.bulk_import} />
-                        <FeatureItem label="Email Alerts" active={status.features?.email_notifications} />
-                        <FeatureItem label="Analytics" active={status.features?.advanced_analytics} />
-                        <FeatureItem label="Branding" active={status.features?.custom_branding} />
-                        <FeatureItem label="Result Export" active={status.features?.result_export} />
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                        <FeatureItem label="Student Portal" active={status.features?.studentPortal} />
+                        <FeatureItem label="External Students" active={status.features?.externalStudents} />
+                        <FeatureItem label="Bulk Upload" active={status.features?.bulkImport} />
+                        <FeatureItem label="Email Alerts" active={status.features?.emailNotifications} />
+                        <FeatureItem label="SMS Alerts" active={status.features?.smsNotifications} />
+                        <FeatureItem label="Analytics" active={status.features?.advancedAnalytics} />
+                        <FeatureItem label="Branding" active={status.features?.customBranding} />
+                        <FeatureItem label="Result PDF" active={status.features?.resultPdf} />
+                        <FeatureItem label="Result Export" active={status.features?.resultExport} />
+                        <FeatureItem label="API Access" active={status.features?.apiAccess} />
+                        <FeatureItem label="LMS Module" active={status.features?.lmsAccess} />
                      </div>
                    </div>
                 </div>

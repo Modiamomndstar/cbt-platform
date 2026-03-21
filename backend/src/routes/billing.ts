@@ -53,6 +53,16 @@ router.post('/marketplace/purchase', authenticate, authorize('school'), [
     const schoolId = req.user!.id;
     const { featureKey, quantity = 1 } = req.body;
 
+    // 0. Ensure school is on an ACTIVE PAID plan
+    const subCheck = await db.query(
+      'SELECT status, plan_type FROM school_subscriptions WHERE school_id = $1',
+      [schoolId]
+    );
+    const sub = subCheck.rows[0];
+    if (!sub || sub.status !== 'active' || sub.plan_type === 'freemium') {
+      return ApiResponseHandler.forbidden(res, 'An active paid subscription is required to purchase marketplace add-ons.');
+    }
+
     // 1. Check if feature exists and its configuration
     const pricing = await paygService.getPricing(featureKey);
     if (pricing.length === 0) {

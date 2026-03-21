@@ -521,7 +521,8 @@ router.get(
              COALESCE(sc.name, ext_sc.name) as category_name,
              es.scheduled_date, es.start_time as schedule_started_at, se.completed_at, es.auto_submitted as schedule_auto_submitted,
              e.passing_score,
-             es.external_student_id
+             es.external_student_id,
+             cm.assessment_type
       FROM student_exams se
       LEFT JOIN students s ON se.student_id = s.id
       LEFT JOIN external_students ext ON se.external_student_id = ext.id
@@ -529,6 +530,7 @@ router.get(
       LEFT JOIN student_categories ext_sc ON ext.category_id = ext_sc.id
       JOIN exam_schedules es ON se.exam_schedule_id = es.id
       JOIN exams e ON se.exam_id = e.id
+      LEFT JOIN course_modules cm ON e.id = cm.linked_exam_id
       WHERE se.exam_id = $1
     `;
 
@@ -559,6 +561,12 @@ router.get(
         query += ` AND es.student_id IS NOT NULL`;
       }
 
+      if (req.query.assessmentType && req.query.assessmentType !== 'all') {
+        query += ` AND cm.assessment_type = $${paramIndex}`;
+        params.push(req.query.assessmentType);
+        paramIndex++;
+      }
+
       query += ` ORDER BY se.score DESC, s.last_name`;
 
       const result = await client.query(query, params);
@@ -585,7 +593,8 @@ router.get(
           autoSubmitted: row.schedule_auto_submitted || row.auto_submitted || false,
           scheduledDate: row.scheduled_date,
           submittedAt: row.end_time,
-          isExternal: !!row.external_student_id
+          isExternal: !!row.external_student_id,
+          assessmentType: row.assessment_type
         };
       })), "Exam results retrieved");
     } catch (error) {
@@ -606,6 +615,7 @@ router.get(
     const client = await pool.connect();
     try {
       const user = req.user!;
+      const { yearId } = req.query;
       const pagination = getPaginationOptions(req, 10);
 
       // Fetch student's email/phone to merge historical external data
@@ -629,16 +639,20 @@ router.get(
        JOIN exam_schedules es ON se.exam_schedule_id = es.id
        JOIN tutors t ON e.tutor_id = t.id
        LEFT JOIN exam_types et ON e.exam_type_id = et.id
+       LEFT JOIN course_modules cm ON e.id = cm.linked_exam_id
        WHERE (se.student_id = $1 OR se.external_student_id = $1)
+       AND ($4::uuid IS NULL OR e.academic_year_id = $4)
        ORDER BY se.completed_at DESC
        LIMIT $2 OFFSET $3`,
-        [user.id, pagination.limit, pagination.offset],
+        [user.id, pagination.limit, pagination.offset, yearId || null],
       );
 
       const countResult = await client.query(
-        `SELECT COUNT(*) FROM student_exams
-         WHERE (student_id = $1 OR external_student_id = $1)`,
-        [user.id],
+        `SELECT COUNT(se.id) FROM student_exams se
+         JOIN exams e ON se.exam_id = e.id
+         WHERE (se.student_id = $1 OR se.external_student_id = $1)
+         AND ($2::uuid IS NULL OR e.academic_year_id = $2)`,
+        [user.id, yearId || null],
       );
 
       const totalCount = parseInt(countResult.rows[0].count);
@@ -656,6 +670,7 @@ router.get(
             examCategory: row.exam_category,
             categoryName: row.exam_category,
             examType: row.exam_type_name || row.exam_type,
+            assessmentType: row.assessment_type,
             description: row.description,
             tutorName: row.tutor_name || 'Tutor',
             score: row.score,

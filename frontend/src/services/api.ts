@@ -159,6 +159,7 @@ export const examAPI = {
   getAll: (params?: any) => api.get("/exams", { params }),
   getById: (id: string) => api.get(`/exams/${id}`),
   create: (data: any) => api.post("/exams", data),
+  integratedImport: (data: any) => api.post("/exams/integrated-import", data),
   update: (id: string, data: any) => api.put(`/exams/${id}`, data),
   delete: (id: string) => api.delete(`/exams/${id}`),
   publish: (id: string) => api.post(`/exams/${id}/publish`),
@@ -311,10 +312,12 @@ export const analyticsAPI = {
   getTutorDashboard: () => api.get("/analytics/tutor/dashboard"),
 
   // Student dashboard analytics
-  getStudentDashboard: () => api.get('/analytics/student/dashboard'),
-  getStudentReportCard: (studentId: string) => api.get(`/analytics/student-report-card/${studentId}`),
-  getAdvancedReportCard: (studentId: string, timeframe?: string) =>
-    api.get(`/analytics/advanced-report-card/${studentId}${timeframe ? `?timeframe=${timeframe}` : ''}`),
+  getStudentDashboard: (params?: any) => api.get('/analytics/student/dashboard', { params }),
+  getStudentReportCard: (studentId: string, params?: any) => api.get(`/analytics/student-report-card/${studentId}`, { params }),
+  getCumulativeReport: (periodId?: string) => 
+    api.get('/analytics/student/cumulative-report', { params: { periodId } }),
+  getAdvancedReportCard: (studentId: string, params?: any) =>
+    api.get(`/analytics/advanced-report-card/${studentId}`, { params }),
   getSuperAdminOverview: () => api.get('/analytics/super-admin/overview'),
   issueReport: (data: { studentId: string; title: string; config: any }) =>
     api.post("/analytics/issue-report", data),
@@ -583,6 +586,55 @@ export const aiAnalyticsAPI = {
     api.post(`/ai-analytics/exam/${examId}/cohort${forceRefresh ? '?forceRefresh=1' : ''}`),
   getStudentFeedback: (resultId: string, forceRefresh?: boolean) =>
     api.post(`/ai-analytics/result/${resultId}/student${forceRefresh ? '?forceRefresh=1' : ''}`),
+};
+
+// Course (LMS) API
+export const courseAPI = {
+  getAll: (params?: any) => api.get("/courses", { params }),
+  getById: (id: string) => api.get(`/courses/${id}`),
+  create: (data: any) => api.post("/courses", data),
+  addModule: (courseId: string, title: string, orderIndex: number, parent_module_id?: string, exam_type_id?: string) =>
+    api.post(`/courses/${courseId}/modules`, { title, orderIndex, parent_module_id, exam_type_id }),
+  updateModule: (moduleId: string, data: any) => api.put(`/courses/modules/${moduleId}`, data),
+  addContent: (moduleId: string, data: any) =>
+    api.post(`/courses/modules/${moduleId}/contents`, data),
+  update: (id: string, data: any) => api.put(`/courses/${id}`, data),
+  clone: (courseId: string, targetYearId?: string) =>
+    api.post(`/courses/${courseId}/clone`, { targetYearId }),
+  archive: (courseId: string, archive: boolean = true) =>
+    api.patch(`/courses/${courseId}/archive`, { archive }),
+  generateSyllabus: (topic: string, subject: string) =>
+    api.post("/courses/generate-syllabus", { topic, subject }),
+  generateContent: (data: any) =>
+    api.post("/courses/generate-content", data),
+  generateIntegratedExam: (courseId: string, data: any) =>
+    api.post(`/courses/${courseId}/generate-integrated-exam`, data),
+  aiAssistant: (data: any) =>
+    api.post("/courses/ai-assistant", data),
+  updateProgress: (courseId: string, contentId: string) => 
+    api.post(`/courses/${courseId}/progress/${contentId}`),
+  getMyProgress: (courseId: string) => 
+    api.get(`/courses/${courseId}/my-progress`),
+  getStudentProgress: (courseId: string) => 
+    api.get(`/courses/${courseId}/student-progress`),
+};
+
+// Academic Calendar API
+export const academicCalendarAPI = {
+  getYears: () => api.get("/academic-calendar/years"),
+  getActiveYear: () => api.get("/academic-calendar/active"),
+  setupPreset: (data: { name: string; startDate: string; weeksPerTerm?: number }) => 
+    api.post("/academic-calendar/setup-preset", data),
+  setupFlexible: (data: { name: string; startDate: string; periodCount: number; weeksPerPeriod: number }) => 
+    api.post("/academic-calendar/setup-flexible", data),
+  getWeeks: (periodId: string) => api.get(`/academic-calendar/periods/${periodId}/weeks`),
+};
+
+// Student Portal API
+export const studentPortalAPI = {
+  getDashboard: () => api.get('/student-portal/dashboard'),
+  getCourses: () => api.get('/student-portal/courses'),
+  generateStudyPlan: () => api.post('/student-portal/generate-study-plan')
 };
 
 export default api;

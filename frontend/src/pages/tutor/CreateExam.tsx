@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ArrowLeft, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
-import api, { examAPI, examTypeAPI } from '@/services/api';
+import api, { examAPI, examTypeAPI, academicCalendarAPI } from '@/services/api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function CreateExam() {
@@ -34,6 +34,8 @@ export default function CreateExam() {
     examTypeId: 'none',
     examType: '', // Fallback for display
     academicSession: '',
+    academicYearId: '',
+    academicPeriodId: '',
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -47,21 +49,38 @@ export default function CreateExam() {
 
   const [categories, setCategories] = useState<any[]>([]);
   const [examTypes, setExamTypes] = useState<any[]>([]);
+  const [academicYears, setAcademicYears] = useState<any[]>([]);
+  const [academicPeriods, setAcademicPeriods] = useState<any[]>([]);
 
   useEffect(() => {
     const loadMetadata = async () => {
       try {
-        const [catsRes, typesRes] = await Promise.all([
+        const [catsRes, typesRes, yearsRes] = await Promise.all([
           api.get('/exam-categories'),
-          examTypeAPI.getAll()
+          examTypeAPI.getAll(),
+          academicCalendarAPI.getYears()
         ]);
         setCategories(catsRes.data.data || []);
         const types = typesRes.data.data || [];
         setExamTypes(types);
+        const years = yearsRes.data.data || [];
+        setAcademicYears(years);
 
         // Auto-select first type if available
         if (types.length > 0) {
           setFormData(p => ({ ...p, examTypeId: types[0].id, examType: types[0].name }));
+        }
+        // Auto-select active year if available
+        const activeYear = years.find((y: any) => y.is_active);
+        if (activeYear) {
+          setAcademicPeriods(activeYear.periods || []);
+          const firstPeriod = (activeYear.periods || [])[0];
+          setFormData(p => ({
+            ...p,
+            academicYearId: activeYear.id,
+            academicPeriodId: firstPeriod?.id || '',
+            academicSession: firstPeriod ? `${activeYear.name} - ${firstPeriod.name}` : activeYear.name
+          }));
         }
       } catch (err) {
         console.error("Failed to load metadata:", err);
@@ -69,6 +88,29 @@ export default function CreateExam() {
     };
     loadMetadata();
   }, []);
+
+  const handleYearChange = (yearId: string) => {
+    const year = academicYears.find(y => y.id === yearId);
+    const periods = year?.periods || [];
+    setAcademicPeriods(periods);
+    const firstPeriod = periods[0];
+    setFormData(p => ({
+      ...p,
+      academicYearId: yearId,
+      academicPeriodId: firstPeriod?.id || '',
+      academicSession: firstPeriod ? `${year.name} - ${firstPeriod.name}` : (year?.name || '')
+    }));
+  };
+
+  const handlePeriodChange = (periodId: string) => {
+    const year = academicYears.find(y => y.id === formData.academicYearId);
+    const period = academicPeriods.find(p => p.id === periodId);
+    setFormData(p => ({
+      ...p,
+      academicPeriodId: periodId,
+      academicSession: period ? `${year?.name || ''} - ${period.name}` : (year?.name || '')
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,6 +137,8 @@ export default function CreateExam() {
         examTypeId: formData.examTypeId !== 'none' ? formData.examTypeId : null,
         examType: formData.examType,
         academicSession: formData.academicSession,
+        academicYearId: formData.academicYearId || null,
+        academicPeriodId: formData.academicPeriodId || null,
       };
 
       if (formData.categoryId !== 'none') {
@@ -189,38 +233,72 @@ export default function CreateExam() {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="examTypeId">Exam Type / Style</Label>
-                  <Select
-                    value={formData.examTypeId}
-                    onValueChange={(val) => {
-                      const selected = examTypes.find(t => t.id === val);
-                      setFormData(p => ({...p, examTypeId: val, examType: selected?.name || ''}));
-                    }}
-                  >
-                    <SelectTrigger id="examTypeId">
-                      <SelectValue placeholder="Select Style" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {examTypes.length === 0 && <SelectItem value="none">No Styles Defined</SelectItem>}
-                      {examTypes.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="examTypeId">Exam Type / Style</Label>
+                    <Select
+                      value={formData.examTypeId}
+                      onValueChange={(val) => {
+                        const selected = examTypes.find(t => t.id === val);
+                        setFormData(p => ({...p, examTypeId: val, examType: selected?.name || ''}));
+                      }}
+                    >
+                      <SelectTrigger id="examTypeId">
+                        <SelectValue placeholder="Select Style" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {examTypes.length === 0 && <SelectItem value="none">No Styles Defined</SelectItem>}
+                        {examTypes.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Academic Year</Label>
+                    <Select
+                      value={formData.academicYearId || 'none'}
+                      onValueChange={handleYearChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Year" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Not Linked to Session</SelectItem>
+                        {academicYears.map((y) => (
+                          <SelectItem key={y.id} value={y.id}>
+                            {y.is_active ? `✓ ${y.name}` : y.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="academicSession">Academic Session / Term</Label>
-                  <Input
-                    id="academicSession"
-                    name="academicSession"
-                    placeholder="e.g., 2024/2025 First Term"
-                    value={formData.academicSession}
-                    onChange={handleInputChange}
-                  />
-                </div>
-              </div>
+
+                {formData.academicYearId && formData.academicYearId !== 'none' && (
+                  <div className="space-y-2">
+                    <Label>Academic Term / Period</Label>
+                    <Select
+                      value={formData.academicPeriodId || 'none'}
+                      onValueChange={handlePeriodChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Term" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No Specific Term</SelectItem>
+                        {academicPeriods.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {formData.academicSession && (
+                      <p className="text-[10px] text-emerald-600 font-medium">
+                        ✓ Linked to: {formData.academicSession}
+                      </p>
+                    )}
+                  </div>
+                )}
             </CardContent>
           </Card>
 

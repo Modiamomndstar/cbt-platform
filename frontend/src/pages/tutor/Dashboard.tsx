@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { tutorAPI, examAPI } from '@/services/api';
+import { tutorAPI } from '@/services/api';
 import { usePlan } from '@/hooks/usePlan';
 import { FeatureLockedModal, FeatureLockBadge } from '@/components/common/FeatureLock';
 import {
@@ -24,23 +24,15 @@ export default function TutorDashboard() {
   const { user } = useAuth();
   const { isFeatureAllowed } = usePlan();
   const [stats, setStats] = useState<any>(null);
-  const [exams, setExams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showLockModal, setShowLockModal] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [statsRes, examsRes] = await Promise.all([
-          tutorAPI.getDashboardStats().catch(() => null),
-          examAPI.getAll().catch(() => null),
-        ]);
-
+        const statsRes = await tutorAPI.getDashboardStats();
         if (statsRes?.data?.success) {
           setStats(statsRes.data.data);
-        }
-        if (examsRes?.data?.success) {
-          setExams((examsRes.data.data || []).slice(0, 5));
         }
       } catch (err) {
         console.error('Failed to load dashboard:', err);
@@ -93,6 +85,13 @@ export default function TutorDashboard() {
       icon: TrendingUp,
       color: 'text-cyan-600',
       bgColor: 'bg-cyan-50'
+    },
+    {
+      title: 'LMS Courses',
+      value: stats?.courseProgress?.length || 0,
+      icon: BookOpen,
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50'
     },
   ];
 
@@ -149,9 +148,9 @@ export default function TutorDashboard() {
             </Button>
           </CardHeader>
           <CardContent>
-            {exams.length > 0 ? (
+            {stats?.recentExams?.length > 0 ? (
               <div className="space-y-3">
-                {exams.map((exam: any) => (
+                {stats.recentExams.map((exam: any) => (
                   <div
                     key={exam.id}
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100"
@@ -173,16 +172,52 @@ export default function TutorDashboard() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No exams created yet</p>
-                <Button
-                  variant="outline"
-                  className="mt-3"
-                  onClick={() => navigate('/tutor/exams/create')}
-                >
-                  Create Your First Exam
-                </Button>
+              <div className="text-center py-8 text-gray-400">
+                <BookOpen className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                <p className="text-sm">No exams found</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Course Engagement */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-lg">Course Engagement</CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/tutor/courses')}
+            >
+              Manage
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {stats?.courseProgress?.length > 0 ? (
+              <div className="space-y-4">
+                {stats.courseProgress.map((course: any) => (
+                  <div key={course.id} className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium truncate max-w-[150px]">{course.title}</span>
+                      <span className="text-gray-500">{course.studentCount} Students</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2">
+                      <div 
+                        className="bg-orange-500 h-2 rounded-full transition-all duration-500" 
+                        style={{ width: `${course.avgProgress}%` }}
+                      ></div>
+                    </div>
+                    <div className="flex justify-end text-[10px] text-gray-400">
+                      {course.avgProgress}% Average Progress
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-400">
+                <BookOpen className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                <p className="text-sm">No active courses for monitoring</p>
               </div>
             )}
           </CardContent>

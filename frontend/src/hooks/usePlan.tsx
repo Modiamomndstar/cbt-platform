@@ -63,7 +63,9 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     if (!plan || !plan.plan) return false;
 
     // Use the optimized features object from backend first
-    if (plan.features && plan.features[featureKey]) return true;
+    // We check both snake_case (frontend) and camelCase (backend transformed)
+    const camelKey = featureKey.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+    if (plan.features && (plan.features[featureKey] === true || plan.features[camelKey] === true)) return true;
 
     // Mapping of feature keys to backend boolean flags (fallback)
     const featureMap: Record<string, string> = {
@@ -77,15 +79,18 @@ export function PlanProvider({ children }: { children: ReactNode }) {
       result_pdf:          'allowResultPdf',
       result_export:       'allowResultExport',
       external_students:   'allowExternalStudents',
+      lms_access:          'allowLms',
+      lms_tutor_access:    'allowLms',
     };
 
     const planKey = featureMap[featureKey];
     if (planKey && (plan.plan as any)[planKey]) return true;
 
     // Check features object again if explicitly false in fallback
-    if (plan.features && plan.features[featureKey] === false) return false;
+    if (plan.features && (plan.features[featureKey] === false || plan.features[camelKey] === false)) return false;
 
-    if (!planKey) return true; // unknown feature usually means platform default
+    // Unknown features (not in map) should be denied by default for security if not found in features object
+    if (!planKey) return false; 
 
     return false;
   };

@@ -12,9 +12,10 @@ import {
   Alert,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
-import { resultAPI, aiAPI } from '../services/api';
+import { resultAPI, aiAPI, academicCalendarAPI } from '../services/api';
 import { formatDate } from '../lib/utils';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import SessionSelector from '../components/SessionSelector';
 
 export default function ResultsScreen({ navigation }: any) {
   const { colors, spacing } = useTheme();
@@ -24,10 +25,27 @@ export default function ResultsScreen({ navigation }: any) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [isAiModalVisible, setAiModalVisible] = useState(false);
+  const [years, setYears] = useState<any[]>([]);
+  const [selectedYear, setSelectedYear] = useState<string>('all');
+  const [isYearModalVisible, setYearModalVisible] = useState(false);
+
+  useEffect(() => {
+    const loadYears = async () => {
+      try {
+        const res = await academicCalendarAPI.getYears();
+        setYears(res.data.data || []);
+      } catch (err) {
+        console.error('Failed to load sessions:', err);
+      }
+    };
+    loadYears();
+  }, []);
 
   const loadResults = useCallback(async () => {
     try {
-      const response = await resultAPI.getMyHistory();
+      setLoading(true);
+      const params = selectedYear !== 'all' ? { yearId: selectedYear } : {};
+      const response = await resultAPI.getMyHistory(params);
       if (response.data.success) {
         setResults(response.data.data);
       }
@@ -35,8 +53,9 @@ export default function ResultsScreen({ navigation }: any) {
       console.error('Failed to load results:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, []);
+  }, [selectedYear]);
 
   useEffect(() => {
     loadResults();
@@ -127,6 +146,28 @@ export default function ResultsScreen({ navigation }: any) {
     },
     listContent: {
       padding: spacing.md,
+      paddingTop: 8,
+    },
+    filterHeader: {
+      backgroundColor: '#fff',
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: '#f1f5f9',
+    },
+    yearFilter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#f1f5f9',
+      paddingHorizontal: 16,
+      height: 48,
+      borderRadius: 12,
+      gap: 10,
+    },
+    yearFilterText: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: '700',
+      color: '#1e293b',
     },
     resultCard: {
       backgroundColor: '#fff',
@@ -280,6 +321,19 @@ export default function ResultsScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
+      <View style={styles.filterHeader}>
+        <TouchableOpacity 
+          style={styles.yearFilter}
+          onPress={() => setYearModalVisible(true)}
+        >
+          <MaterialCommunityIcons name="calendar-clock" size={20} color="#4f46e5" />
+          <Text style={styles.yearFilterText} numberOfLines={1}>
+            {selectedYear === 'all' ? 'All Sessions (Global)' : (years.find(y => y.id === selectedYear)?.name || 'Select Session')}
+          </Text>
+          <MaterialCommunityIcons name="chevron-down" size={16} color="#64748b" />
+        </TouchableOpacity>
+      </View>
+
       <FlatList
         data={results}
         renderItem={renderResult}
@@ -328,6 +382,13 @@ export default function ResultsScreen({ navigation }: any) {
           </View>
         </View>
       </Modal>
+      <SessionSelector
+        visible={isYearModalVisible}
+        onClose={() => setYearModalVisible(false)}
+        years={years}
+        selectedYear={selectedYear}
+        onSelect={setSelectedYear}
+      />
     </View>
   );
 }

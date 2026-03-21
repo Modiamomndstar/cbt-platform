@@ -34,6 +34,7 @@ interface Plan {
   allowAdvancedAnalytics: boolean; allowCustomBranding: boolean;
   allowResultPdf: boolean; allowApiAccess: boolean; allowSmsNotifications: boolean;
   allowResultExport: boolean;
+  allowLms: boolean;
 }
 
 interface FeatureFlag {
@@ -95,6 +96,7 @@ function PlanEditor({ plan, onSave }: { plan: Plan; onSave: (updated: Plan) => v
         allowResultExport: draft.allowResultExport,
         maxAiQueriesPerStudent: draft.maxAiQueriesPerStudent,
         maxAiQueriesPerTutor: draft.maxAiQueriesPerTutor,
+        allowLms: draft.allowLms,
       });
       onSave(draft);
       setEditing(false);
@@ -200,6 +202,7 @@ function PlanEditor({ plan, onSave }: { plan: Plan; onSave: (updated: Plan) => v
           {boolField('Result PDF', 'allowResultPdf')}
           {boolField('Result Export', 'allowResultExport')}
           {boolField('API access', 'allowApiAccess')}
+          {boolField('LMS Module', 'allowLms')}
         </div>
       </CardContent>
     </Card>

@@ -103,15 +103,23 @@ export const resultAPI = {
     flaggedQuestions?: string[];
     autoSubmitted?: boolean;
   }) => api.post('/results/submit', data),
-  getMyHistory: () => api.get('/results/my-history'),
+  getMyHistory: (params?: any) => api.get('/results/my-history', { params }),
   getMyResult: (scheduleId: string) => api.get(`/results/my-result/${scheduleId}`),
   getResultDetail: (resultId: string) => api.get(`/results/${resultId}/detail`),
 };
 
 // Analytics API
 export const analyticsAPI = {
-  getStudentDashboard: () => api.get('/analytics/student/dashboard'),
-  getPerformanceAnalytics: () => api.get('/analytics/student/performance'),
+  getStudentDashboard: (params?: any) => api.get('/analytics/student/dashboard', { params }),
+  getPerformanceAnalytics: (params?: any) => api.get('/analytics/student/performance', { params }),
+  getIssuedReports: (studentId: string) => api.get(`/analytics/reports/issued/${studentId}`),
+  getIssuedReportDetail: (reportId: string) => api.get(`/analytics/reports/detail/${reportId}`),
+};
+
+// Student Portal Specific API (LMS, AI, Academic Clock)
+export const studentPortalAPI = {
+  getDashboard: (params?: any) => api.get('/student-portal/dashboard', { params }),
+  generateStudyPlan: () => api.get('/student-portal/generate-study-plan'),
 };
 
 // Competition API
@@ -125,6 +133,20 @@ export const aiAPI = {
   explainResult: (resultId: string) => api.post(`/ai/explain-result/${resultId}`),
   explainQuestion: (data: { questionId: string; studentAnswer: string; correctAnswer: string }) =>
     api.post("/ai/explain-question", data),
+};
+
+export const courseAPI = {
+  getAll: (params?: any) => api.get('/courses', { params }),
+  getById: (id: string) => api.get(`/courses/${id}`),
+  updateProgress: (courseId: string, contentId: string) => 
+    api.post(`/courses/${courseId}/progress/${contentId}`),
+  aiAssistant: (data: { lessonContent: string; userMessage: string; history: any[] }) =>
+    api.post('/courses/ai-assistant', data),
+};
+
+// Academic Calendar API
+export const academicCalendarAPI = {
+  getYears: () => api.get('/academic-calendar/years'),
 };
 
 export default api;

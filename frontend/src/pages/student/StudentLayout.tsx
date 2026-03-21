@@ -39,6 +39,7 @@ export default function StudentLayout() {
 
   const navItems = [
     { name: 'Dashboard', href: '/student/dashboard', icon: LayoutDashboard },
+    { name: 'Courses', href: '/student/courses', icon: GraduationCap, feature: 'lms_access' },
     { name: 'Messages', href: '/student/messages', icon: MessageSquare, badge: unreadCount },
     { name: 'My Performance', href: '/student/performance', icon: TrendingUp, feature: 'advanced_analytics' },
     { name: 'Competitions', href: '/student/competitions', icon: Award },

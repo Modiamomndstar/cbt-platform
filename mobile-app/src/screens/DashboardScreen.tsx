@@ -13,11 +13,12 @@ import {
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { analyticsAPI, scheduleAPI, messagesAPI } from '../services/api';
+import { analyticsAPI, scheduleAPI, messagesAPI, studentPortalAPI } from '../services/api';
 import { formatDate, getExamLabel } from '../lib/utils';
 import { getImageUrl } from '../lib/imageUtils';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import BroadcastModal from '../components/BroadcastModal';
+import StudyPlanModal from '../components/StudyPlanModal';
 
 const { width } = Dimensions.get('window');
 
@@ -26,28 +27,50 @@ export default function DashboardScreen({ navigation }: any) {
   const { colors, spacing } = useTheme();
 
   const [stats, setStats] = useState<any>(null);
+  const [dashboardData, setDashboardData] = useState<any>(null);
   const [upcomingExams, setUpcomingExams] = useState<any[]>([]);
   const [latestBroadcast, setLatestBroadcast] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showStudyPlan, setShowStudyPlan] = useState(false);
+  const [generatingPlan, setGeneratingPlan] = useState(false);
+  const [studyPlan, setStudyPlan] = useState<any>(null);
 
   const loadData = useCallback(async () => {
     try {
-      const [analyticsRes, examsRes, broadcastRes] = await Promise.all([
-        analyticsAPI.getStudentDashboard(),
-        scheduleAPI.getMyExams(),
-        messagesAPI.getLatestBroadcast()
+      const [analyticsRes, examsRes, broadcastRes, portalRes] = await Promise.all([
+        analyticsAPI.getStudentDashboard().catch(() => ({ data: { success: true, data: null } })),
+        scheduleAPI.getMyExams().catch(() => ({ data: { success: true, data: [] } })),
+        messagesAPI.getLatestBroadcast().catch(() => ({ data: { success: true, data: null } })),
+        studentPortalAPI.getDashboard().catch(() => ({ data: { success: true, data: null } }))
       ]);
 
       if (analyticsRes.data.success) setStats(analyticsRes.data.data);
       if (examsRes.data.success) setUpcomingExams(examsRes.data.data.slice(0, 2));
       if (broadcastRes.data.success) setLatestBroadcast(broadcastRes.data.data);
+      if (portalRes.data.success) setDashboardData(portalRes.data.data);
     } catch (error) {
       console.error('Failed to load dashboard:', error);
     } finally {
       setIsLoading(false);
     }
   }, []);
+
+  const handleGenerateStudyPlan = async () => {
+    setGeneratingPlan(true);
+    try {
+      const res = await studentPortalAPI.generateStudyPlan();
+      if (res.data.success) {
+        setStudyPlan(res.data.data);
+        setShowStudyPlan(true);
+      }
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Error', 'Failed to generate AI study plan. Please try again.');
+    } finally {
+      setGeneratingPlan(false);
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -228,6 +251,128 @@ export default function DashboardScreen({ navigation }: any) {
       fontSize: 14,
       color: '#1e40af',
       marginLeft: spacing.sm,
+    },
+    clockContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      padding: spacing.md,
+      borderRadius: 20,
+      marginTop: spacing.md,
+    },
+    clockIconBox: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    clockSubtitle: {
+      color: 'rgba(255,255,255,0.6)',
+      fontSize: 9,
+      fontWeight: 'bold',
+      letterSpacing: 1,
+    },
+    clockTitle: {
+      color: '#fff',
+      fontSize: 14,
+      fontWeight: 'bold',
+    },
+    clockDate: {
+      color: '#fff',
+      fontSize: 14,
+      fontWeight: '900',
+    },
+    aiButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#eef2ff',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: '#e0e7ff',
+    },
+    aiButtonText: {
+      color: '#4f46e5',
+      fontSize: 11,
+      fontWeight: 'bold',
+      marginLeft: 4,
+    },
+    focusContainer: {
+      gap: spacing.sm,
+    },
+    focusCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#fff',
+      padding: spacing.md,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: '#f1f5f9',
+    },
+    focusIconBox: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: '#f5f3ff',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    focusCourseTitle: {
+      fontSize: 10,
+      fontWeight: 'bold',
+      color: '#8b5cf6',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    focusModTitle: {
+      fontSize: 15,
+      fontWeight: 'bold',
+      color: '#1e293b',
+    },
+    progressCard: {
+      width: 200,
+      backgroundColor: '#fff',
+      padding: spacing.md,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: '#f1f5f9',
+    },
+    progressCourseTitle: {
+      fontSize: 14,
+      fontWeight: 'bold',
+      color: '#1e293b',
+      marginBottom: 10,
+    },
+    progressRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    progressBarBg: {
+      flex: 1,
+      height: 6,
+      backgroundColor: '#f1f5f9',
+      borderRadius: 3,
+      overflow: 'hidden',
+    },
+    progressBarFill: {
+      height: '100%',
+      backgroundColor: '#10b981',
+      borderRadius: 3,
+    },
+    progressPercent: {
+      fontSize: 12,
+      fontWeight: 'bold',
+      color: '#10b981',
+    },
+    progressTutor: {
+      fontSize: 10,
+      color: '#94a3b8',
+      marginTop: 8,
     }
   });
 
@@ -249,32 +394,61 @@ export default function DashboardScreen({ navigation }: any) {
       <View style={styles.header}>
         {/* Branded School Name at Top */}
         <View style={{ marginBottom: spacing.lg, paddingBottom: 16, borderBottomWidth: 2, borderBottomColor: 'rgba(255,255,255,0.2)' }}>
-          <Text 
-            style={{ color: '#fff', fontSize: 32, fontWeight: '900', letterSpacing: 1.5, textTransform: 'uppercase' }} 
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {(user?.schoolName || 'CBT Platform')}
-          </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
-            <MaterialCommunityIcons name="check-decagram" size={14} color="#10b981" />
-            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '800', marginLeft: 6, letterSpacing: 1.2 }}>
-              OFFICIAL STUDENT PORTAL
-            </Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <View style={{ flex: 1 }}>
+              <Text 
+                style={{ color: '#fff', fontSize: 24, fontWeight: '900', letterSpacing: 1.2, textTransform: 'uppercase' }} 
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {(user?.schoolName || 'CBT Platform')}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                <MaterialCommunityIcons name="check-decagram" size={12} color="#10b981" />
+                <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: '800', marginLeft: 4, letterSpacing: 1 }}>
+                  OFFICIAL STUDENT PORTAL
+                </Text>
+              </View>
+            </View>
+            {user?.schoolLogo && (
+              <Image
+                source={{ uri: getImageUrl(user.schoolLogo) || '' }}
+                style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: '#fff' }}
+                resizeMode="contain"
+              />
+            )}
           </View>
         </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {/* Academic Clock Section */}
+        {dashboardData?.activeWeek && (
+          <View style={styles.clockContainer}>
+            <View style={styles.clockIconBox}>
+              <MaterialCommunityIcons name="clock-outline" size={24} color="#fff" />
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.clockSubtitle}>ACADEMIC CLOCK</Text>
+              <Text style={styles.clockTitle}>
+                {dashboardData.activeWeek.periodName} — Week {dashboardData.activeWeek.weekNumber}
+              </Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={styles.clockSubtitle}>TODAY</Text>
+              <Text style={styles.clockDate}>{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</Text>
+            </View>
+          </View>
+        )}
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.md, justifyContent: 'space-between' }}>
           <View style={{ flex: 1 }}>
             <Text style={styles.welcomeText}>Welcome back,</Text>
             <Text style={styles.nameText}>{user?.fullName || 'Student'}</Text>
           </View>
-          {user?.schoolLogo && (
-            <Image
-              source={{ uri: getImageUrl(user.schoolLogo) || '' }}
-              style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: '#fff' }}
-              resizeMode="contain"
-            />
+          {dashboardData?.activeYear && (
+            <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <MaterialCommunityIcons name="calendar-check" size={14} color="#fff" />
+              <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>{dashboardData.activeYear.name}</Text>
+            </View>
           )}
         </View>
       </View>
@@ -299,6 +473,72 @@ export default function DashboardScreen({ navigation }: any) {
           color="#f59e0b"
         />
       </View>
+
+      {/* Weekly Focus Modules */}
+      {dashboardData?.focusModules?.length > 0 && (
+        <View style={styles.section}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Weekly Focus</Text>
+            <TouchableOpacity 
+              style={styles.aiButton} 
+              onPress={handleGenerateStudyPlan}
+              disabled={generatingPlan}
+            >
+              {generatingPlan ? (
+                <ActivityIndicator size="small" color="#4f46e5" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="creation" size={14} color="#4f46e5" />
+                  <Text style={styles.aiButtonText}>AI Plan</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+          <View style={styles.focusContainer}>
+            {dashboardData.focusModules.map((mod: any) => (
+              <TouchableOpacity 
+                key={mod.id} 
+                style={styles.focusCard}
+                onPress={() => navigation.navigate('CoursePlayer', { courseId: mod.courseId })}
+              >
+                <View style={styles.focusIconBox}>
+                  <MaterialCommunityIcons name="book-open-page-variant" size={20} color="#4f46e5" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.focusCourseTitle}>{mod.courseTitle}</Text>
+                  <Text style={styles.focusModTitle} numberOfLines={1}>{mod.title}</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color="#cbd5e1" />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Learning Progress Section */}
+      {dashboardData?.courses?.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Learning Progress</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md, paddingBottom: 4 }}>
+            {dashboardData.courses.map((course: any) => (
+              <TouchableOpacity 
+                key={course.id} 
+                style={styles.progressCard}
+                onPress={() => navigation.navigate('CoursePlayer', { courseId: course.id })}
+              >
+                <Text style={styles.progressCourseTitle} numberOfLines={1}>{course.title}</Text>
+                <View style={styles.progressRow}>
+                  <View style={styles.progressBarBg}>
+                    <View style={[styles.progressBarFill, { width: `${course.progressPercentage}%` }]} />
+                  </View>
+                  <Text style={styles.progressPercent}>{course.progressPercentage}%</Text>
+                </View>
+                <Text style={styles.progressTutor}>Tutor: {course.tutorName}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -386,6 +626,11 @@ export default function DashboardScreen({ navigation }: any) {
       </View>
 
       <BroadcastModal />
+      <StudyPlanModal 
+        visible={showStudyPlan} 
+        onClose={() => setShowStudyPlan(false)} 
+        plan={studyPlan} 
+      />
     </ScrollView>
   );
 }

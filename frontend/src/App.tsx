@@ -31,6 +31,8 @@ import SchoolQuestions from '@/pages/school-admin/Questions';
 import SchoolSchedules from '@/pages/school-admin/Schedules';
 import SchoolResults from '@/pages/school-admin/Results';
 import CheckoutPage from '@/pages/school-admin/CheckoutPage';
+import AcademicCalendar from '@/pages/school-admin/AcademicCalendar';
+import LMSCourses from '@/pages/school-admin/LMSCourses';
 
 // Tutor Pages
 import TutorLayout from '@/pages/tutor/TutorLayout';
@@ -43,6 +45,10 @@ import ScheduleExam from '@/pages/tutor/ScheduleExam';
 import ExamResults from '@/pages/tutor/ExamResults';
 import ExternalStudents from '@/pages/tutor/ExternalStudents';
 import TutorAnalytics from '@/pages/tutor/Analytics';
+import CourseList from '@/pages/tutor/CourseList';
+import CourseCreate from '@/pages/tutor/CourseCreate';
+import CourseBuilder from '@/pages/tutor/CourseBuilder';
+import CourseProgress from '@/pages/tutor/CourseProgress';
 
 // Student Pages
 import StudentLogin from '@/pages/student/StudentLogin';
@@ -54,6 +60,9 @@ import StudentProfile from '@/pages/student/StudentProfile';
 import StudentPerformance from '@/pages/student/StudentPerformance';
 import StudentCompetitionHub from '@/pages/student/StudentCompetitionHub';
 import StudentResultDetail from '@/pages/student/StudentResultDetail';
+import CourseLibrary from '@/pages/student/CourseLibrary';
+import CoursePlayer from '@/pages/student/CoursePlayer';
+import TermReport from '@/pages/student/TermReport';
 
 // Common Pages
 import StudentReportCard from './pages/common/StudentReportCard';
@@ -135,7 +144,11 @@ function AppRoutes() {
         <Route path="schedules" element={<SchoolSchedules />} />
         <Route path="schedules-by-exam/:examId" element={<ScheduleExam />} />
         <Route path="results" element={<SchoolResults />} />
+        <Route path="calendar" element={<AcademicCalendar />} />
         <Route path="checkout" element={<CheckoutPage />} />
+        <Route path="courses" element={<LMSCourses />} />
+        <Route path="courses/:id/progress" element={<CourseProgress />} />
+        <Route path="courses/:id/review" element={<CoursePlayer />} />
       </Route>
 
       {/* Tutor Routes */}
@@ -161,6 +174,10 @@ function AppRoutes() {
         <Route path="results" element={<ExamResults />} />
         <Route path="analytics" element={<TutorAnalytics />} />
         <Route path="messages" element={<MessagesPage />} />
+        <Route path="courses" element={<CourseList />} />
+        <Route path="courses/create" element={<CourseCreate />} />
+        <Route path="courses/:id/builder" element={<CourseBuilder />} />
+        <Route path="courses/:id/progress" element={<CourseProgress />} />
       </Route>
 
       {/* Student Routes */}
@@ -182,6 +199,9 @@ function AppRoutes() {
         <Route path="competitions" element={<RequireAuth allowedRoles={['student']} disallowExternal><StudentCompetitionHub /></RequireAuth>} />
         <Route path="messages" element={<RequireAuth allowedRoles={['student']} disallowExternal><MessagesPage /></RequireAuth>} />
         <Route path="report-card" element={<RequireAuth allowedRoles={['student']} disallowExternal><StudentReportCard /></RequireAuth>} />
+        <Route path="term-report" element={<RequireAuth allowedRoles={['student']} disallowExternal><TermReport /></RequireAuth>} />
+        <Route path="courses" element={<RequireAuth allowedRoles={['student']} disallowExternal><CourseLibrary /></RequireAuth>} />
+        <Route path="courses/:id" element={<RequireAuth allowedRoles={['student']} disallowExternal><CoursePlayer /></RequireAuth>} />
       </Route>
 
       {/* Super Admin Routes */}

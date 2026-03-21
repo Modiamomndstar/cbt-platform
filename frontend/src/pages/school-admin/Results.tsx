@@ -28,6 +28,7 @@ export default function Results() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedExamId, setSelectedExamId] = useState<string>('all');
+  const [selectedAssessmentType, setSelectedAssessmentType] = useState<string>('all');
 
   // AI State
   const [aiCohortAnalysis, setAiCohortAnalysis] = useState<any>(null);
@@ -100,7 +101,10 @@ export default function Results() {
 
   const loadResults = async () => {
     try {
-      const response = await resultAPI.getAll();
+      const response = await resultAPI.getAll({ 
+        examId: selectedExamId === 'all' ? undefined : selectedExamId,
+        assessmentType: selectedAssessmentType === 'all' ? undefined : selectedAssessmentType
+      });
       if (response.data.success) {
         setResults(response.data.data || []);
       }
@@ -111,13 +115,26 @@ export default function Results() {
     }
   };
 
+  useEffect(() => {
+    loadResults();
+  }, [selectedExamId, selectedAssessmentType]);
+
   const filteredResults = results.filter(r => {
     const matchesSearch = (r.studentName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (r.examTitle || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (r.tutorName || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesExam = selectedExamId === 'all' || r.examId === selectedExamId;
-    return matchesSearch && matchesExam;
+    return matchesSearch;
   });
+
+  const renderAssessmentType = (type: string) => {
+    switch (type) {
+      case 'weekly_classwork': return <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 text-[10px] h-4">Weekly Classwork</Badge>;
+      case 'assignment': return <Badge variant="outline" className="border-purple-200 text-purple-700 bg-purple-50 text-[10px] h-4">Assignment</Badge>;
+      case 'midterm': return <Badge variant="outline" className="border-orange-200 text-orange-700 bg-orange-50 text-[10px] h-4">Mid-Term</Badge>;
+      case 'final_exam': return <Badge variant="outline" className="border-red-200 text-red-700 bg-red-50 text-[10px] h-4">Final Exam</Badge>;
+      default: return null;
+    }
+  };
 
   const getScoreColor = (score: number, passing: number) => {
     if (score >= passing) return 'text-green-600 font-bold';
@@ -185,6 +202,20 @@ export default function Results() {
              </SelectContent>
            </Select>
         </div>
+        <div className="w-full sm:w-48">
+           <Select value={selectedAssessmentType} onValueChange={setSelectedAssessmentType}>
+             <SelectTrigger>
+               <SelectValue placeholder="Assessment Type" />
+             </SelectTrigger>
+             <SelectContent>
+               <SelectItem value="all">All Types</SelectItem>
+               <SelectItem value="weekly_classwork">Weekly Classwork</SelectItem>
+               <SelectItem value="assignment">Assignment</SelectItem>
+               <SelectItem value="midterm">Mid-Term</SelectItem>
+               <SelectItem value="final_exam">Final Exam</SelectItem>
+             </SelectContent>
+           </Select>
+        </div>
         <Button variant="outline" size="icon">
           <Filter className="h-4 w-4" />
         </Button>
@@ -241,7 +272,10 @@ export default function Results() {
                         <BookOpen className="h-5 w-5 text-purple-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{result.examTitle}</p>
+                        <div className="flex items-center gap-1 mb-1">
+                          <p className="text-sm font-medium text-gray-900">{result.examTitle}</p>
+                          {renderAssessmentType(result.assessmentType)}
+                        </div>
                         <p className="text-xs text-gray-500">Tutor: {result.tutorName}</p>
                       </div>
                     </div>

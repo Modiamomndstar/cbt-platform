@@ -7,35 +7,67 @@ import {
   RefreshControl,
   ActivityIndicator,
   Dimensions,
+  TouchableOpacity,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
-import { analyticsAPI } from '../services/api';
+import { analyticsAPI, academicCalendarAPI } from '../services/api';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useAuth } from '../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
+import { formatDate } from '../lib/utils';
+import SessionSelector from '../components/SessionSelector';
 
 const { width } = Dimensions.get('window');
 
 export default function PerformanceScreen() {
   const { colors, spacing } = useTheme();
+  const { user } = useAuth();
+  const navigation = useNavigation<any>();
   const [data, setData] = useState<any>(null);
+  const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [years, setYears] = useState<any[]>([]);
+  const [selectedYear, setSelectedYear] = useState<string>('all');
+  const [isYearModalVisible, setYearModalVisible] = useState(false);
+
+  useEffect(() => {
+    const loadYears = async () => {
+      try {
+        const res = await academicCalendarAPI.getYears();
+        setYears(res.data.data || []);
+      } catch (err) {
+        console.error('Failed to load sessions:', err);
+      }
+    };
+    loadYears();
+  }, []);
 
   const loadPerformance = useCallback(async () => {
     try {
-      const response = await analyticsAPI.getPerformanceAnalytics();
-      if (response.data.success) {
-        setData(response.data.data);
+      setLoading(true);
+      const params = selectedYear !== 'all' ? { yearId: selectedYear } : {};
+      const [perfRes, reportsRes] = await Promise.all([
+        analyticsAPI.getPerformanceAnalytics(params),
+        user?.id ? analyticsAPI.getIssuedReports(user.id).catch(() => ({ data: { success: true, data: [] } })) : Promise.resolve({ data: { success: true, data: [] } })
+      ]);
+
+      if (perfRes.data.success) {
+        setData(perfRes.data.data);
+      }
+      if (reportsRes.data.success) {
+        setReports(reportsRes.data.data || []);
       }
     } catch (error) {
       console.error('Failed to load performance:', error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     loadPerformance();
-  }, [loadPerformance]);
+  }, [loadPerformance, selectedYear]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -64,7 +96,31 @@ export default function PerformanceScreen() {
       padding: spacing.lg,
       backgroundColor: '#fff',
       borderBottomWidth: 1,
-      borderBottomColor: '#e2e8f0',
+      borderBottomColor: '#f1f5f9',
+    },
+    filterBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: '#f5f3ff',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    activeFilterBadge: {
+        backgroundColor: '#eef2ff',
+        alignSelf: 'flex-start',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+        marginTop: 8,
+        borderWidth: 1,
+        borderColor: '#e0e7ff',
+    },
+    activeFilterText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#4f46e5',
+        textTransform: 'uppercase',
     },
     title: {
       fontSize: 24,
@@ -145,6 +201,43 @@ export default function PerformanceScreen() {
       fontWeight: 'bold',
       color: '#1e293b',
       marginTop: 4,
+    },
+    reportCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: spacing.md,
+      backgroundColor: '#f8fafc',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#f1f5f9',
+    },
+    reportIconBox: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: '#eef2ff',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    reportTitle: {
+      fontSize: 15,
+      fontWeight: 'bold',
+      color: '#1e293b',
+    },
+    reportMeta: {
+      fontSize: 12,
+      color: '#64748b',
+      marginTop: 2,
+    },
+    emptyBox: {
+      alignItems: 'center',
+      padding: spacing.xl,
+    },
+    emptyText: {
+      marginTop: 8,
+      color: '#94a3b8',
+      fontSize: 14,
     }
   });
 
@@ -162,8 +255,25 @@ export default function PerformanceScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <View style={styles.header}>
-        <Text style={styles.title}>Your Performance</Text>
-        <Text style={styles.subtitle}>Track your educational progress and growth</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View>
+            <Text style={styles.title}>Your Performance</Text>
+            <Text style={styles.subtitle}>Track your educational progress and growth</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.filterBtn}
+            onPress={() => setYearModalVisible(true)}
+          >
+            <MaterialCommunityIcons name="calendar-search" size={24} color="#4f46e5" />
+          </TouchableOpacity>
+        </View>
+        {selectedYear !== 'all' && (
+          <View style={styles.activeFilterBadge}>
+             <Text style={styles.activeFilterText}>
+                Session: {years.find(y => y.id === selectedYear)?.name}
+             </Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.section}>
@@ -204,6 +314,37 @@ export default function PerformanceScreen() {
       </View>
 
       <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Issued Cumulative Reports</Text>
+        {reports.length > 0 ? (
+          <View style={{ gap: spacing.md }}>
+            {reports.map((report: any) => (
+              <TouchableOpacity 
+                key={report.id} 
+                style={styles.reportCard}
+                onPress={() => navigation.navigate('TermReport', { reportId: report.id })}
+              >
+                <View style={styles.reportIconBox}>
+                  <MaterialCommunityIcons name="file-document-outline" size={24} color="#6366f1" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.reportTitle}>{report.title}</Text>
+                  <Text style={styles.reportMeta}>
+                    {formatDate(report.createdAt)} • {report.issuedByName || 'Official'}
+                  </Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color="#cbd5e1" />
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptyBox}>
+            <MaterialCommunityIcons name="file-hidden" size={40} color="#e2e8f0" />
+            <Text style={styles.emptyText}>No term reports issued yet.</Text>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.section}>
         <Text style={styles.sectionTitle}>Study Strength</Text>
         <View style={{ gap: spacing.sm }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -216,6 +357,13 @@ export default function PerformanceScreen() {
           </View>
         </View>
       </View>
+      <SessionSelector
+        visible={isYearModalVisible}
+        onClose={() => setYearModalVisible(false)}
+        years={years}
+        selectedYear={selectedYear}
+        onSelect={setSelectedYear}
+      />
     </ScrollView>
   );
 }
