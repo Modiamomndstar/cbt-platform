@@ -560,7 +560,7 @@ export default function BillingPage() {
 
       {/* Plan Selection Modal */}
       <Dialog open={showUpgradeModal} onOpenChange={setShowUpgradeModal}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="w-[95vw] sm:max-w-3xl md:max-w-4xl lg:max-w-5xl">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black text-gray-900">Choose Your Subscription</DialogTitle>
             <DialogDescription className="text-gray-500">
@@ -605,10 +605,10 @@ export default function BillingPage() {
                       <h3 className="text-lg font-black text-gray-900">{basicPlan?.displayName || 'Basic Premium'}</h3>
                       <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">Most Popular</span>
                     </div>
-                    <div className="my-4">
+                    <div className="my-4 flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
                       <span className="text-3xl font-black text-gray-900">₦{basicPlan?.priceNgn ? Number(billingCycle === 'yearly' ? basicPlan.priceNgn * 12 * (1 - yearlyDiscount.percentage / 100) : basicPlan.priceNgn).toLocaleString() : '8,000'}</span>
-                      {basicPlan?.priceUsd && <span className="text-lg font-bold text-gray-500 ml-1">(${billingCycle === 'yearly' ? (basicPlan.priceUsd * 12 * (1 - yearlyDiscount.percentage / 100)).toFixed(2) : basicPlan.priceUsd})</span>}
-                      <span className="text-sm font-medium text-gray-500"> / {billingCycle === 'yearly' ? 'year' : 'mo'}</span>
+                      {basicPlan?.priceUsd && <span className="text-lg font-bold text-gray-500">(${billingCycle === 'yearly' ? (basicPlan.priceUsd * 12 * (1 - yearlyDiscount.percentage / 100)).toFixed(2) : basicPlan.priceUsd})</span>}
+                      <span className="text-sm font-medium text-gray-500 inline-block">/ {billingCycle === 'yearly' ? 'year' : 'mo'}</span>
                     </div>
                     <p className="text-sm text-gray-600 mb-6 font-medium">Core platform tools, exams, and reports tailored for standard institutions.</p>
 
@@ -648,10 +648,10 @@ export default function BillingPage() {
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="text-lg font-black text-purple-900">{advancedPlan?.displayName || 'Advanced'}</h3>
                     </div>
-                    <div className="my-4">
+                    <div className="my-4 flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
                       <span className="text-3xl font-black text-purple-900">₦{advancedPlan?.priceNgn ? Number(billingCycle === 'yearly' ? advancedPlan.priceNgn * 12 * (1 - yearlyDiscount.percentage / 100) : advancedPlan.priceNgn).toLocaleString() : '20,000'}</span>
-                      {advancedPlan?.priceUsd && <span className="text-lg font-bold text-purple-600/60 ml-1">(${billingCycle === 'yearly' ? (advancedPlan.priceUsd * 12 * (1 - yearlyDiscount.percentage / 100)).toFixed(2) : advancedPlan.priceUsd})</span>}
-                      <span className="text-sm font-medium text-purple-600/70"> / {billingCycle === 'yearly' ? 'year' : 'mo'}</span>
+                      {advancedPlan?.priceUsd && <span className="text-lg font-bold text-purple-600/60">(${billingCycle === 'yearly' ? (advancedPlan.priceUsd * 12 * (1 - yearlyDiscount.percentage / 100)).toFixed(2) : advancedPlan.priceUsd})</span>}
+                      <span className="text-sm font-medium text-purple-600/70 inline-block">/ {billingCycle === 'yearly' ? 'year' : 'mo'}</span>
                     </div>
                     <p className="text-sm text-purple-800/80 mb-6 font-medium">Unlimited limits and deep AI automation for massive enterprise scaling.</p>
 
@@ -691,10 +691,10 @@ export default function BillingPage() {
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="text-lg font-black text-indigo-900">{advancedPlusPlan?.displayName || 'Advanced Plus'}</h3>
                     </div>
-                    <div className="my-4">
+                    <div className="my-4 flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
                       <span className="text-3xl font-black text-indigo-900">₦{advancedPlusPlan?.priceNgn ? Number(billingCycle === 'yearly' ? advancedPlusPlan.priceNgn * 12 * (1 - yearlyDiscount.percentage / 100) : advancedPlusPlan.priceNgn).toLocaleString() : '30,000'}</span>
-                      {advancedPlusPlan?.priceUsd && <span className="text-lg font-bold text-indigo-600/60 ml-1">(${billingCycle === 'yearly' ? (advancedPlusPlan.priceUsd * 12 * (1 - yearlyDiscount.percentage / 100)).toFixed(2) : advancedPlusPlan.priceUsd})</span>}
-                      <span className="text-sm font-medium text-indigo-600/70"> / {billingCycle === 'yearly' ? 'year' : 'mo'}</span>
+                      {advancedPlusPlan?.priceUsd && <span className="text-lg font-bold text-indigo-600/60">(${billingCycle === 'yearly' ? (advancedPlusPlan.priceUsd * 12 * (1 - yearlyDiscount.percentage / 100)).toFixed(2) : advancedPlusPlan.priceUsd})</span>}
+                      <span className="text-sm font-medium text-indigo-600/70 inline-block">/ {billingCycle === 'yearly' ? 'year' : 'mo'}</span>
                     </div>
                     <p className="text-sm text-indigo-800/80 mb-6 font-medium">Unlimited scaling with deep AI intelligence.</p>
 
