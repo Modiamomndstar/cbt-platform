@@ -625,10 +625,12 @@ export default function BillingPage() {
                         <CheckCircle2 className="h-4 w-4 text-emerald-500 mr-2 shrink-0 mt-0.5" />
                         <span className="font-medium">Full Student CBT Portal</span>
                       </li>
-                      <li className="flex items-start text-sm text-gray-700">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500 mr-2 shrink-0 mt-0.5" />
-                        <span className="font-medium">{basicPlan?.aiQueriesPerMonth || 30} AI Query Credits <span className="text-gray-400 font-normal">/ month</span></span>
-                      </li>
+                      {(basicPlan?.aiQueriesPerMonth ?? 30) > 0 && (
+                        <li className="flex items-start text-sm text-gray-700">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500 mr-2 shrink-0 mt-0.5" />
+                          <span className="font-medium">{basicPlan!.aiQueriesPerMonth ?? 30} AI Query Credits <span className="text-gray-400 font-normal">/ month</span></span>
+                        </li>
+                      )}
                     </ul>
                   </div>
                   <Button 
@@ -660,10 +662,12 @@ export default function BillingPage() {
                         <CheckCircle2 className="h-4 w-4 text-purple-600 mr-2 shrink-0 mt-0.5" />
                         <span className="font-bold">{advancedPlan?.maxInternalStudents ? `Up to ${advancedPlan.maxInternalStudents} Students & Tutors` : 'Unlimited Students & Tutors'}</span>
                       </li>
-                      <li className="flex items-start text-sm text-gray-800">
-                        <CheckCircle2 className="h-4 w-4 text-purple-600 mr-2 shrink-0 mt-0.5" />
-                        <span className="font-bold">{advancedPlan?.aiQueriesPerMonth || 200} AI Query Credits <span className="font-medium opacity-70">/ month</span></span>
-                      </li>
+                      {(advancedPlan?.aiQueriesPerMonth ?? 200) > 0 && (
+                        <li className="flex items-start text-sm text-gray-800">
+                          <CheckCircle2 className="h-4 w-4 text-purple-600 mr-2 shrink-0 mt-0.5" />
+                          <span className="font-bold">{advancedPlan!.aiQueriesPerMonth ?? 200} AI Query Credits <span className="font-medium opacity-70">/ month</span></span>
+                        </li>
+                      )}
                       <li className="flex items-start text-sm text-gray-800">
                         <CheckCircle2 className="h-4 w-4 text-purple-600 mr-2 shrink-0 mt-0.5" />
                         <span className="font-medium">Advanced Matrix Analytics</span>
@@ -705,8 +709,14 @@ export default function BillingPage() {
                       </li>
                       <li className="flex items-start text-sm text-gray-800">
                         <CheckCircle2 className="h-4 w-4 text-indigo-600 mr-2 shrink-0 mt-0.5" />
-                        <span className="font-bold">{advancedPlusPlan?.aiQueriesPerMonth || 500} AI Query Credits <span className="font-medium opacity-70">/ month</span></span>
+                        <span className="font-bold text-indigo-700">Full LLM Generation Features</span>
                       </li>
+                      {(advancedPlusPlan?.aiQueriesPerMonth ?? 500) > 0 && (
+                        <li className="flex items-start text-sm text-gray-800">
+                          <CheckCircle2 className="h-4 w-4 text-indigo-600 mr-2 shrink-0 mt-0.5" />
+                          <span className="font-bold">{advancedPlusPlan!.aiQueriesPerMonth ?? 500} AI Query Credits <span className="font-medium opacity-70">/ month</span></span>
+                        </li>
+                      )}
                       <li className="flex items-start text-sm text-gray-800">
                         <CheckCircle2 className="h-4 w-4 text-indigo-600 mr-2 shrink-0 mt-0.5" />
                         <span className="font-medium">Advanced Matrix Analytics</span>
