@@ -37,9 +37,10 @@ The platform is built to support massive scale, segmented into distinct access t
 *   **AI Coach Chatbot**: Native integration in the course player guiding students step-by-step.
 
 ### 5. Robust Monetization & SaaS Billing
-*   **Automated Gateways**: Integrated with Stripe (International) and Paystack (Africa).
-*   **Manual/Crypto Verification**: SuperAdmins can manually verify USDT/TRC20 crypto payments or direct bank transfers securely.
-*   **Smart Subscription Gating**: Frontend UI sidebars and API routes are strictly protected by a `planGuard` middleware, evaluating `Basic`, `Advanced`, `Enterprise`, and `Premium` tiers.
+*   **Automated Gateways**: Integrated with Stripe (USD) and Paystack (NGN), along with Crypto Verification (USDT).
+*   **Flexible Subscriptions**: Schools can subscribe to `Basic`, `Advanced`, `Advanced Plus`, or `Enterprise` tiers with Monthly or Yearly billing cycles (incorporating SuperAdmin-defined percentage discounts).
+*   **Coupon & Promo Codes**: Seamlessly apply validation discounts directly at checkout, controlled dynamically by SuperAdmins.
+*   **Smart Subscription Gating**: Frontend UI sidebars and API routes are strictly protected by a `planGuard` middleware.
 *   **Marketplace (PAYG)**: Schools can purchase "extra credits" for AI generation or student packs without upgrading their entire subscription plan.
 *   **Granular Feature Gifting**: SuperAdmins can permanently unlock specific features (like Advanced Analytics or LMS) for individual schools overriding default plan logic.
 

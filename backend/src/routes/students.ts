@@ -4,6 +4,7 @@ import { db } from "../config/database";
 import { authenticate, authorize } from "../middleware/auth";
 import { requireStudentSlot } from "../middleware/planGuard";
 import crypto from "crypto";
+import bcrypt from "bcryptjs";
 import { sendStudentPortalCredentialsEmail } from "../services/email";
 import { ApiResponseHandler } from "../utils/apiResponse";
 import { validate } from "../middleware/validation";
@@ -242,7 +243,6 @@ router.post(
       const firstName = nameParts[0];
       const lastName = nameParts.slice(1).join(' ') || '.';
 
-      const bcrypt = require("bcryptjs");
       const plainTextPassword = crypto.randomBytes(4).toString("hex"); // 8 chars
       const passwordHash = await bcrypt.hash(plainTextPassword, 10);
 
@@ -327,7 +327,6 @@ router.post(
       const created: any[] = [];
       const errors: any[] = [];
       const batchUsernames = new Set<string>(); // Track usernames used in this batch
-      const bcrypt = require("bcryptjs");
 
       // Fetch school name once for all emails
       const schoolRes = await db.query("SELECT name FROM schools WHERE id = $1", [querySchoolId]);
@@ -587,7 +586,6 @@ router.put(
       }
 
       const student = studentResult.rows[0];
-      const bcrypt = require("bcryptjs");
       const plainTextPassword = crypto.randomBytes(4).toString("hex");
       const passwordHash = await bcrypt.hash(plainTextPassword, 10);
 

@@ -12,6 +12,7 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
 
 // Extend Express Request to include user
 declare global {
+// eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       user?: {
@@ -94,7 +95,7 @@ export const authenticate = async (
           userExists = staffResult.rows.length > 0 && staffResult.rows[0].is_active;
         }
         break;
-      case "school":
+      case "school": {
         const schoolResult = await db.query(
           "SELECT id, is_active FROM schools WHERE id = $1",
           [decoded.id],
@@ -102,7 +103,8 @@ export const authenticate = async (
         userExists =
           schoolResult.rows.length > 0 && schoolResult.rows[0].is_active;
         break;
-      case "tutor":
+      }
+      case "tutor": {
         const tutorResult = await db.query(
           "SELECT id, is_active FROM tutors WHERE id = $1",
           [decoded.id],
@@ -110,6 +112,7 @@ export const authenticate = async (
         userExists =
           tutorResult.rows.length > 0 && tutorResult.rows[0].is_active;
         break;
+      }
       case "student":
         // Students use schedule-based authentication
         userExists = true;

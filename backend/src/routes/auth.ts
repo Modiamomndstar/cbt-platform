@@ -578,14 +578,15 @@ router.get("/me", authenticate, async (req, res, next) => {
           };
         }
         break;
-      case "school":
+      case "school": {
         const schoolResult = await db.query(
           "SELECT id, name, username, email, phone, logo_url, plan_type, is_active, created_at FROM schools WHERE id = $1",
           [id],
         );
         userData = schoolResult.rows[0];
         break;
-      case "tutor":
+      }
+      case "tutor": {
          const tutorResult = await db.query(
            `SELECT t.id, t.username, t.full_name, t.email, t.phone, t.subjects, t.avatar_url,
                    s.id as school_id, s.name as school_name, s.logo_url as school_logo
@@ -596,7 +597,8 @@ router.get("/me", authenticate, async (req, res, next) => {
         );
         userData = tutorResult.rows[0];
         break;
-      case "student":
+      }
+      case "student": {
         const isExternal = req.user?.isExternal;
         if (isExternal) {
            const extResult = await db.query(
@@ -631,6 +633,7 @@ router.get("/me", authenticate, async (req, res, next) => {
           if (userData) userData.isExternal = false;
         }
         break;
+      }
     }
 
     const resultPayload = transformResult({
