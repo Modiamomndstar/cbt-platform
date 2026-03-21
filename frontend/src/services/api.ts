@@ -410,7 +410,8 @@ export const billingAPI = {
     planType?: string,
     creditAmount?: number,
     provider: 'stripe' | 'paystack' | 'crypto',
-    billingCycle?: 'monthly' | 'yearly'
+    billingCycle?: 'monthly' | 'yearly',
+    couponCode?: string
   }) => api.post("/payments/checkout/initialize", data),
   submitCryptoProof: (data: {
     amount: number,
@@ -418,7 +419,8 @@ export const billingAPI = {
     type: string,
     planType?: string,
     credits?: number,
-    billingCycle?: string
+    billingCycle?: string,
+    couponCode?: string
   }) => api.post("/payments/crypto/submit", data),
 };
 

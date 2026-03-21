@@ -143,6 +143,8 @@ export default function BillingPage() {
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [availablePlans, setAvailablePlans] = useState<any[]>([]);
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [yearlyDiscount, setYearlyDiscount] = useState<{ percentage: number; isActive: boolean }>({ percentage: 0, isActive: false });
   const navigate = useNavigate();
 
   useEffect(() => { loadData(); }, []);
@@ -160,7 +162,10 @@ export default function BillingPage() {
       if (statusRes.data.success) setStatus(statusRes.data.data);
       if (marketplaceRes.data.success) setMarketplace(marketplaceRes.data.data);
       if (historyRes.data.success) setHistory(historyRes.data.data);
-      if (plansRes.data.success) setAvailablePlans(plansRes.data.data.plans);
+      if (plansRes.data.success) {
+         setAvailablePlans(plansRes.data.data.plans);
+         if (plansRes.data.data.yearlyDiscount) setYearlyDiscount(plansRes.data.data.yearlyDiscount);
+      }
     } catch {
       toast.error('Failed to load billing information');
     } finally {
@@ -563,6 +568,26 @@ export default function BillingPage() {
             </DialogDescription>
           </DialogHeader>
 
+          {yearlyDiscount.isActive && (
+            <div className="flex justify-center mt-2 mb-2">
+              <div className="bg-gray-100 p-1 rounded-full flex items-center relative">
+                <button
+                  onClick={() => setBillingCycle('monthly')}
+                  className={`relative z-10 px-6 py-2 rounded-full text-sm font-bold transition-all ${billingCycle === 'monthly' ? 'text-gray-900 shadow-sm bg-white' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => setBillingCycle('yearly')}
+                  className={`relative z-10 px-6 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2 ${billingCycle === 'yearly' ? 'text-gray-900 shadow-sm bg-white' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  Yearly
+                  <span className="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap">Save {yearlyDiscount.percentage}%</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {(() => {
             const basicPlan = availablePlans.find(p => p.planType === 'basic');
             const advancedPlan = availablePlans.find(p => p.planType === 'advanced');
@@ -581,9 +606,9 @@ export default function BillingPage() {
                       <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">Most Popular</span>
                     </div>
                     <div className="my-4">
-                      <span className="text-3xl font-black text-gray-900">₦{basicPlan?.priceNgn ? Number(basicPlan.priceNgn).toLocaleString() : '8,000'}</span>
-                      {basicPlan?.priceUsd && <span className="text-lg font-bold text-gray-500 ml-1">(${basicPlan.priceUsd})</span>}
-                      <span className="text-sm font-medium text-gray-500"> / month</span>
+                      <span className="text-3xl font-black text-gray-900">₦{basicPlan?.priceNgn ? Number(billingCycle === 'yearly' ? basicPlan.priceNgn * 12 * (1 - yearlyDiscount.percentage / 100) : basicPlan.priceNgn).toLocaleString() : '8,000'}</span>
+                      {basicPlan?.priceUsd && <span className="text-lg font-bold text-gray-500 ml-1">(${billingCycle === 'yearly' ? (basicPlan.priceUsd * 12 * (1 - yearlyDiscount.percentage / 100)).toFixed(2) : basicPlan.priceUsd})</span>}
+                      <span className="text-sm font-medium text-gray-500"> / {billingCycle === 'yearly' ? 'year' : 'mo'}</span>
                     </div>
                     <p className="text-sm text-gray-600 mb-6 font-medium">Core platform tools, exams, and reports tailored for standard institutions.</p>
 
@@ -607,7 +632,7 @@ export default function BillingPage() {
                     </ul>
                   </div>
                   <Button 
-                    onClick={() => navigate('/school-admin/checkout?type=upgrade&planType=basic')} 
+                    onClick={() => navigate(`/school-admin/checkout?type=upgrade&planType=basic&cycle=${billingCycle}`)} 
                     className="w-full mt-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-11 relative z-10"
                   >
                     Select Basic Premium
@@ -624,9 +649,9 @@ export default function BillingPage() {
                       <h3 className="text-lg font-black text-purple-900">{advancedPlan?.displayName || 'Advanced'}</h3>
                     </div>
                     <div className="my-4">
-                      <span className="text-3xl font-black text-purple-900">₦{advancedPlan?.priceNgn ? Number(advancedPlan.priceNgn).toLocaleString() : '20,000'}</span>
-                      {advancedPlan?.priceUsd && <span className="text-lg font-bold text-purple-600/60 ml-1">(${advancedPlan.priceUsd})</span>}
-                      <span className="text-sm font-medium text-purple-600/70"> / month</span>
+                      <span className="text-3xl font-black text-purple-900">₦{advancedPlan?.priceNgn ? Number(billingCycle === 'yearly' ? advancedPlan.priceNgn * 12 * (1 - yearlyDiscount.percentage / 100) : advancedPlan.priceNgn).toLocaleString() : '20,000'}</span>
+                      {advancedPlan?.priceUsd && <span className="text-lg font-bold text-purple-600/60 ml-1">(${billingCycle === 'yearly' ? (advancedPlan.priceUsd * 12 * (1 - yearlyDiscount.percentage / 100)).toFixed(2) : advancedPlan.priceUsd})</span>}
+                      <span className="text-sm font-medium text-purple-600/70"> / {billingCycle === 'yearly' ? 'year' : 'mo'}</span>
                     </div>
                     <p className="text-sm text-purple-800/80 mb-6 font-medium">Unlimited limits and deep AI automation for massive enterprise scaling.</p>
 
@@ -650,7 +675,7 @@ export default function BillingPage() {
                     </ul>
                   </div>
                   <Button 
-                    onClick={() => navigate('/school-admin/checkout?type=upgrade&planType=advanced')} 
+                    onClick={() => navigate(`/school-admin/checkout?type=upgrade&planType=advanced&cycle=${billingCycle}`)} 
                     className="w-full mt-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold h-11 relative z-10 border-0 shadow-md"
                   >
                     Select Advanced Plan
@@ -667,9 +692,9 @@ export default function BillingPage() {
                       <h3 className="text-lg font-black text-indigo-900">{advancedPlusPlan?.displayName || 'Advanced Plus'}</h3>
                     </div>
                     <div className="my-4">
-                      <span className="text-3xl font-black text-indigo-900">₦{advancedPlusPlan?.priceNgn ? Number(advancedPlusPlan.priceNgn).toLocaleString() : '30,000'}</span>
-                      {advancedPlusPlan?.priceUsd && <span className="text-lg font-bold text-indigo-600/60 ml-1">(${advancedPlusPlan.priceUsd})</span>}
-                      <span className="text-sm font-medium text-indigo-600/70"> / month</span>
+                      <span className="text-3xl font-black text-indigo-900">₦{advancedPlusPlan?.priceNgn ? Number(billingCycle === 'yearly' ? advancedPlusPlan.priceNgn * 12 * (1 - yearlyDiscount.percentage / 100) : advancedPlusPlan.priceNgn).toLocaleString() : '30,000'}</span>
+                      {advancedPlusPlan?.priceUsd && <span className="text-lg font-bold text-indigo-600/60 ml-1">(${billingCycle === 'yearly' ? (advancedPlusPlan.priceUsd * 12 * (1 - yearlyDiscount.percentage / 100)).toFixed(2) : advancedPlusPlan.priceUsd})</span>}
+                      <span className="text-sm font-medium text-indigo-600/70"> / {billingCycle === 'yearly' ? 'year' : 'mo'}</span>
                     </div>
                     <p className="text-sm text-indigo-800/80 mb-6 font-medium">Unlimited scaling with deep AI intelligence.</p>
 
@@ -693,7 +718,7 @@ export default function BillingPage() {
                     </ul>
                   </div>
                   <Button 
-                    onClick={() => navigate('/school-admin/checkout?type=upgrade&planType=advanced_plus')} 
+                    onClick={() => navigate(`/school-admin/checkout?type=upgrade&planType=advanced_plus&cycle=${billingCycle}`)} 
                     className="w-full mt-auto bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold h-11 relative z-10 border-0 shadow-md"
                   >
                     Select Advanced Plus

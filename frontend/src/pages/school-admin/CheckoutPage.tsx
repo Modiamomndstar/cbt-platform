@@ -51,6 +51,9 @@ export default function CheckoutPage() {
     const billingCycle = (searchParams.get('cycle') as 'monthly' | 'yearly') || 'monthly';
 
     const [checkoutDetails, setCheckoutDetails] = useState<any>(null);
+    const [promoCode, setPromoCode] = useState('');
+    const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+    const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
 
     useEffect(() => {
         loadConfig();
@@ -69,6 +72,23 @@ export default function CheckoutPage() {
         }
     };
 
+    const handleValidateCoupon = async () => {
+        if (!promoCode.trim()) return;
+        setIsValidatingCoupon(true);
+        try {
+            const res = await billingAPI.validateCoupon(promoCode, planType || '');
+            if (res.data.success) {
+                setAppliedCoupon(res.data.data);
+                toast.success('Coupon applied successfully!');
+            }
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || 'Invalid or expired coupon');
+            setAppliedCoupon(null);
+        } finally {
+            setIsValidatingCoupon(false);
+        }
+    };
+
     const handleInitialize = async (selectedProvider: 'stripe' | 'paystack' | 'crypto') => {
         setProvider(selectedProvider);
         setInitializing(true);
@@ -78,7 +98,8 @@ export default function CheckoutPage() {
                 planType: planType || undefined,
                 creditAmount: creditAmount || undefined,
                 provider: selectedProvider,
-                billingCycle
+                billingCycle,
+                couponCode: appliedCoupon?.code
             });
 
             if (res.data.success) {
@@ -357,11 +378,50 @@ export default function CheckoutPage() {
                                                 {checkoutDetails?.amount || (type === 'credits' ? (creditAmount * (provider === 'paystack' ? config?.credits.priceNgn || 100 : config?.credits.priceUsd || 0.1)) : '...')}
                                             </span>
                                         </div>
+                                        {appliedCoupon && !checkoutDetails && (
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-emerald-600 font-medium pb-1">Discount ({appliedCoupon.code})</span>
+                                                <span className="font-bold text-emerald-600">
+                                                    -{appliedCoupon.type === 'percentage' ? `${appliedCoupon.value}%` : `${provider === 'paystack' ? '₦' : '$'}${appliedCoupon.value}`}
+                                                </span>
+                                            </div>
+                                        )}
                                         <div className="flex justify-between text-sm">
                                             <span className="text-gray-500">Processing Fee</span>
                                             <span className="text-green-600 font-bold">FREE</span>
                                         </div>
                                     </div>
+
+                                    {type === 'upgrade' && !checkoutDetails && (
+                                        <div className="pt-4 border-t space-y-2">
+                                            <label className="text-xs font-bold text-gray-700">Promo Code</label>
+                                            <div className="flex gap-2">
+                                                <input 
+                                                    type="text" 
+                                                    className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all uppercase font-mono"
+                                                    placeholder="Enter code"
+                                                    value={promoCode}
+                                                    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                                                    disabled={isValidatingCoupon || appliedCoupon}
+                                                />
+                                                <Button 
+                                                    variant={appliedCoupon ? "outline" : "secondary"}
+                                                    className={`px-4 ${appliedCoupon ? 'text-red-500 hover:text-red-600 hover:bg-red-50 border-red-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} font-bold text-sm h-10`}
+                                                    onClick={() => {
+                                                        if (appliedCoupon) {
+                                                            setAppliedCoupon(null);
+                                                            setPromoCode('');
+                                                        } else {
+                                                            handleValidateCoupon();
+                                                        }
+                                                    }}
+                                                    disabled={isValidatingCoupon || (!promoCode.trim() && !appliedCoupon)}
+                                                >
+                                                    {isValidatingCoupon ? <Loader2 className="h-4 w-4 animate-spin" /> : appliedCoupon ? 'Remove' : 'Apply'}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="pt-6 border-t">
