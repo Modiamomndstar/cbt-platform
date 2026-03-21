@@ -3,6 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { billingAPI } from '@/services/api';
 import { toast } from 'sonner';
 import {
@@ -134,6 +141,7 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [purchasing, setPurchasing] = useState<string | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => { loadData(); }, []);
@@ -229,7 +237,7 @@ export default function BillingPage() {
                 Purchased marketplace capacity is only available while you have an active <strong>Basic Premium</strong> or <strong>Advanced</strong> subscription.
               </p>
               <div className="mt-4 flex gap-3">
-                <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white border-0" onClick={() => navigate('/school-admin/checkout?type=upgrade&planType=basic')}>Upgrade to Reactivate</Button>
+                <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white border-0" onClick={() => setShowUpgradeModal(true)}>Upgrade to Reactivate</Button>
                 <Button size="sm" variant="outline" className="bg-white border-red-200 text-red-700 hover:bg-red-50">Learn More</Button>
               </div>
             </div>
@@ -278,7 +286,7 @@ export default function BillingPage() {
                         size="sm"
                         variant="ghost"
                         className="h-6 px-2 text-[10px] font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 border border-indigo-100"
-                        onClick={() => navigate(`/school-admin/checkout?type=upgrade&planType=${plan.planType === 'freemium' ? 'basic' : 'advanced'}`)}
+                        onClick={() => setShowUpgradeModal(true)}
                       >
                         Upgrade Plan
                       </Button>
@@ -541,6 +549,107 @@ export default function BillingPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Plan Selection Modal */}
+      <Dialog open={showUpgradeModal} onOpenChange={setShowUpgradeModal}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black text-gray-900">Choose Your Subscription</DialogTitle>
+            <DialogDescription className="text-gray-500">
+              Select the plan that best fits your institution's capacity and operational needs.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            {/* Basic Plan */}
+            <div className="border border-gray-200 rounded-xl p-5 hover:border-indigo-300 hover:shadow-md transition-all flex flex-col relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
+                <GraduationCap className="h-24 w-24" />
+              </div>
+              <div className="relative z-10 flex-1">
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="text-lg font-black text-gray-900">Basic Premium</h3>
+                  <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">Most Popular</span>
+                </div>
+                <div className="my-4">
+                  <span className="text-3xl font-black text-gray-900">₦8,000</span>
+                  <span className="text-sm font-medium text-gray-500"> / month</span>
+                </div>
+                <p className="text-sm text-gray-600 mb-6 font-medium">Core platform tools, exams, and reports tailored for standard institutions.</p>
+
+                <ul className="space-y-3 mb-6 flex-1">
+                  <li className="flex items-start text-sm text-gray-700">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 mr-2 shrink-0 mt-0.5" />
+                    <span className="font-medium">Up to 300 Students <span className="text-gray-400 font-normal">/ 10 Tutors</span></span>
+                  </li>
+                  <li className="flex items-start text-sm text-gray-700">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 mr-2 shrink-0 mt-0.5" />
+                    <span className="font-medium">Unlimited Active Exams</span>
+                  </li>
+                  <li className="flex items-start text-sm text-gray-700">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 mr-2 shrink-0 mt-0.5" />
+                    <span className="font-medium">Full Student CBT Portal</span>
+                  </li>
+                  <li className="flex items-start text-sm text-gray-700">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 mr-2 shrink-0 mt-0.5" />
+                    <span className="font-medium">30 AI Generation Queries <span className="text-gray-400 font-normal">/ month</span></span>
+                  </li>
+                </ul>
+              </div>
+              <Button 
+                onClick={() => navigate('/school-admin/checkout?type=upgrade&planType=basic')} 
+                className="w-full mt-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-11 relative z-10"
+              >
+                Select Basic Premium
+              </Button>
+            </div>
+
+            {/* Advanced Plan */}
+            <div className="border border-purple-200 bg-purple-50/30 rounded-xl p-5 hover:border-purple-400 hover:shadow-lg transition-all flex flex-col relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-[0.04] group-hover:opacity-[0.1] transition-opacity">
+                <Sparkles className="h-24 w-24 text-purple-600" />
+              </div>
+              <div className="relative z-10 flex-1">
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="text-lg font-black text-purple-900">Advanced</h3>
+                </div>
+                <div className="my-4">
+                  <span className="text-3xl font-black text-purple-900">₦20,000</span>
+                  <span className="text-sm font-medium text-purple-600/70"> / month</span>
+                </div>
+                <p className="text-sm text-purple-800/80 mb-6 font-medium">Unlimited limits and deep AI automation for massive enterprise scaling.</p>
+
+                <ul className="space-y-3 mb-6 flex-1">
+                  <li className="flex items-start text-sm text-gray-800">
+                    <CheckCircle2 className="h-4 w-4 text-purple-600 mr-2 shrink-0 mt-0.5" />
+                    <span className="font-bold">Unlimited Students & Tutors</span>
+                  </li>
+                  <li className="flex items-start text-sm text-gray-800">
+                    <CheckCircle2 className="h-4 w-4 text-purple-600 mr-2 shrink-0 mt-0.5" />
+                    <span className="font-bold">200 AI Generation Queries <span className="font-medium opacity-70">/ month</span></span>
+                  </li>
+                  <li className="flex items-start text-sm text-gray-800">
+                    <CheckCircle2 className="h-4 w-4 text-purple-600 mr-2 shrink-0 mt-0.5" />
+                    <span className="font-medium">Advanced Matrix Analytics</span>
+                  </li>
+                  <li className="flex items-start text-sm text-gray-800">
+                    <CheckCircle2 className="h-4 w-4 text-purple-600 mr-2 shrink-0 mt-0.5" />
+                    <span className="font-medium">Custom Dynamic Branding</span>
+                  </li>
+                </ul>
+              </div>
+              <Button 
+                onClick={() => navigate('/school-admin/checkout?type=upgrade&planType=advanced')} 
+                className="w-full mt-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold h-11 relative z-10 border-0 shadow-md"
+              >
+                Select Advanced Plan
+              </Button>
+            </div>
+          </div>
+          
+          <p className="text-center text-[11px] text-gray-400 mt-2 font-medium">Enterprise licenses require direct administrative approval. Payments processed securely via Paystack.</p>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
