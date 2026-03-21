@@ -292,10 +292,10 @@ export default function BillingPage() {
                     {plan.planType !== 'enterprise' && (
                       <Button
                         size="sm"
-                        variant="ghost"
-                        className="h-6 px-2 text-[10px] font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 border border-indigo-100"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold tracking-tight shadow-sm h-8"
                         onClick={() => setShowUpgradeModal(true)}
                       >
+                        <Zap className="h-3.5 w-3.5 mr-1.5" />
                         Upgrade Plan
                       </Button>
                     )}
