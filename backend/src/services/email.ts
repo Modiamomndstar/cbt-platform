@@ -263,3 +263,33 @@ export const sendStudentPortalCredentialsEmail = async (
 
   return sendEmail(studentEmail, `Your Student Portal Credentials`, html);
 };
+
+// =============================================
+// Password Reset Email
+// =============================================
+export const sendPasswordResetEmail = async (to: string, name: string, token: string): Promise<boolean> => {
+  const resetUrl = `${PLATFORM_URL}/reset-password?token=${token}`;
+  const html = emailLayout(`
+    <h2 style="color:#1f2937;margin:0 0 16px;">Reset Your Password</h2>
+    <p style="color:#374151;line-height:1.6;">
+      Hello <strong>${name}</strong>, we received a request to reset your password for your CBT Platform account.
+    </p>
+    <p style="color:#374151;line-height:1.6;">
+      Please click the button below to set a new password. This link will expire in 1 hour.
+    </p>
+    <div style="text-align:center;margin:32px 0;">
+      <a href="${resetUrl}" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:16px;">
+        Reset Password →
+      </a>
+    </div>
+    <p style="color:#6b7280;font-size:14px;">
+      If you did not request a password reset, you can safely ignore this email. Your current password will remain unchanged.
+    </p>
+    <p style="color:#6b7280;font-size:14px;margin-top:24px;">
+      If the button above doesn't work, copy and paste this link into your browser:<br>
+      <a href="${resetUrl}" style="color:#6366f1;">${resetUrl}</a>
+    </p>
+  `);
+
+  return sendEmail(to, `Reset Your Password — ${PLATFORM_NAME}`, html);
+};

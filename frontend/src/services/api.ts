@@ -80,6 +80,8 @@ export const authAPI = {
 
   verifyEmail: (token: string) => api.post("/auth/verify-email", { token }),
   resendVerification: (username: string) => api.post("/auth/resend-verification", { username }),
+  forgotPassword: (email: string) => api.post("/auth/forgot-password", { email }),
+  resetPassword: (token: string, newPassword: string) => api.post("/auth/reset-password", { token, newPassword }),
 };
 
 // School API
@@ -103,6 +105,7 @@ export const tutorAPI = {
     api.get(`/tutors/${tutorId}/students`, { params }), // params: { categoryId, search }
   getCategories: (tutorId: string) => api.get(`/tutors/${tutorId}/categories`),
   toggleStatus: (id: string, is_active: boolean) => api.put(`/tutors/${id}/toggle-status`, { is_active }),
+  resetPassword: (id: string) => api.put(`/tutors/${id}/reset-password`),
 };
 
 // Student API
@@ -530,6 +533,8 @@ export const superAdminAPI = {
   getPendingPayments: () => api.get("/super-admin/payments/pending"),
   verifyPayment: (id: string, data: { status: 'completed' | 'failed', adminNotes?: string }) =>
     api.put(`/super-admin/payments/${id}/verify`, data),
+  triggerResetEmail: (schoolId: string) =>
+    api.post(`/super-admin/schools/${schoolId}/trigger-reset`),
 };
 
 

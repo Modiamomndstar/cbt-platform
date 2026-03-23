@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { schoolAPI, uploadAPI } from '@/services/api';
-import { Upload, CheckCircle, Eye, EyeOff, Loader2, School, RefreshCw } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Upload, CheckCircle, Eye, EyeOff, Loader2, School, RefreshCw, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -45,6 +46,7 @@ export default function SchoolRegistrationPage() {
     description: '',
     logo: '',
     referralCode: '',
+    agreedToPolicies: false,
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -162,6 +164,7 @@ export default function SchoolRegistrationPage() {
         description: formData.description,
         logo: formData.logo,
         referralCode: formData.referralCode,
+        agreedToPolicies: formData.agreedToPolicies,
       });
 
       toast.success('Registration successful! Please check your email.');
@@ -359,12 +362,21 @@ export default function SchoolRegistrationPage() {
         </div>
       </div>
 
-      <div className="flex items-start space-x-3">
-        <CheckCircle className="h-5 w-5 text-emerald-500 mt-0.5" />
-        <p className="text-sm text-gray-600">
-          By registering, you agree to our terms of service and privacy policy.
-          A verification link will be sent to your email address.
-        </p>
+      <div className="flex items-start space-x-3 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50">
+        <Checkbox 
+          id="agreedToPolicies" 
+          checked={formData.agreedToPolicies}
+          onCheckedChange={(checked) => setFormData(prev => ({ ...prev, agreedToPolicies: checked === true }))}
+          className="mt-1 border-indigo-300 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
+        />
+        <div className="space-y-1">
+          <Label htmlFor="agreedToPolicies" className="text-sm font-bold text-indigo-900 cursor-pointer">
+            I agree to the Terms of Service and Privacy Policy
+          </Label>
+          <p className="text-xs text-indigo-700/70 font-medium">
+            By checking this box, you acknowledge that you have read and agree to our <Link to="/terms" className="underline font-bold hover:text-indigo-900" target="_blank">Terms of Service</Link> and <Link to="/privacy" className="underline font-bold hover:text-indigo-900" target="_blank">Privacy Policy</Link>.
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -479,8 +491,8 @@ export default function SchoolRegistrationPage() {
                   ) : (
                     <Button
                       type="submit"
-                      disabled={isLoading}
-                      className="flex-1 h-16 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow-xl shadow-indigo-200 active:scale-95 transition-all"
+                      disabled={isLoading || !formData.agreedToPolicies}
+                      className="flex-1 h-16 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow-xl shadow-indigo-200 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
                     >
                       {isLoading ? <RefreshCw className="h-6 w-6 animate-spin" /> : 'Complete Registration'}
                     </Button>

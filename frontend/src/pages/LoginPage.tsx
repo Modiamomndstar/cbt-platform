@@ -184,7 +184,15 @@ export default function LoginPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center ml-1">
                     <Label htmlFor="password" className="text-xs font-black uppercase tracking-widest text-gray-400">Password</Label>
-                    <button type="button" className="text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors">Forgot?</button>
+                    {activeTab === 'school_admin' && (
+                      <button 
+                        type="button" 
+                        onClick={() => navigate('/forgot-password')}
+                        className="text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+                      >
+                        Forgot?
+                      </button>
+                    )}
                   </div>
                   <div className="relative group">
                     <Input

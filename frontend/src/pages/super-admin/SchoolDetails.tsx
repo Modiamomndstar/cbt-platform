@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   ArrowLeft, Users, GraduationCap, BookOpen, Coins, ShieldAlert, ShieldCheck,
   Mail, Download, ExternalLink,
-  History, Settings, Activity, Info
+  History, Settings, Activity, Info, RefreshCw, KeyRound
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -152,6 +152,21 @@ export default function SchoolDetails() {
     }
   };
 
+  const handleTriggerReset = async () => {
+    if (!id || isProcessing) return;
+    setIsProcessing(true);
+    try {
+      const res = await superAdminAPI.triggerResetEmail(id);
+      if (res.data.success) {
+        toast.success('Password reset link sent to school administrator');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to trigger reset');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleExport = async (type: 'tutors' | 'students' | 'external_students') => {
     try {
       toast.info(`Generating ${type} export...`);
@@ -231,6 +246,20 @@ export default function SchoolDetails() {
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => window.location.href = `mailto:${school.email}`} className="h-9">
             <Mail className="h-4 w-4 mr-2" /> Contact Admin
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleTriggerReset}
+            disabled={isProcessing}
+            className="h-9 border-amber-200 text-amber-700 hover:bg-amber-50"
+          >
+            {isProcessing ? (
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <KeyRound className="h-4 w-4 mr-2" />
+            )}
+            Send Reset Link
           </Button>
           <Button
             variant={school.isActive ? "destructive" : "default"}

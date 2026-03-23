@@ -12,6 +12,11 @@ import LoginPage from '@/pages/LoginPage';
 import AdminLogin from '@/pages/auth/AdminLogin';
 import SchoolRegistrationPage from '@/pages/SchoolRegistrationPage';
 import VerifyEmailPage from '@/pages/VerifyEmailPage';
+import TermsOfService from '@/pages/TermsOfService';
+import PrivacyPolicy from '@/pages/PrivacyPolicy';
+import FAQPage from '@/pages/FAQPage';
+import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from '@/pages/auth/ResetPasswordPage';
 import PublicLeaderboard from '@/pages/public/PublicLeaderboard';
 import PricingPage from '@/pages/PricingPage';
 import PublicLayout from '@/components/layout/PublicLayout';
@@ -110,6 +115,11 @@ function AppRoutes() {
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/register-school" element={<SchoolRegistrationPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/terms" element={<TermsOfService />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/faq" element={<FAQPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/student/login" element={<StudentLogin />} />
         <Route path="/leaderboard/:competitionId" element={<PublicLeaderboard />} />
         <Route path="/pricing" element={<PricingPage />} />

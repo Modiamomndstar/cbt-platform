@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 import { tutorAPI } from '@/services/api';
-import { Plus, Trash2, Users, Eye, EyeOff, Ban, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Users, Eye, EyeOff, Ban, CheckCircle2, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -28,6 +28,9 @@ export default function TutorManagement() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [tutorToReset, setTutorToReset] = useState<{ id: string; name: string } | null>(null);
+  const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
 
   // Add tutor form
   const [newTutor, setNewTutor] = useState({
@@ -114,6 +117,22 @@ export default function TutorManagement() {
       toast.error(err?.response?.data?.message || 'Failed to toggle status');
     } finally {
       setTutorToToggle(null);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!tutorToReset) return;
+    setIsResetting(true);
+    try {
+      const response = await tutorAPI.resetPassword(tutorToReset.id);
+      if (response.data.success) {
+        setGeneratedPassword(response.data.data.newPassword);
+        toast.success(`Password reset for ${tutorToReset.name}`);
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to reset password');
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -315,6 +334,15 @@ export default function TutorManagement() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            onClick={() => setTutorToReset({ id: tutor.id, name: tutor.fullName })}
+                            className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                            title="Reset Password"
+                          >
+                            <KeyRound className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => setTutorToDelete({ id: tutor.id, name: tutor.fullName })}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50"
                             title="Delete Tutor"
@@ -378,6 +406,72 @@ export default function TutorManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Reset Password Confirmation */}
+      <AlertDialog open={!!tutorToReset && !generatedPassword} onOpenChange={(open) => !open && setTutorToReset(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset Tutor Password?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to reset the password for {tutorToReset?.name}? 
+              A new random password will be generated for them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleResetPassword} 
+              className="bg-indigo-600 hover:bg-indigo-700"
+              disabled={isResetting}
+            >
+              {isResetting ? 'Resetting...' : 'Reset Password'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Show Generated Password */}
+      <Dialog open={!!generatedPassword} onOpenChange={(open) => {
+        if (!open) {
+          setGeneratedPassword(null);
+          setTutorToReset(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Temporary Password Generated</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center space-y-4 py-4">
+            <div className="p-4 bg-green-50 rounded-full">
+              <KeyRound className="h-8 w-8 text-green-600" />
+            </div>
+            <div className="text-center space-y-2">
+              <p className="text-sm text-gray-500">Please share this new password with <b>{tutorToReset?.name}</b></p>
+              <div className="bg-gray-100 p-4 rounded-lg font-mono text-2xl font-black tracking-widest text-indigo-600 border-2 border-dashed border-indigo-200">
+                {generatedPassword}
+              </div>
+            </div>
+            <p className="text-xs text-amber-600 font-bold">This password will not be shown again. Copy it now.</p>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button 
+                variant="outline" 
+                onClick={() => {
+                    navigator.clipboard.writeText(generatedPassword || '');
+                    toast.success('Password copied to clipboard');
+                }}
+            >
+                Copy to Clipboard
+            </Button>
+            <Button onClick={() => {
+              setGeneratedPassword(null);
+              setTutorToReset(null);
+            }}>
+              Done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

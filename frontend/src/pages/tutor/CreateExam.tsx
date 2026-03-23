@@ -36,6 +36,7 @@ export default function CreateExam() {
     academicSession: '',
     academicYearId: '',
     academicPeriodId: '',
+    agreedToContentPolicy: false,
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -414,11 +415,25 @@ export default function CreateExam() {
           </Card>
         </div>
 
+        <div className="mt-8 p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-start gap-3">
+          <input
+            type="checkbox"
+            id="agreedToContentPolicy"
+            checked={formData.agreedToContentPolicy}
+            onChange={(e) => setFormData(prev => ({ ...prev, agreedToContentPolicy: e.target.checked }))}
+            className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+            required
+          />
+          <Label htmlFor="agreedToContentPolicy" className="text-sm font-medium text-indigo-900 cursor-pointer">
+            I confirm that this exam content follows the platform's <a href="/terms" target="_blank" className="underline font-bold">Content Policy</a> and does not contain any prohibited or copyrighted material without permission.
+          </Label>
+        </div>
+
         <div className="flex justify-end mt-6 space-x-4">
           <Button type="button" variant="outline" onClick={() => navigate('/tutor/exams')}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isLoading}>
+          <Button type="submit" disabled={isLoading || !formData.agreedToContentPolicy}>
             {isLoading ? 'Creating...' : 'Create Exam'}
           </Button>
         </div>

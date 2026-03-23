@@ -13,7 +13,10 @@ import {
   BookOpen,
   BarChart3,
   Smartphone,
-  Download
+  Download,
+  Twitter,
+  Linkedin,
+  Facebook
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -131,6 +134,17 @@ export default function LandingPage() {
                   <HeroFeatureCard icon={CheckCircle} label="Auto-Grading" color="text-amber-400" />
                   <HeroFeatureCard icon={BookOpen} label="Question Bank" color="text-rose-400" />
                   <HeroFeatureCard icon={BarChart3} label="AI Analytics" color="text-cyan-400" />
+                </div>
+                <div className="mt-8 flex justify-center space-x-4 border-t border-white/10 pt-8">
+                  <a href="https://x.com/mycbtplatform" target="_blank" rel="noopener noreferrer" className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl backdrop-blur-md transition-all shadow-sm">
+                    <Twitter className="h-5 w-5" />
+                  </a>
+                  <a href="https://linkedin.com/company/cbtplatform" target="_blank" rel="noopener noreferrer" className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl backdrop-blur-md transition-all shadow-sm">
+                    <Linkedin className="h-5 w-5" />
+                  </a>
+                  <a href="https://www.facebook.com/mycbtplatform" target="_blank" rel="noopener noreferrer" className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl backdrop-blur-md transition-all shadow-sm">
+                    <Facebook className="h-5 w-5" />
+                  </a>
                 </div>
               </div>
             </div>

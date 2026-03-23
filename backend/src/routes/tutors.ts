@@ -541,4 +541,62 @@ router.get(
   },
 );
 
+/**
+ * @route   PUT /api/tutors/:id/reset-password
+ * @desc    Reset tutor password (School Admin only)
+ * @access  Private
+ */
+router.put(
+  "/:id/reset-password",
+  authorize("school"),
+  [param("id").isUUID(), validate],
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const { schoolId } = req.user!;
+      const crypto = await import("crypto");
+
+      // Verify tutor belongs to school
+      const tutorResult = await db.query(
+        "SELECT id, full_name, email, username FROM tutors WHERE id = $1 AND school_id = $2",
+        [id, schoolId],
+      );
+
+      if (tutorResult.rows.length === 0) {
+        ApiResponseHandler.notFound(res, "Tutor not found");
+        return;
+      }
+
+      const tutor = tutorResult.rows[0];
+      const plainTextPassword = crypto.randomBytes(4).toString("hex"); // 8 chars
+      const passwordHash = await bcrypt.hash(plainTextPassword, 10);
+
+      await db.query(
+        "UPDATE tutors SET password_hash = $1, updated_at = NOW() WHERE id = $2",
+        [passwordHash, id],
+      );
+
+      // Log activity
+      await logUserActivity(req, "tutor_password_reset", {
+        targetType: "tutor",
+        targetId: id,
+        targetName: tutor.full_name,
+        details: { resetBy: "school_admin" },
+      });
+
+      ApiResponseHandler.success(
+        res,
+        {
+          id: tutor.id,
+          username: tutor.username,
+          newPassword: plainTextPassword,
+        },
+        "Tutor password reset successfully",
+      );
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 export default router;

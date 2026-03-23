@@ -164,6 +164,45 @@ async function logAudit(req: any, action: string, targetType: string, targetId?:
   } catch (_) { /* non-critical */ }
 }
 
+// POST /api/super-admin/schools/:id/trigger-reset
+router.post('/schools/:id/trigger-reset', [
+  param('id').isUUID(),
+  validate
+], async (req: any, res: any, next: any) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Find the school
+    const schoolResult = await db.query('SELECT id, name, email FROM schools WHERE id = $1', [id]);
+    
+    if (schoolResult.rows.length === 0) {
+      return ApiResponseHandler.notFound(res, 'School not found');
+    }
+
+    const school = schoolResult.rows[0];
+
+    // 2. Generate a reset token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 3600000); // 1 hour
+
+    // 3. Store the reset token in the schools table
+    await db.query(
+      'UPDATE schools SET reset_password_token = $1, reset_password_expires = $2, updated_at = NOW() WHERE id = $3',
+      [token, expires, id]
+    );
+
+    // 4. Send the reset email
+    const { sendPasswordResetEmail } = await import("../services/email");
+    await sendPasswordResetEmail(school.email, school.name, token);
+
+    await logAudit(req, 'school_password_reset_triggered', 'school', id, school.name, { email: school.email });
+
+    ApiResponseHandler.success(res, null, 'Password reset email sent to school administrator');
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ================================================================
 //  PLAN DEFINITIONS (pricing control)
 // ================================================================

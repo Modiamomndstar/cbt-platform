@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { GraduationCap, Menu, X, ArrowRight } from 'lucide-react';
+import { GraduationCap, Menu, X, ArrowRight, Twitter, Linkedin, Facebook } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import TrafficTracker from '@/components/analytics/TrafficTracker';
+import Chatbot from '@/components/common/Chatbot';
 
 export default function PublicLayout() {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ export default function PublicLayout() {
 
   const navItems = [
     { name: 'Home', href: '/' },
+    { name: 'FAQ', href: '/faq' },
     { name: 'Pricing', href: '/pricing' },
     { name: 'Login', href: '/login' },
   ];
@@ -142,6 +144,8 @@ export default function PublicLayout() {
         <Outlet />
       </main>
 
+      <Chatbot />
+
       {/* Footer */}
       <footer className="bg-gray-900 text-gray-400 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -156,6 +160,17 @@ export default function PublicLayout() {
               <p className="text-sm leading-relaxed max-w-xs">
                 Empowering educational institutions with secure, scalable, and intelligent computer-based testing solutions.
               </p>
+              <div className="flex space-x-4 mt-8">
+                <a href="https://x.com/mycbtplatform" target="_blank" rel="noopener noreferrer" className="p-2.5 bg-gray-800 hover:bg-indigo-600 text-gray-400 hover:text-white rounded-xl transition-all shadow-sm">
+                  <Twitter className="h-5 w-5" />
+                </a>
+                <a href="https://linkedin.com/company/cbtplatform" target="_blank" rel="noopener noreferrer" className="p-2.5 bg-gray-800 hover:bg-indigo-600 text-gray-400 hover:text-white rounded-xl transition-all shadow-sm">
+                  <Linkedin className="h-5 w-5" />
+                </a>
+                <a href="https://www.facebook.com/mycbtplatform" target="_blank" rel="noopener noreferrer" className="p-2.5 bg-gray-800 hover:bg-indigo-600 text-gray-400 hover:text-white rounded-xl transition-all shadow-sm">
+                  <Facebook className="h-5 w-5" />
+                </a>
+              </div>
             </div>
             
             <div>
@@ -191,8 +206,9 @@ export default function PublicLayout() {
           <div className="pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 text-xs font-medium">
             <p>&copy; {new Date().getFullYear()} CBT Platform. All rights reserved.</p>
             <div className="flex space-x-8">
-              <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-              <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
+              <button onClick={() => navigate('/privacy')} className="hover:text-white transition-colors">Privacy Policy</button>
+              <button onClick={() => navigate('/terms')} className="hover:text-white transition-colors">Terms of Service</button>
+              <button onClick={() => navigate('/faq')} className="hover:text-white transition-colors">FAQ</button>
             </div>
           </div>
         </div>

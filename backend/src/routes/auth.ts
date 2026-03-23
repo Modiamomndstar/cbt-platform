@@ -802,4 +802,102 @@ router.post(
   },
 );
 
+/**
+ * @route   POST /api/auth/forgot-password
+ * @desc    Request a password reset link
+ * @access  Public
+ */
+router.post(
+  "/forgot-password",
+  [
+    body("email").trim().isEmail().withMessage("Valid email is required"),
+    validate,
+  ],
+  async (req, res, next) => {
+    try {
+      const { email } = req.body;
+
+      // Find school by email (primary target for forgot password)
+      const result = await db.query(
+        "SELECT id, name, email FROM schools WHERE email = $1 AND is_active = true",
+        [email]
+      );
+
+      if (result.rows.length === 0) {
+        // For security, don't reveal if email exists. Just return success.
+        return ApiResponseHandler.success(res, null, "If an account exists with this email, a reset link has been sent.");
+      }
+
+      const school = result.rows[0];
+
+      // Generate token and expiry (1 hour)
+      const token = crypto.randomBytes(32).toString("hex");
+      const expires = new Date(Date.now() + 3600000); // 1 hour from now
+
+      await db.query(
+        "UPDATE schools SET reset_password_token = $1, reset_password_expires = $2, updated_at = NOW() WHERE id = $3",
+        [token, expires, school.id]
+      );
+
+      // Send email
+      const { sendPasswordResetEmail } = await import("../services/email");
+      await sendPasswordResetEmail(school.email, school.name, token);
+
+      ApiResponseHandler.success(res, null, "If an account exists with this email, a reset link has been sent.");
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * @route   POST /api/auth/reset-password
+ * @desc    Reset password using token
+ * @access  Public
+ */
+router.post(
+  "/reset-password",
+  [
+    body("token").notEmpty().withMessage("Token is required"),
+    body("newPassword").isLength({ min: 6 }).withMessage("New password must be at least 6 characters"),
+    validate,
+  ],
+  async (req, res, next) => {
+    try {
+      const { token, newPassword } = req.body;
+
+      // Find school with valid token
+      const result = await db.query(
+        "SELECT id FROM schools WHERE reset_password_token = $1 AND reset_password_expires > NOW()",
+        [token]
+      );
+
+      if (result.rows.length === 0) {
+        return ApiResponseHandler.badRequest(res, "Invalid or expired reset token.");
+      }
+
+      const school = result.rows[0];
+
+      // Hash new password
+      const hash = await bcrypt.hash(newPassword, 10);
+
+      // Update password and clear token
+      await db.query(
+        "UPDATE schools SET password_hash = $1, reset_password_token = NULL, reset_password_expires = NULL, updated_at = NOW() WHERE id = $2",
+        [hash, school.id]
+      );
+
+      // Log activity
+      await db.query(
+        "INSERT INTO activity_logs (user_id, user_type, school_id, action, details) VALUES ($1, $2, $3, $4, $5)",
+        [school.id, "school", school.id, "password_reset", { ip: req.ip }]
+      );
+
+      ApiResponseHandler.success(res, null, "Password reset successfully. You can now log in with your new password.");
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 export default router;
