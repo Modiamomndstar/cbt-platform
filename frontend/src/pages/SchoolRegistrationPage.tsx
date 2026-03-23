@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { schoolAPI, uploadAPI } from '@/services/api';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Upload, CheckCircle, Eye, EyeOff, Loader2, School, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Upload, CheckCircle, Eye, EyeOff, Loader2, School, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 

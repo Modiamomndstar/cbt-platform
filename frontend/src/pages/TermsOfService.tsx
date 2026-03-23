@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { ShieldCheck, BookOpen, Clock, Users, Zap, AlertTriangle } from 'lucide-react';
 
 const TermsOfService: React.FC = () => {
