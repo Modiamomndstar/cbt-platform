@@ -16,10 +16,21 @@ import {
 import { academicCalendarAPI } from '@/services/api';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 
 export default function AcademicCalendar() {
   const [activeYear, setActiveYear] = useState<any>(null);
+  
+  const safeFormat = (dateStr: any, formatStr: string) => {
+    try {
+      if (!dateStr) return 'N/A';
+      const d = new Date(dateStr);
+      if (!isValid(d)) return 'N/A';
+      return format(d, formatStr);
+    } catch (e) {
+      return 'N/A';
+    }
+  };
   const [loading, setLoading] = useState(true);
   const [settingUp, setSettingUp] = useState(false);
   const [formData, setFormData] = useState({
@@ -201,7 +212,7 @@ export default function AcademicCalendar() {
                             <Badge className="bg-white/20 text-white border-white/30 mb-4 hover:bg-white/30">Active Session</Badge>
                             <h2 className="text-3xl font-bold">{activeYear.name}</h2>
                             <div className="flex items-center gap-4 mt-2 text-indigo-100 text-sm">
-                                <span className="flex items-center gap-1"><CalendarDays className="h-4 w-4" /> {format(new Date(activeYear.start_date), 'MMMM yyyy')} - {format(new Date(activeYear.end_date), 'MMMM yyyy')}</span>
+                                <span className="flex items-center gap-1"><CalendarDays className="h-4 w-4" /> {safeFormat(activeYear.start_date, 'MMMM yyyy')} - {safeFormat(activeYear.end_date, 'MMMM yyyy')}</span>
                             </div>
                         </div>
                         <Button variant="outline" className="bg-white/10 border-white/30 hover:bg-white/20 text-white">
@@ -219,7 +230,7 @@ export default function AcademicCalendar() {
                         <CardHeader className="pb-3 flex flex-row items-center justify-between">
                             <div>
                                 <CardTitle className="text-sm font-bold text-slate-800">{period.name}</CardTitle>
-                                <CardDescription className="text-[10px]">{format(new Date(period.start_date), 'MMM d')} - {format(new Date(period.end_date), 'MMM d, yyyy')}</CardDescription>
+                                <CardDescription className="text-[10px]">{safeFormat(period.start_date, 'MMM d')} - {safeFormat(period.end_date, 'MMM d, yyyy')}</CardDescription>
                             </div>
                             <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-xs">
                                 {idx + 1}

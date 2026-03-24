@@ -135,6 +135,10 @@ class AcademicCalendarService {
      */
     async setupStandardThreeTermYear(schoolId: string, yearName: string, yearStart: string, weeksPerTerm: number = 13) {
         const startDate = new Date(yearStart);
+        if (isNaN(startDate.getTime())) {
+            throw new Error("Invalid start date provided for academic year setup.");
+        }
+        
         const endDate = new Date(startDate);
         endDate.setFullYear(endDate.getFullYear() + 1);
         endDate.setDate(endDate.getDate() - 1);
@@ -176,6 +180,10 @@ class AcademicCalendarService {
      */
     async setupFlexibleProgram(schoolId: string, name: string, startDate: string, periodCount: number = 1, weeksPerPeriod: number = 6) {
         const start = new Date(startDate);
+        if (isNaN(start.getTime())) {
+            throw new Error("Invalid start date provided for flexible program setup.");
+        }
+        
         const end = new Date(start);
         // Approximate end date based on periods and weeks
         end.setDate(end.getDate() + (periodCount * weeksPerPeriod * 7) + (periodCount * 7)); // Add some padding for breaks
