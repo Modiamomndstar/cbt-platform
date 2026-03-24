@@ -204,11 +204,10 @@ router.get(
               sc.name as category_name,
               ext.full_name as ext_full_name, ext.email as ext_email,
               se.score,
-              -- CALCULATE DYNAMIC TOTAL MARKS
-              (SELECT COALESCE(SUM((q->>'marks')::int), 0) FROM jsonb_array_elements(se.assigned_questions) q) as se_total_marks,
+              se.se_total_marks,
               se.percentage,
-              se.time_spent_minutes, se.started_at as se_start_time, se.completed_at as se_end_time,
-              se.auto_submitted as se_auto_submitted, se.status as se_status,
+              se.time_spent_minutes, se.se_start_time, se.se_end_time,
+              se.se_auto_submitted, se.se_status,
               sch.timezone as school_timezone
        FROM exam_schedules es
        JOIN exams e ON es.exam_id = e.id
@@ -217,7 +216,16 @@ router.get(
        LEFT JOIN students s ON es.student_id = s.id
        LEFT JOIN external_students ext ON es.external_student_id = ext.id
        LEFT JOIN student_categories sc ON s.category_id = sc.id
-       LEFT JOIN student_exams se ON se.exam_schedule_id = es.id
+       LEFT JOIN LATERAL (
+         SELECT score, percentage, time_spent_minutes, 
+                started_at as se_start_time, completed_at as se_end_time,
+                auto_submitted as se_auto_submitted, status as se_status,
+                (SELECT COALESCE(SUM((q->>'marks')::int), 0) FROM jsonb_array_elements(assigned_questions) q) as se_total_marks
+         FROM student_exams
+         WHERE exam_schedule_id = es.id
+         ORDER BY created_at DESC
+         LIMIT 1
+       ) se ON true
        WHERE es.exam_id = $1 AND es.status != 'cancelled'
        ORDER BY
          CASE es.status
@@ -798,6 +806,7 @@ router.put(
            end_time = COALESCE($3, end_time),
            status = COALESCE($4, status),
            login_password = COALESCE($5, login_password),
+           attempt_count = CASE WHEN $4 = 'scheduled' THEN 0 ELSE attempt_count END,
            updated_at = NOW()
        WHERE id = $6
        RETURNING *`,
