@@ -52,9 +52,12 @@ router.post(
       const schedule = scheduleResult.rows[0];
       const negRate = parseFloat(schedule.negative_marking_rate || 0);
 
-      // Get student_exams record
+      // Get student_exams record - pick the most recent attempt for this schedule
       const studentExamRows = await client.query(
-        `SELECT id, assigned_questions FROM student_exams WHERE exam_schedule_id = $1`,
+        `SELECT id, assigned_questions 
+         FROM student_exams 
+         WHERE exam_schedule_id = $1 
+         ORDER BY created_at DESC LIMIT 1`,
         [scheduleId]
       );
 
@@ -67,6 +70,14 @@ router.post(
       if (assignedQuestions.length > 0) {
          questions = assignedQuestions;
       } else {
+         // CRITICAL: If shuffle is enabled, we MUST have assigned questions. 
+         // Falling back to live questions is only safe if NOT shuffling.
+         if (schedule.shuffle_questions || schedule.shuffle_options) {
+            console.error(`CRITICAL: Snapshot missing for shuffled exam session! schedule: ${scheduleId}`);
+            await client.query("ROLLBACK");
+            return ApiResponseHandler.serverError(res, "Data integrity error: Exam session snapshot missing.");
+         }
+
          const questionsResult = await client.query(
            `SELECT id, correct_answer, marks, question_type, question_text, options FROM questions
             WHERE exam_id = $1`,
@@ -163,7 +174,11 @@ router.post(
             snapshot_metadata = $10,
             tab_switch_count = $11,
             fullscreen_exits = $12
-        WHERE exam_schedule_id = $13 AND (status = 'in_progress' OR status = 'pending')
+        WHERE id = (
+          SELECT id FROM student_exams 
+          WHERE exam_schedule_id = $13 AND (status = 'in_progress' OR status = 'pending')
+          ORDER BY created_at DESC LIMIT 1
+        )
         RETURNING *`,
         [
           finalScore,

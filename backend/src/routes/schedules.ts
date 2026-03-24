@@ -1101,9 +1101,11 @@ router.post(
         });
       }
 
-      // Check for assigned questions record
+      // Check for assigned questions record - pick most recent
       const studentExamCheck = await client.query(
-        `SELECT id, assigned_questions, status FROM student_exams WHERE exam_schedule_id = $1`,
+        `SELECT id, assigned_questions, status FROM student_exams 
+         WHERE exam_schedule_id = $1 
+         ORDER BY created_at DESC LIMIT 1`,
         [scheduleId],
       );
 
