@@ -780,7 +780,7 @@ router.put(
       let shouldIncrementAttempt = false;
 
       if (
-        (currentStatus === "expired" || currentStatus === "completed" || currentStatus === "failed" || currentStatus === "disqualified" || currentStatus === "in_progress") &&
+        (currentStatus === "expired" || currentStatus === "completed" || currentStatus === "failed" || currentStatus === "disqualified" || currentStatus === "in_progress" || currentStatus === "scheduled") &&
         (scheduledDate || startTime)
       ) {
         newStatus = "scheduled";
@@ -806,7 +806,7 @@ router.put(
            end_time = COALESCE($3, end_time),
            status = COALESCE($4, status),
            login_password = COALESCE($5, login_password),
-           attempt_count = CASE WHEN $4 = 'scheduled' THEN 0 ELSE attempt_count END,
+           attempt_count = CASE WHEN ($4 = 'scheduled' OR $1 IS NOT NULL OR $2 IS NOT NULL) THEN 0 ELSE attempt_count END,
            updated_at = NOW()
        WHERE id = $6
        RETURNING *`,
