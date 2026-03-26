@@ -1385,7 +1385,15 @@ async function assignQuestions(
 
   let allQuestions = result.rows;
 
-  // 1a. Deduplication removed to prevent missing questions
+  // 1a. Deduplicate by question text to prevent duplicate uploads from appearing twice
+  const uniqueMap = new Map();
+  allQuestions.forEach((q: any) => {
+    const key = (q.question_text || "").toLowerCase().trim();
+    if (!uniqueMap.has(key)) {
+      uniqueMap.set(key, q);
+    }
+  });
+  allQuestions = Array.from(uniqueMap.values());
 
   // 1b. Filter for supported question types (case-insensitive and space-flexible)
   const supportedTypes = ['multiple_choice', 'true_false', 'fill_blank', 'theory'];

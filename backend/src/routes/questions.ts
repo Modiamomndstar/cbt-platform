@@ -135,7 +135,6 @@ router.post(
       // Update exam total questions and marks
       await client.query(
         `UPDATE exams SET 
-           total_questions = (SELECT COUNT(*) FROM questions WHERE exam_id = $1),
            total_marks = (SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1)
          WHERE id = $1`,
         [examId]
@@ -213,10 +212,9 @@ router.post(
         createdQuestions.push(result.rows[0]);
       }
 
-      // Update exam total questions and marks
+      // Update exam total marks
       await client.query(
         `UPDATE exams SET 
-           total_questions = (SELECT COUNT(*) FROM questions WHERE exam_id = $1),
            total_marks = (SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1)
          WHERE id = $1`,
         [examId],
@@ -372,7 +370,6 @@ router.delete(
       // Update exam total questions and marks
       await client.query(
         `UPDATE exams SET 
-           total_questions = (SELECT COUNT(*) FROM questions WHERE exam_id = $1),
            total_marks = (SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1)
          WHERE id = $1`,
         [examId]
