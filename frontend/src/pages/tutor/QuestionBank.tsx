@@ -290,7 +290,7 @@ export default function QuestionBank() {
         options,
         correctAnswer: finalCorrectAnswer.toString(),
         marks: parseInt(row.marks) || 5,
-        difficulty: row.difficulty || 'medium',
+        difficulty: row.difficulty || (row.questionType === 'multiple_choice' ? 'medium' : row.questionType === 'true_false' ? 'easy' : 'hard'),
       };
     });
 
@@ -802,7 +802,10 @@ export default function QuestionBank() {
                         <Label>Question Type</Label>
                         <Select
                           value={newQuestion.questionType}
-                          onValueChange={(v: any) => setNewQuestion(prev => ({ ...prev, questionType: v }))}
+                          onValueChange={(v: any) => {
+                            const defaultDiff = v === 'multiple_choice' ? 'medium' : v === 'true_false' ? 'easy' : 'hard';
+                            setNewQuestion(prev => ({ ...prev, questionType: v, difficulty: defaultDiff }));
+                          }}
                         >
                           <SelectTrigger>
                             <SelectValue />

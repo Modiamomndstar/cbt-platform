@@ -84,6 +84,7 @@ router.post(
         questionOrder,
         imageUrl,
         topic,
+        difficulty,
       } = req.body;
       const user = req.user!;
 
@@ -104,24 +105,41 @@ router.post(
         return ApiResponseHandler.forbidden(res, "Access denied");
       }
 
+      const normalizedType = (questionType || "multiple_choice")
+        .toLowerCase()
+        .trim()
+        .replace(/ /g, "_");
+      
+      const normalizedDifficulty = difficulty || (normalizedType === 'multiple_choice' ? 'medium' : normalizedType === 'true_false' ? 'easy' : 'hard');
+
       const result = await client.query(
-        `INSERT INTO questions (exam_id, question_text, question_type, options, correct_answer, marks, sort_order, image_url, topic)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `INSERT INTO questions (exam_id, question_text, question_type, options, correct_answer, marks, sort_order, image_url, topic, difficulty)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
         [
           examId,
           questionText,
-          questionType,
+          normalizedType,
           JSON.stringify(options),
           correctAnswer,
           marks,
           questionOrder,
           imageUrl,
           topic,
+          normalizedDifficulty,
         ],
       );
 
       const question = result.rows[0];
+
+      // Update exam total questions and marks
+      await client.query(
+        `UPDATE exams SET 
+           total_questions = (SELECT COUNT(*) FROM questions WHERE exam_id = $1),
+           total_marks = (SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1)
+         WHERE id = $1`,
+        [examId]
+      );
 
       // Log question creation
       await logUserActivity(req, 'question_creation', {
@@ -169,29 +187,38 @@ router.post(
       const createdQuestions: any[] = [];
       for (let i = 0; i < questions.length; i++) {
         const q = questions[i];
+        const normalizedType = (q.questionType || "multiple_choice")
+          .toLowerCase()
+          .trim()
+          .replace(/ /g, "_");
+        
+        const normalizedDifficulty = q.difficulty || (normalizedType === 'multiple_choice' ? 'medium' : normalizedType === 'true_false' ? 'easy' : 'hard');
+
         const result = await client.query(
-          `INSERT INTO questions (exam_id, question_text, question_type, options, correct_answer, marks, sort_order, topic)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          `INSERT INTO questions (exam_id, question_text, question_type, options, correct_answer, marks, sort_order, topic, difficulty)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING *`,
           [
             examId,
             q.questionText,
-            q.questionType,
+            normalizedType,
             JSON.stringify(q.options),
             q.correctAnswer,
             q.marks,
             q.questionOrder || i + 1,
             q.topic,
+            normalizedDifficulty,
           ],
         );
         createdQuestions.push(result.rows[0]);
       }
 
-      // Update exam total marks
+      // Update exam total questions and marks
       await client.query(
-        `UPDATE exams SET total_marks = (
-        SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1
-      ) WHERE id = $1`,
+        `UPDATE exams SET 
+           total_questions = (SELECT COUNT(*) FROM questions WHERE exam_id = $1),
+           total_marks = (SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1)
+         WHERE id = $1`,
         [examId],
       );
 
@@ -281,6 +308,14 @@ router.put(
 
       const updatedQuestion = result.rows[0];
 
+      // Update exam total marks (in case mark was changed)
+      await client.query(
+        `UPDATE exams SET 
+           total_marks = (SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1)
+         WHERE id = (SELECT exam_id FROM questions WHERE id = $2)`,
+        [updatedQuestion.exam_id, id]
+      );
+
       // Log question update
       await logUserActivity(req, 'question_update', {
         targetType: 'question',
@@ -329,6 +364,19 @@ router.delete(
       }
 
       const deletedQuestion = questionCheck.rows[0];
+      const examId = deletedQuestion.exam_id;
+
+      // ACTUAL DELETE
+      await client.query("DELETE FROM questions WHERE id = $1", [id]);
+
+      // Update exam total questions and marks
+      await client.query(
+        `UPDATE exams SET 
+           total_questions = (SELECT COUNT(*) FROM questions WHERE exam_id = $1),
+           total_marks = (SELECT COALESCE(SUM(marks), 0) FROM questions WHERE exam_id = $1)
+         WHERE id = $1`,
+        [examId]
+      );
 
       // Log question deletion
       await logUserActivity(req, 'question_deletion', {
@@ -409,6 +457,7 @@ router.post(
             (questionType === "true_false" ? ["True", "False"] : []),
           correctAnswer: q.correctAnswer,
           marks: q.marks,
+          difficulty: q.difficulty || (questionType === 'multiple_choice' ? 'medium' : questionType === 'true_false' ? 'easy' : 'hard'),
           questionOrder: index + 1,
         }),
       );

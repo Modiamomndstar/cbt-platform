@@ -60,8 +60,10 @@ const Chatbot: React.FC = () => {
         botResponse = "Our platform supports various exam styles with secure anti-cheat features. You can create exams as a school or tutor.";
       } else if (input.includes('faq') || input.includes('help')) {
         botResponse = "I recommend checking our [FAQ Page](/faq) for detailed answers to common questions.";
+      } else if (input.includes('human') || input.includes('speak') || input.includes('representative') || input.includes('person')) {
+        botResponse = "I'd be happy to connect you! You can reach our human support team via email at [mycbtplatform@gmail.com](mailto:mycbtplatform@gmail.com) or message us directly on WhatsApp/Telegram at [+2348106758574](https://wa.me/2348106758574).";
       } else {
-        botResponse = "That sounds interesting! Please tell me more, or would you like to speak with a human representative?";
+        botResponse = "That sounds interesting! Please tell me more, or would you like to [speak with a human representative](https://wa.me/2348106758574)?";
       }
 
       setMessages(prev => [...prev, { 
@@ -135,7 +137,13 @@ const Chatbot: React.FC = () => {
                         return parts.map((part, index) => {
                             const match = part.match(/\[(.*?)\]\((.*?)\)/);
                             if (match) {
-                                return <button key={index} onClick={() => navigate(match[2])} className="font-bold underline">{match[1]}</button>;
+                                const url = match[2];
+                                const isExternal = url.startsWith('http') || url.startsWith('mailto:') || url.startsWith('tel:');
+                                
+                                if (isExternal) {
+                                    return <a key={index} href={url} target="_blank" rel="noopener noreferrer" className="font-bold underline">{match[1]}</a>;
+                                }
+                                return <button key={index} onClick={() => navigate(url)} className="font-bold underline">{match[1]}</button>;
                             }
                             return part;
                         });

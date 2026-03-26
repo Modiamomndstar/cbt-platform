@@ -1378,25 +1378,21 @@ async function assignQuestions(
 ) {
   // 1. Fetch ALL active questions for this exam
   const result = await client.query(
-    `SELECT id, question_text, question_type, options, marks, correct_answer, image_url, created_at, sort_order
+    `SELECT id, question_text, question_type, options, marks, correct_answer, difficulty, image_url, created_at, sort_order
        FROM questions WHERE exam_id = $1`,
     [examId],
   );
 
   let allQuestions = result.rows;
 
-  // 1a. Deduplicate by question_text to ensure unique questions
-  const seenTexts = new Set();
-  allQuestions = allQuestions.filter((q: any) => {
-    const normalizedText = (q.question_text || "").trim().toLowerCase();
-    if (seenTexts.has(normalizedText)) return false;
-    seenTexts.add(normalizedText);
-    return true;
-  });
+  // 1a. Deduplication removed to prevent missing questions
 
-  // 1b. Filter for supported question types
+  // 1b. Filter for supported question types (case-insensitive and space-flexible)
   const supportedTypes = ['multiple_choice', 'true_false', 'fill_blank', 'theory'];
-  allQuestions = allQuestions.filter((q: any) => supportedTypes.includes(q.question_type));
+  allQuestions = allQuestions.filter((q: any) => {
+    const normType = (q.question_type || "").toLowerCase().trim().replace(/ /g, '_');
+    return supportedTypes.includes(normType);
+  });
 
   // If no limit set, return all (shuffled if needed)
   if (!limit || limit <= 0 || limit >= allQuestions.length) {
@@ -1413,16 +1409,15 @@ async function assignQuestions(
     return processOptions(allQuestions, shuffleOpts);
   }
 
-  // 2. Stratified Sampling Logic
-  // Categories: Hard (fill_blank), Medium (multiple_choice), Easy (true_false)
+  // 2. Stratified Sampling Logic - Based on actual difficulty field
   const hardQs = allQuestions.filter(
-    (q: any) => q.question_type === "fill_blank",
+    (q: any) => q.difficulty === "hard",
   );
   const mediumQs = allQuestions.filter(
-    (q: any) => q.question_type === "multiple_choice",
+    (q: any) => q.difficulty === "medium" || !q.difficulty, // Default to medium if not set
   );
   const easyQs = allQuestions.filter(
-    (q: any) => q.question_type === "true_false",
+    (q: any) => q.difficulty === "easy",
   );
 
   // Calculate targets
@@ -1526,7 +1521,7 @@ function processOptions(questions: any[], shuffleOpts: boolean) {
         if (idx >= 0 && idx < q.options.length) {
           const opt = q.options[idx];
           // Update the q object in the snapshot with the TEXT of the correct answer
-          q.correct_answer = typeof opt === "string" ? opt : (opt.text || opt.label || currentCorrect);
+          q.correct_answer = typeof opt === "string" ? opt : (opt.text || opt.label || String(opt));
         }
       }
 

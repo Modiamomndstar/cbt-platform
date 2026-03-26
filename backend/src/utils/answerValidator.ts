@@ -86,7 +86,7 @@ function validateMultipleChoice(
     const idx = parseInt(correctText);
     if (idx >= 0 && idx < options.length) {
       const opt = options[idx];
-      correctText = normalize(typeof opt === 'string' ? opt : (opt.text || opt.label || correctText));
+      correctText = normalize(typeof opt === 'string' ? opt : (opt.text || opt.label || String(opt)));
     }
   }
 
