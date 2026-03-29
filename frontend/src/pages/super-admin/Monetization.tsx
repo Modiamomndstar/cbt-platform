@@ -426,7 +426,15 @@ function MarketplacePricingPanel({ items, onUpdate }: { items: MarketplaceItem[]
   const handleSave = async () => {
     if (!editingKey) return;
     try {
-      await superAdminAPI.updateMarketplace(editingKey, draft);
+      // Map camelCase draft to snake_case for backend
+      const updateData = {
+        credit_cost: draft.creditCost,
+        is_active: draft.isActive,
+        display_name: draft.displayName,
+        description: draft.description,
+        category: draft.category
+      };
+      await superAdminAPI.updateMarketplace(editingKey, updateData);
       toast.success('Marketplace item updated');
       setEditingKey(null);
       onUpdate();
@@ -437,7 +445,7 @@ function MarketplacePricingPanel({ items, onUpdate }: { items: MarketplaceItem[]
 
   const toggleActive = async (item: MarketplaceItem) => {
     try {
-      await superAdminAPI.updateMarketplace(item.featureKey, { isActive: !item.isActive });
+      await superAdminAPI.updateMarketplace(item.featureKey, { is_active: !item.isActive });
       toast.success(`${item.displayName} ${!item.isActive ? 'activated' : 'deactivated'}`);
       onUpdate();
     } catch {

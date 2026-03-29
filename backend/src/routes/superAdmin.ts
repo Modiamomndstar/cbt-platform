@@ -875,10 +875,8 @@ router.put('/marketplace/:featureKey', [
     updates.push('updated_at = NOW()');
     values.push(featureKey);
 
-    const result = await db.query(
-      `UPDATE marketplace_items SET ${updates.join(', ')} WHERE feature_key = $${p} RETURNING *`,
-      values
-    );
+    const query = `UPDATE marketplace_items SET ${updates.join(', ')} WHERE feature_key = $${p} RETURNING *`;
+    const result = await db.query(query, values);
 
     await logAudit(req, 'marketplace_updated', 'marketplace_item', undefined, featureKey, req.body);
     ApiResponseHandler.success(res, transformResult(result.rows[0]), 'Marketplace item updated');
