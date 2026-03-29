@@ -65,8 +65,8 @@ export default function PlatformAnalytics() {
 
   const visitorData = data?.visitorTrend?.map((d: any) => ({
     name: new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-    hits: parseInt(d.total_hits),
-    unique: parseInt(d.unique_visitors)
+    hits: parseInt(d.totalHits),
+    unique: parseInt(d.uniqueVisitors)
   })) || [];
 
   const loginData = data?.loginActivity?.map((d: any) => ({
@@ -78,6 +78,15 @@ export default function PlatformAnalytics() {
     name: r.segment,
     value: parseInt(r.count)
   })) || [];
+
+  const deviceStats = data?.deviceStats || [];
+  const totalDeviceHits = deviceStats.reduce((sum: number, d: any) => sum + parseInt(d.count), 0);
+  
+  const getDevicePercentage = (type: string) => {
+    if (totalDeviceHits === 0) return 0;
+    const stat = deviceStats.find((d: any) => d.deviceType?.toLowerCase() === type.toLowerCase());
+    return Math.round(((parseInt(stat?.count || 0)) / totalDeviceHits) * 100);
+  };
 
   return (
     <div className="p-6 space-y-8 animate-in fade-in duration-700">
@@ -115,7 +124,7 @@ export default function PlatformAnalytics() {
               <span className="text-indigo-100 font-bold uppercase tracking-wider text-xs">Market Reach</span>
             </div>
             <div className="flex items-baseline space-x-2">
-              <h3 className="text-4xl font-black">{data?.kpis?.total_schools || 0}</h3>
+              <h3 className="text-4xl font-black">{data?.kpis?.totalSchools || 0}</h3>
               <span className="text-indigo-200 font-medium">Schools Onboarded</span>
             </div>
             <div className="mt-4 flex items-center text-indigo-100 text-sm font-bold">
@@ -137,7 +146,7 @@ export default function PlatformAnalytics() {
               <span className="text-emerald-100 font-bold uppercase tracking-wider text-xs">Total Users</span>
             </div>
             <div className="flex items-baseline space-x-2">
-              <h3 className="text-4xl font-black">{data?.kpis?.total_students || 0}</h3>
+              <h3 className="text-4xl font-black">{data?.kpis?.totalStudents || 0}</h3>
               <span className="text-emerald-200 font-medium">Students Enrolled</span>
             </div>
             <div className="mt-4 flex items-center text-emerald-100 text-sm font-bold">
@@ -159,7 +168,7 @@ export default function PlatformAnalytics() {
               <span className="text-amber-100 font-bold uppercase tracking-wider text-xs">Active Engagement</span>
             </div>
             <div className="flex items-baseline space-x-2">
-              <h3 className="text-4xl font-black text-white">{data?.kpis?.logins_today || 0}</h3>
+              <h3 className="text-4xl font-black text-white">{data?.kpis?.loginsToday || 0}</h3>
               <span className="text-amber-100 font-medium">Logins Today</span>
             </div>
             <div className="mt-4 flex items-center text-amber-100 text-sm font-bold">
@@ -294,7 +303,7 @@ export default function PlatformAnalytics() {
                    <Monitor className="h-8 w-8" />
                 </div>
                 <p className="text-sm font-bold text-indigo-900/60 uppercase tracking-widest">Desktop</p>
-                <p className="text-3xl font-black text-indigo-900 mt-1">78%</p>
+                <p className="text-3xl font-black text-indigo-900 mt-1">{getDevicePercentage('desktop')}%</p>
               </div>
 
               <div className="p-6 rounded-3xl bg-emerald-50/50 flex flex-col items-center justify-center text-center">
@@ -302,7 +311,7 @@ export default function PlatformAnalytics() {
                    <Smartphone className="h-8 w-8" />
                 </div>
                 <p className="text-sm font-bold text-emerald-900/60 uppercase tracking-widest">Mobile</p>
-                <p className="text-3xl font-black text-emerald-900 mt-1">15%</p>
+                <p className="text-3xl font-black text-emerald-900 mt-1">{getDevicePercentage('mobile')}%</p>
               </div>
 
               <div className="p-6 rounded-3xl bg-amber-50/50 flex flex-col items-center justify-center text-center">
@@ -310,7 +319,7 @@ export default function PlatformAnalytics() {
                    <Tablet className="h-8 w-8" />
                 </div>
                 <p className="text-sm font-bold text-amber-900/60 uppercase tracking-widest">Tablet</p>
-                <p className="text-3xl font-black text-amber-900 mt-1">7%</p>
+                <p className="text-3xl font-black text-amber-900 mt-1">{getDevicePercentage('tablet')}%</p>
               </div>
             </div>
             

@@ -1166,7 +1166,15 @@ router.get(
          GROUP BY 1 ORDER BY 1 ASC`
       );
 
-      // 4. Totals for KPI Cards
+      // 4. Device Distribution
+      const devices = await pool.query(
+        `SELECT device_type, COUNT(*) as count 
+         FROM visitor_traffic 
+         WHERE created_at >= NOW() - ${dateInterval}
+         GROUP BY device_type`
+      );
+
+      // 5. Totals for KPI Cards
       const kpis = await pool.query(`
         SELECT 
           (SELECT COUNT(*) FROM schools) as total_schools,
@@ -1178,6 +1186,7 @@ router.get(
         visitorTrend: visitorTrend.rows,
         registrations: registrations.rows,
         loginActivity: loginActivity.rows,
+        deviceStats: devices.rows,
         kpis: kpis.rows[0]
       }), "Platform intelligence retrieved");
     } catch (error) {

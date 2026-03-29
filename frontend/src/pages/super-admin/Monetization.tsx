@@ -691,6 +691,7 @@ function SubscriptionSettings() {
   const discountActive = settings.find(s => s.key === 'yearly_discount_active');
   const usdtAddress = settings.find(s => s.key === 'usdt_trc20_address');
   const creditPriceUsd = settings.find(s => s.key === 'payg_credit_price_usd');
+  const creditPriceNgn = settings.find(s => s.key === 'payg_credit_price_ngn');
   const referralCredits = settings.find(s => s.key === 'referral_reward_credits');
 
   return (
@@ -730,7 +731,7 @@ function SubscriptionSettings() {
                         value={discountPercent?.value || ''}
                         onChange={(e) => setSettings(prev => prev.map(s => s.key === 'yearly_discount_percentage' ? { ...s, value: e.target.value } : s))}
                     />
-                    <Button size="sm" onClick={() => handleUpdate('yearly_discount_percentage', discountPercent?.value)}>Save</Button>
+                    <Button size="sm" onClick={() => handleUpdate('yearly_discount_percentage', discountPercent?.value || '')}>Save</Button>
                 </div>
              </div>
              <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
@@ -741,7 +742,18 @@ function SubscriptionSettings() {
                         value={creditPriceUsd?.value || ''}
                         onChange={(e) => setSettings(prev => prev.map(s => s.key === 'payg_credit_price_usd' ? { ...s, value: e.target.value } : s))}
                     />
-                    <Button size="sm" onClick={() => handleUpdate('payg_credit_price_usd', creditPriceUsd?.value)}>Save</Button>
+                    <Button size="sm" onClick={() => handleUpdate('payg_credit_price_usd', creditPriceUsd?.value || '')}>Save</Button>
+                </div>
+             </div>
+             <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
+                <p className="text-sm font-semibold text-gray-800">PAYG Credit Price (NGN)</p>
+                <div className="flex items-center gap-2">
+                    <Input
+                        type="number"
+                        value={creditPriceNgn?.value || ''}
+                        onChange={(e) => setSettings(prev => prev.map(s => s.key === 'payg_credit_price_ngn' ? { ...s, value: e.target.value } : s))}
+                    />
+                    <Button size="sm" onClick={() => handleUpdate('payg_credit_price_ngn', creditPriceNgn?.value || '')}>Save</Button>
                 </div>
              </div>
              <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
@@ -752,7 +764,7 @@ function SubscriptionSettings() {
                         value={referralCredits?.value || ''}
                         onChange={(e) => setSettings(prev => prev.map(s => s.key === 'referral_reward_credits' ? { ...s, value: e.target.value } : s))}
                     />
-                    <Button size="sm" onClick={() => handleUpdate('referral_reward_credits', referralCredits?.value)}>Save</Button>
+                    <Button size="sm" onClick={() => handleUpdate('referral_reward_credits', referralCredits?.value || '')}>Save</Button>
                 </div>
              </div>
           </div>

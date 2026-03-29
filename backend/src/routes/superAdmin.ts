@@ -968,7 +968,7 @@ router.get('/settings', async (req, res, next) => {
 // PUT /api/super-admin/settings/:key
 router.put('/settings/:key', [
   param('key').notEmpty(),
-  body('value').notEmpty(),
+  body('value').exists().withMessage('Value must be provided'), // Use exists() instead of notEmpty() to allow "0" or false
   validate
 ], async (req: any, res: any, next: any) => {
   try {
@@ -976,11 +976,13 @@ router.put('/settings/:key', [
     const { value } = req.body;
 
     const result = await db.query(
-      `UPDATE settings SET value = $1, updated_at = NOW() WHERE key = $2 RETURNING *`,
-      [value, key]
+      `INSERT INTO settings (key, value, updated_at)
+       VALUES ($2, $1, NOW())
+       ON CONFLICT (key) DO UPDATE
+       SET value = $1, updated_at = NOW()
+       RETURNING *`,
+      [String(value), key]
     );
-
-    if (result.rows.length === 0) return ApiResponseHandler.notFound(res, 'Setting not found');
 
     await logAudit(req, 'setting_updated', 'system_setting', undefined, key, { value });
     ApiResponseHandler.success(res, transformResult(result.rows[0]), 'Setting updated');

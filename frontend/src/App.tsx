@@ -5,6 +5,7 @@ import { PlanProvider } from '@/hooks/usePlan';
 import { MessagesProvider } from '@/hooks/useMessages';
 import { initializeDemoData } from '@/lib/dataStore';
 import { Toaster } from '@/components/ui/sonner';
+import TrafficTracker from '@/components/TrafficTracker';
 
 // Public Pages
 import LandingPage from '@/pages/LandingPage';
@@ -257,6 +258,7 @@ function App() {
       <PlanProvider>
         <MessagesProvider>
           <BrowserRouter>
+            <TrafficTracker />
             <AppRoutes />
             <Toaster position="top-right" />
           </BrowserRouter>
