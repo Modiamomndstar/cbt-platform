@@ -60,6 +60,7 @@ interface MarketplaceItem {
   itemType: string;
   creditCost: number;
   isActive: boolean;
+  category?: string;
 }
 
 const PLAN_ORDER = ['freemium', 'basic', 'advanced', 'advanced_plus', 'enterprise'];
