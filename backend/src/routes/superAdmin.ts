@@ -860,9 +860,13 @@ router.put('/marketplace/:featureKey', [
     let p = 1;
 
     for (const key of allowed) {
-      if (req.body[key] !== undefined) {
+      // support both snake_case (DB) and camelCase (some FE components)
+      const camelKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+      const value = req.body[key] !== undefined ? req.body[key] : req.body[camelKey];
+
+      if (value !== undefined) {
         updates.push(`${key} = $${p++}`);
-        values.push(req.body[key]);
+        values.push(value);
       }
     }
 
